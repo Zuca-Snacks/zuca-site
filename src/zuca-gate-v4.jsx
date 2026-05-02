@@ -1134,10 +1134,24 @@ export default function ZucaGate() {
 
             <p className="ai-line si3b">
               Bad food broke health.<br/>
-              Better <span className="scribble-wrap">
-                <span className="scribble-word">AI</span>
-                <svg className="scribble-svg" viewBox="0 0 36 10" preserveAspectRatio="none">
-                  <path d="M2,6 C5,3 8,8 12,5 C16,2 19,7 23,5 C27,3 30,7 34,5" stroke="rgba(232,25,44,.7)" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+              Better <span style={{ position: "relative", display: "inline-block" }}>
+                AI
+                <svg
+                  viewBox="0 0 50 20"
+                  preserveAspectRatio="none"
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: -5,
+                    width: "calc(100% + 10px)",
+                    height: "0.75em",
+                    transform: "translateY(-50%)",
+                    overflow: "visible",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <path d="M 2 10 Q 8 4, 14 12 T 26 8 T 38 12 T 48 8" stroke="#E8192C" strokeWidth="2.25" fill="none" strokeLinecap="round"/>
+                  <path d="M 3 8 Q 12 14, 22 6 Q 32 12, 47 10" stroke="#E8192C" strokeWidth="1.75" opacity="0.85" fill="none" strokeLinecap="round"/>
                 </svg>
               </span> food fixes it.
             </p>
