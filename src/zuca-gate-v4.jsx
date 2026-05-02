@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-const STORAGE_KEY = "zuca_preorder_v2";
-const SUBS_KEY    = "zuca_submissions_v1";
+const SUBS_KEY = "zuca_submissions_v1";
 // Paste your Google Apps Script webhook URL here:
 const SHEETS_URL  = "https://script.google.com/macros/s/AKfycbzbC2iN4t6HdqvIj5SqYCuMv6iogDO03BskH4H1cNjGmUCL6rJDKchfYpdcNUqiTHFh/exec";
 
@@ -863,6 +862,7 @@ export default function ZucaGate() {
   const [productIn, setProductIn] = useState(false);
   // Modal state
   const [modal, setModal]         = useState(false);
+  const [name, setName]           = useState("");
   const [email, setEmail]         = useState("");
   const [phone, setPhone]         = useState("");
   const [hearAbout, setHearAbout] = useState("");
@@ -888,13 +888,13 @@ export default function ZucaGate() {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try { const r = await window.storage.get(STORAGE_KEY, true); setClicks(r ? parseInt(r.value) : 0); }
-      catch { setClicks(0); }
-    })();
+    fetch(SHEETS_URL)
+      .then(r => r.json())
+      .then(d => setClicks(typeof d.count === "number" ? d.count : 0))
+      .catch(() => setClicks(0));
   }, []);
 
-  function handleBuy() { setModal(true); setSubmitted(false); setIsDup(false); setFormErr(""); setEmail(""); setPhone(""); setHearAbout(""); setReason(""); }
+  function handleBuy() { setModal(true); setSubmitted(false); setIsDup(false); setFormErr(""); setName(""); setEmail(""); setPhone(""); setHearAbout(""); setReason(""); }
   function closeModal() { setModal(false); }
 
   async function submitPreorder(e) {
@@ -905,7 +905,7 @@ export default function ZucaGate() {
 
     // Load existing submissions
     let subs = {};
-    try { const r = await window.storage.get(SUBS_KEY, true); subs = r ? JSON.parse(r.value) : {}; } catch {}
+    try { const raw = localStorage.getItem(SUBS_KEY); subs = raw ? JSON.parse(raw) : {}; } catch {}
 
     if (subs[em]) {
       // Already registered — show duplicate message, don't increment
@@ -913,17 +913,11 @@ export default function ZucaGate() {
     }
 
     // New submission — save record
-    const record = { email: em, phone: phone.trim(), hearAbout, reason, ts: new Date().toISOString() };
+    const record = { name: name.trim(), email: em, phone: phone.trim(), hearAbout, reason, ts: new Date().toISOString() };
     subs[em] = record;
-    try { await window.storage.set(SUBS_KEY, JSON.stringify(subs), true); } catch {}
+    try { localStorage.setItem(SUBS_KEY, JSON.stringify(subs)); } catch {}
 
-    // Increment counter
-    const next = (clicks||0)+1;
-    setClicks(next); setPop(true);
-    setTimeout(()=>setPop(false), 500);
-    try { await window.storage.set(STORAGE_KEY, String(next), true); } catch {}
-
-    // Send to Google Sheets if webhook is configured
+    // Send to Google Sheets, then refetch live count from sheet (single source of truth)
     if (SHEETS_URL) {
       try {
         await fetch(SHEETS_URL, {
@@ -932,6 +926,16 @@ export default function ZucaGate() {
           body: JSON.stringify(record),
           mode:"no-cors",
         });
+      } catch {}
+
+      try {
+        const r = await fetch(SHEETS_URL);
+        const d = await r.json();
+        if (typeof d.count === "number") {
+          setClicks(d.count);
+          setPop(true);
+          setTimeout(()=>setPop(false), 500);
+        }
       } catch {}
     }
 
@@ -985,6 +989,19 @@ export default function ZucaGate() {
             <form onSubmit={submitPreorder}>
               <div className="modal-eyebrow">Pre-order</div>
               <div className="modal-headline">Reserve your box<br/>before we sell out.</div>
+              <div className="modal-field">
+                <label className="modal-label">First name <span style={{color:"rgba(200,170,130,.3)"}}>optional</span></label>
+                <input
+                  className="modal-input"
+                  type="text"
+                  placeholder="Your first name"
+                  autoComplete="given-name"
+                  value={name}
+                  onChange={e=>setName(e.target.value)}
+                  onMouseEnter={()=>setHov(true)}
+                  onMouseLeave={()=>setHov(false)}
+                />
+              </div>
               <div className="modal-field">
                 <label className="modal-label">Email *</label>
                 <input
