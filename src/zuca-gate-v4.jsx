@@ -220,6 +220,7 @@ body { font-family:'Nunito',sans-serif; background:#1C1209; }
 .si3{animation:fu .9s cubic-bezier(.16,1,.3,1) both .35s}
 .si3b{animation:fu .9s cubic-bezier(.16,1,.3,1) both .45s}
 .si4{animation:fu .9s cubic-bezier(.16,1,.3,1) both .5s}
+.si4b{animation:fu .9s cubic-bezier(.16,1,.3,1) both .6s}
 .si5{animation:fu .9s cubic-bezier(.16,1,.3,1) both .65s}
 .si6{animation:fu .9s cubic-bezier(.16,1,.3,1) both .8s}
 
@@ -262,15 +263,15 @@ body { font-family:'Nunito',sans-serif; background:#1C1209; }
 }
 .nav-logo {
   font-family:'Lilita One',sans-serif; font-size:20px;
-  color:rgba(240,218,185,.9); letter-spacing:2px;
+  color:#e3001b; letter-spacing:2px;
 }
 .nav-right {
   font-family:'IBM Plex Mono',monospace; font-size:9px;
   letter-spacing:3px; text-transform:uppercase;
-  color:rgba(210,175,130,.65);
+  color:#e3001b;
   display:flex; gap:28px; align-items:center;
 }
-.nav-dot { width:4px; height:4px; border-radius:50%; background:rgba(184,92,56,.5); }
+.nav-dot { width:4px; height:4px; border-radius:50%; background:#e3001b; }
 
 /* Hero eyebrow */
 .h-eyebrow {
@@ -355,6 +356,68 @@ body { font-family:'Nunito',sans-serif; background:#1C1209; }
   letter-spacing:.2px; max-width:480px;
   border-left:2px solid rgba(184,92,56,.25);
   padding-left:16px;
+}
+
+/* Product section */
+.product-section { margin-bottom:44px; }
+.product-headline {
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic; font-weight:300;
+  font-size:clamp(38px,5vw,68px);
+  color:rgba(245,225,195,.88);
+  line-height:1; letter-spacing:-.5px;
+}
+.product-subhead {
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic; font-weight:300;
+  font-size:clamp(22px,2.6vw,34px);
+  color:rgba(235,215,185,.5);
+  line-height:1.3; margin-bottom:28px;
+}
+.product-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:18px;
+}
+@media (max-width:640px) {
+  .product-grid { grid-template-columns:1fr; }
+}
+.product-card {
+  background:rgba(242,228,205,.04);
+  border:1px solid rgba(184,92,56,.18);
+  border-radius:4px; padding:14px;
+  display:flex; flex-direction:column; gap:14px;
+  transition:transform 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+.product-photo {
+  aspect-ratio:1/1; border-radius:8px; overflow:hidden;
+  background:rgba(0,0,0,.2);
+}
+.product-photo img {
+  width:100%; height:100%; object-fit:cover; display:block;
+  transition:transform 280ms ease;
+}
+.product-name {
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic; font-weight:300;
+  font-size:clamp(20px,2.2vw,28px);
+  color:rgba(245,225,195,.9); line-height:1.2;
+}
+.product-pills { display:flex; flex-wrap:wrap; gap:8px; }
+.product-pill {
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:rgba(200,170,130,.7);
+  padding:6px 12px;
+  border:1px solid rgba(184,92,56,.22);
+  border-radius:2px;
+  background:rgba(184,92,56,.04);
+}
+.product-card:hover {
+  transform:translateY(-3px);
+  border-color:rgba(245,230,200,.28);
+  background:rgba(242,228,205,.06);
+}
+.product-card:hover .product-photo img {
+  transform:scale(1.03);
 }
 
 /* CTA cluster */
@@ -690,8 +753,17 @@ body { font-family:'Nunito',sans-serif; background:#1C1209; }
   display:flex; justify-content:space-between; align-items:center;
   border-top:1px solid rgba(184,92,56,.1);
 }
-.sf-logo { font-family:'Lilita One',sans-serif; font-size:18px; color:rgba(184,92,56,.7); }
-.sf-copy { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:2px; color:rgba(184,92,56,.3); }
+.sf-logo { font-family:'Lilita One',sans-serif; font-size:18px; color:#e3001b; }
+.sf-copy { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:2px; color:rgba(227,0,27,.45); }
+.sf-mail {
+  color:#e3001b;
+  text-decoration:none;
+  transition:color 200ms ease;
+}
+.sf-mail:hover {
+  color:rgba(227,0,27,.75);
+  text-decoration:underline;
+}
 
 @media(max-width:900px){
   .hero-section,.evidence-inner,.product-top,.flavor-grid,.founders-top,.footer-cta{grid-template-columns:1fr;}
@@ -1165,6 +1237,36 @@ export default function ZucaGate() {
               ))}
             </div>
 
+            <div className="product-section si4b">
+              <div className="h-eyebrow">The Product</div>
+              <div className="product-headline">Two flavors,</div>
+              <div className="product-subhead">same dose of fiber.</div>
+              <div className="product-grid">
+                <div className="product-card">
+                  <div className="product-photo">
+                    <img src="/chocolate-raspberry.jpg" alt="Chocolate raspberry, sea salt"/>
+                  </div>
+                  <div className="product-name">Chocolate raspberry, sea salt</div>
+                  <div className="product-pills">
+                    <span className="product-pill">10g Fiber</span>
+                    <span className="product-pill">4g Protein</span>
+                    <span className="product-pill">150 kcal</span>
+                  </div>
+                </div>
+                <div className="product-card">
+                  <div className="product-photo">
+                    <img src="/maple-pecan.jpg" alt="Maple pecan"/>
+                  </div>
+                  <div className="product-name">Maple pecan</div>
+                  <div className="product-pills">
+                    <span className="product-pill">10g Fiber</span>
+                    <span className="product-pill">4g Protein</span>
+                    <span className="product-pill">150 kcal</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="cta-cluster si5">
               <div className="price-block">
                 <div className="price-big">$28</div>
@@ -1322,7 +1424,7 @@ export default function ZucaGate() {
               <div className="footer-confirm" style={{opacity:conf2?1:0}}>
                 ✓ Reserved. We'll be in touch.
               </div>
-              <div style={{fontFamily:MONO,fontSize:9,letterSpacing:3,color:"rgba(242,228,205,.12)",textTransform:"uppercase"}}>
+              <div style={{fontFamily:MONO,fontSize:9,letterSpacing:3,color:"rgba(227,0,27,.45)",textTransform:"uppercase"}}>
                 Chocolate Raspberry · Maple Pecan
               </div>
             </div>
@@ -1331,7 +1433,7 @@ export default function ZucaGate() {
 
         <footer className="site-footer">
           <div className="sf-logo">ZUCA</div>
-          <div className="sf-copy">© 2025 Zuca Snacks · letschat@zucasnacks.com · Stanford, CA</div>
+          <div className="sf-copy">© 2025 Zuca Snacks · <a href="mailto:letschat@zucasnacks.com" className="sf-mail">letschat@zucasnacks.com</a> · Stanford, CA</div>
         </footer>
 
       </div>{/* /page-b */}
