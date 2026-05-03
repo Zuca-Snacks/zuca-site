@@ -936,7 +936,7 @@ export default function ZucaGate() {
   const [modal, setModal]         = useState(false);
   const [name, setName]           = useState("");
   const [email, setEmail]         = useState("");
-  const [phone, setPhone]         = useState("");
+  const [phone, setPhone]         = useState("+1 ");
   const [hearAbout, setHearAbout] = useState("");
   const [reason, setReason]       = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -966,13 +966,28 @@ export default function ZucaGate() {
       .catch(() => setClicks(0));
   }, []);
 
-  function handleBuy() { setModal(true); setSubmitted(false); setIsDup(false); setFormErr(""); setName(""); setEmail(""); setPhone(""); setHearAbout(""); setReason(""); }
+  function handleBuy() { setModal(true); setSubmitted(false); setIsDup(false); setFormErr(""); setName(""); setEmail(""); setPhone("+1 "); setHearAbout(""); setReason(""); }
   function closeModal() { setModal(false); }
 
   async function submitPreorder(e) {
     e.preventDefault();
     const em = email.trim().toLowerCase();
     if (!em || !/^[^@]+@[^@]+\.[^@]+$/.test(em)) { setFormErr("Please enter a valid email."); return; }
+
+    // Phone is optional. If empty or unchanged from the "+1 " prefill, skip.
+    // Otherwise require: starts with "+" and contains 8-15 digits (ignoring spaces/dashes/parens/dots).
+    const phoneRaw = phone.trim();
+    let phoneForRecord = "";
+    if (phoneRaw !== "" && phoneRaw !== "+1") {
+      const digits = phoneRaw.replace(/[\s\-().+]/g, "");
+      if (!phoneRaw.startsWith("+") || !/^\d{8,15}$/.test(digits)) {
+        setFormErr("Please enter a valid phone number with country code, starting with +");
+        return;
+      }
+      // Leading apostrophe forces Google Sheets to store as text, not formula.
+      phoneForRecord = "'+" + digits;
+    }
+
     setSubmitting(true); setFormErr(""); setIsDup(false);
 
     // Load existing submissions
@@ -985,7 +1000,7 @@ export default function ZucaGate() {
     }
 
     // New submission — save record
-    const record = { name: name.trim(), email: em, phone: phone.trim(), hearAbout, reason, ts: new Date().toISOString() };
+    const record = { name: name.trim(), email: em, phone: phoneForRecord, hearAbout, reason, ts: new Date().toISOString() };
     subs[em] = record;
     try { localStorage.setItem(SUBS_KEY, JSON.stringify(subs)); } catch {}
 
