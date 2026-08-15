@@ -1,0 +1,237 @@
+/* ─── Conversion content sections ────────────────────────────────────────────
+   Proof strip, three-number block, objection FAQ. Tokens only.
+   These are minimum viable structures so the copy can ship; the UI/UX agent
+   should absorb or restyle them — see HANDOFF-growth.md.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@import "../waitlist/tokens.fallback.css";
+
+.zc {
+  cursor: auto;
+  color: var(--z-ink);
+  font-size: var(--z-step-0);
+  line-height: 1.6;
+  text-align: left;
+}
+
+.zc-inner {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: var(--z-space-7) var(--z-space-5);
+  container-type: inline-size;
+}
+
+.zc-title {
+  font-size: var(--z-step-3);
+  line-height: 1.15;
+  font-weight: 600;
+  margin: 0 0 var(--z-space-3);
+  text-wrap: balance;
+}
+
+.zc-body {
+  font-size: var(--z-step-0);
+  color: var(--z-ink-muted);
+  margin: 0 0 var(--z-space-5);
+  max-width: 42rem;
+}
+
+/* ─── Inverted surface ───────────────────────────────────────────────────── */
+/* The hero and footer sit on a dark ground. Rather than introduce a second
+   palette, this remaps the token ROLES for that context — ink becomes the light
+   surface colour, brand becomes the warm accent that reads on dark. No new
+   values, no hex. Keep the waitlist form OUTSIDE this wrapper: it is a light
+   card and needs the tokens the right way up. */
+
+.zc-invert {
+  --z-ink: var(--z-surface);
+  --z-ink-muted: var(--z-surface-alt);
+  --z-brand: var(--z-warm);
+  color: var(--z-ink);
+}
+
+.zc-hero {
+  max-width: 44rem;
+  container-type: inline-size;
+}
+
+.zc-hero-eyebrow {
+  font-size: var(--z-step--1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--z-brand);
+  margin: 0 0 var(--z-space-4);
+}
+
+/* Sized to fit a full sentence above the fold at 390px — not the three-word
+   display scale the previous headline used. */
+.zc-hero-headline {
+  font-size: var(--z-step-3);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--z-space-4);
+  text-wrap: balance;
+  color: var(--z-ink);
+}
+
+.zc-hero-subhead {
+  font-size: var(--z-step-0);
+  line-height: 1.6;
+  color: var(--z-ink-muted);
+  margin: 0 0 var(--z-space-5);
+  max-width: 34rem;
+}
+
+.zc-invert .zc-proof li {
+  border-top-color: var(--z-warm);
+}
+
+/* ─── Proof strip ────────────────────────────────────────────────────────── */
+
+.zc-proof {
+  display: grid;
+  gap: var(--z-space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.zc-proof li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--z-space-3);
+  padding: var(--z-space-3) 0;
+  border-top: 1px solid var(--z-border);
+}
+
+.zc-proof-value {
+  font-size: var(--z-step-2);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--z-brand);
+  flex: 0 0 auto;
+}
+
+.zc-proof-label {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+@container (min-width: 40rem) {
+  .zc-proof {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ─── Three-number block ─────────────────────────────────────────────────── */
+
+.zc-numbers {
+  display: grid;
+  gap: var(--z-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.zc-number {
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-md);
+  padding: var(--z-space-5);
+}
+
+.zc-number-value {
+  font-size: var(--z-step-4);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--z-brand);
+  display: block;
+}
+
+.zc-number-unit {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  display: block;
+  margin-top: var(--z-space-1);
+}
+
+.zc-number-note {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  margin: var(--z-space-2) 0 0;
+}
+
+.zc-footnote {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  margin-top: var(--z-space-4);
+}
+
+@media (min-width: 48rem) {
+  .zc-numbers {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ─── FAQ ────────────────────────────────────────────────────────────────── */
+/* Native <details>. Zero JS, keyboard-complete, no layout shift on open. */
+
+.zc-faq {
+  display: grid;
+  gap: var(--z-space-2);
+}
+
+.zc-faq details {
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-sm);
+}
+
+.zc-faq summary {
+  /* 44px minimum tap target. */
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-3);
+  padding: var(--z-space-3) var(--z-space-4);
+  font-size: max(var(--z-step-0), 1rem);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.zc-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.zc-faq summary::after {
+  content: "+";
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--z-brand);
+  transition: transform var(--z-dur) var(--z-ease);
+}
+
+.zc-faq details[open] summary::after {
+  content: "\2212"; /* minus */
+}
+
+.zc-faq summary:focus-visible {
+  outline: 2px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+.zc-faq-answer {
+  padding: 0 var(--z-space-4) var(--z-space-4);
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zc *,
+  .zc *::after {
+    transition-duration: 1ms !important;
+  }
+}

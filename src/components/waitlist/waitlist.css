@@ -1,0 +1,398 @@
+/* ─── Waitlist form ──────────────────────────────────────────────────────────
+   Tokens only — no hex values, no px font sizes. Designed at 390px first.
+   The token fallback import loses to src/styles/tokens.css on merge; see that
+   file's header.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+@import "./tokens.fallback.css";
+
+.zw {
+  /* The page hides the system cursor for its custom one. Inside a form, people
+     need to see where they are typing. */
+  cursor: auto;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 34rem;
+  color: var(--z-ink);
+  font-size: var(--z-step-0);
+  line-height: 1.5;
+  text-align: left;
+}
+
+.zw *,
+.zw *::before,
+.zw *::after {
+  box-sizing: border-box;
+}
+
+.zw-card {
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-md);
+  box-shadow: var(--z-shadow-md);
+  padding: var(--z-space-5);
+  /* Step 1 and the step 2 skeleton share a floor, so swapping them cannot
+     shift the page. */
+  min-height: 12.5rem;
+}
+
+.zw-card--tall {
+  min-height: 26rem;
+}
+
+/* ─── Type ───────────────────────────────────────────────────────────────── */
+
+.zw-title {
+  font-size: var(--z-step-2);
+  line-height: 1.2;
+  font-weight: 600;
+  margin: 0 0 var(--z-space-2);
+  color: var(--z-ink);
+  text-wrap: balance;
+}
+
+.zw-body {
+  font-size: var(--z-step-0);
+  color: var(--z-ink-muted);
+  margin: 0 0 var(--z-space-4);
+}
+
+.zw-fine {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  margin: var(--z-space-3) 0 0;
+}
+
+.zw-legend {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink);
+  padding: 0;
+  margin: 0 0 var(--z-space-3);
+  display: block;
+}
+
+/* ─── Field ──────────────────────────────────────────────────────────────── */
+
+.zw-field {
+  border: 0;
+  padding: 0;
+  /* The reserved error slot already contributes rhythm below the control, so
+     this stays tight — it is what keeps step 1 above the fold at 390px. */
+  margin: 0 0 var(--z-space-3);
+  min-inline-size: 0;
+}
+
+/* Chip groups have no reserved error slot, so they carry their own rhythm. */
+fieldset.zw-field {
+  margin-bottom: var(--z-space-5);
+}
+
+.zw-label {
+  display: block;
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  color: var(--z-ink);
+  margin-bottom: var(--z-space-2);
+}
+
+.zw-input {
+  width: 100%;
+  /* Never below 1rem/16px — iOS zooms the viewport on focus otherwise. */
+  font: inherit;
+  font-size: max(var(--z-step-0), 1rem);
+  color: var(--z-ink);
+  background: var(--z-bg);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-sm);
+  padding: var(--z-space-3) var(--z-space-4);
+  min-height: 3rem;
+  transition: border-color var(--z-dur) var(--z-ease), box-shadow var(--z-dur) var(--z-ease);
+}
+
+.zw-input::placeholder {
+  color: var(--z-ink-muted);
+  opacity: 0.6;
+}
+
+.zw-input:focus-visible {
+  outline: 2px solid var(--z-focus);
+  outline-offset: 2px;
+  border-color: var(--z-focus);
+}
+
+.zw-input[aria-invalid="true"] {
+  border-color: var(--z-danger);
+}
+
+.zw-input:disabled {
+  opacity: 0.6;
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+
+.zw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--z-space-2);
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--z-space-3) var(--z-space-5);
+  font: inherit;
+  font-size: max(var(--z-step-0), 1rem);
+  font-weight: 600;
+  border-radius: var(--z-radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform var(--z-dur) var(--z-ease), background var(--z-dur) var(--z-ease),
+    opacity var(--z-dur) var(--z-ease);
+}
+
+.zw-btn:focus-visible {
+  outline: 2px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+.zw-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.zw-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.zw-btn--primary {
+  background: var(--z-accent);
+  color: var(--z-accent-ink);
+}
+
+.zw-btn--secondary {
+  background: var(--z-surface);
+  color: var(--z-ink);
+  border-color: var(--z-border);
+}
+
+/* The skip has to be genuinely visible — a hidden skip is a dark pattern — but
+   it must not compete with the primary action. */
+.zw-btn--ghost {
+  background: none;
+  color: var(--z-ink-muted);
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 2.75rem;
+  font-weight: 400;
+}
+
+.zw-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--z-space-2);
+  margin-top: var(--z-space-5);
+}
+
+/* ─── Chips ──────────────────────────────────────────────────────────────── */
+
+.zw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--z-space-2);
+}
+
+.zw-chip {
+  /* 44px minimum tap target in both axes. */
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--z-space-2) var(--z-space-4);
+  font: inherit;
+  font-size: max(var(--z-step--1), 0.875rem);
+  color: var(--z-ink);
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-full);
+  cursor: pointer;
+  transition: background var(--z-dur) var(--z-ease), border-color var(--z-dur) var(--z-ease),
+    color var(--z-dur) var(--z-ease);
+}
+
+.zw-chip:focus-visible {
+  outline: 2px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+.zw-chip[aria-pressed="true"],
+.zw-chip[aria-checked="true"] {
+  background: var(--z-brand);
+  border-color: var(--z-brand);
+  color: var(--z-accent-ink);
+}
+
+.zw-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ─── Consent ────────────────────────────────────────────────────────────── */
+
+.zw-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--z-space-3);
+  margin-top: var(--z-space-4);
+  cursor: pointer;
+}
+
+.zw-consent input[type="checkbox"] {
+  /* Big enough to hit with a thumb. */
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--z-brand);
+  cursor: pointer;
+}
+
+.zw-consent:focus-within {
+  outline: 2px solid var(--z-focus);
+  outline-offset: 4px;
+  border-radius: var(--z-radius-sm);
+}
+
+.zw-consent-text {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  line-height: 1.5;
+}
+
+.zw-consent-text a {
+  color: var(--z-brand);
+}
+
+/* The health-motivation opt-in is visually separated so it can never read as
+   part of the marketing consent above it. */
+.zw-consent--separate {
+  background: var(--z-surface-alt);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-sm);
+  padding: var(--z-space-3);
+  margin-bottom: var(--z-space-3);
+}
+
+/* ─── Errors ─────────────────────────────────────────────────────────────── */
+
+.zw-error {
+  display: block;
+  font-size: var(--z-step--1);
+  color: var(--z-danger);
+  margin-top: var(--z-space-2);
+  min-height: 1.25rem;
+}
+
+.zw-note {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  margin-top: var(--z-space-2);
+}
+
+/* ─── Confirmation ───────────────────────────────────────────────────────── */
+
+.zw-position {
+  font-size: var(--z-step-4);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--z-brand);
+  margin: 0 0 var(--z-space-2);
+}
+
+.zw-timeline {
+  list-style: none;
+  margin: var(--z-space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--z-space-4);
+}
+
+.zw-timeline li {
+  display: grid;
+  gap: var(--z-space-1);
+  padding-left: var(--z-space-4);
+  border-left: 2px solid var(--z-border);
+}
+
+.zw-timeline li:first-child {
+  border-left-color: var(--z-brand);
+}
+
+.zw-when {
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  color: var(--z-brand);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.zw-what {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+.zw-share {
+  margin-top: var(--z-space-5);
+  padding-top: var(--z-space-5);
+  border-top: 1px solid var(--z-border);
+}
+
+/* ─── Skeleton (step 2 lazy chunk) ───────────────────────────────────────── */
+
+.zw-skeleton {
+  display: grid;
+  gap: var(--z-space-4);
+}
+
+.zw-skeleton span {
+  display: block;
+  block-size: 2.75rem;
+  background: var(--z-surface-alt);
+  border-radius: var(--z-radius-sm);
+}
+
+.zw-skeleton span:first-child {
+  block-size: 1.5rem;
+  inline-size: 70%;
+}
+
+/* ─── Utility ────────────────────────────────────────────────────────────── */
+
+.zw-sr {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Honeypot. Hidden from people, reachable by a naive bot. */
+.zw-hp {
+  position: absolute;
+  left: -9999px;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zw *,
+  .zw *::before,
+  .zw *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
