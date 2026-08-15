@@ -57,7 +57,10 @@ const Checkbox = forwardRef(function Checkbox(
       className={`z-checkbox-field ${className}`.trim()}
       data-consent-version={consentVersion}
     >
-      <div className="z-checkbox-row">
+      {/* The <label> wraps the whole row so box, text and the space around them
+          are one 44px+ target. `legal` stays OUTSIDE it, so the privacy link
+          never toggles the box. */}
+      <label className="z-checkbox-row" htmlFor={id}>
         <input
           ref={ref}
           type="checkbox"
@@ -67,10 +70,8 @@ const Checkbox = forwardRef(function Checkbox(
           aria-invalid={error ? 'true' : undefined}
           {...rest}
         />
-        <label className="z-checkbox-label" htmlFor={id}>
-          {label}
-        </label>
-      </div>
+        <span className="z-checkbox-label">{label}</span>
+      </label>
 
       {legal && (
         <p className="z-checkbox-legal" id={legalId}>
