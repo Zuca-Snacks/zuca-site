@@ -1,0 +1,56 @@
+# Dependency updates.
+#
+# Grouped and weekly rather than one PR per package: this repo has three agents
+# working in parallel and a founder who is not a full-time engineer. A stream of
+# individual dependency PRs gets ignored, and ignored update PRs are worse than
+# none — they train you to dismiss the security ones too.
+#
+# Security patches are deliberately NOT grouped and NOT rate-limited: those are
+# the ones that should interrupt you.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Los_Angeles
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    groups:
+      # Build tooling churns constantly and never reaches production. One PR.
+      dev-tooling:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      # Runtime dependencies ship to users. Patch/minor grouped; a major gets
+      # its own PR so it is actually read.
+      production-minor:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      # Every security fix, together, immediately — separate from the above.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels:
+      - dependencies
+    commit-message:
+      prefix: "chore(ci)"

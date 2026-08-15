@@ -26,4 +26,20 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  // Server-side code: the Vercel functions, the shared libraries they import,
+  // and the security test harness. These run in Node, not in a browser, so
+  // `process` and `Buffer` are globals here and `window` is not. Added by the
+  // security branch — see HANDOFF-sec.md.
+  {
+    files: ['api/**/*.js', 'src/lib/**/*.js', 'scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'module',
+    },
+    rules: {
+      // These files are never imported by a React component, so the Fast
+      // Refresh constraint does not apply to them.
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
