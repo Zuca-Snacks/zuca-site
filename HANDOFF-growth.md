@@ -154,21 +154,26 @@ not evidence and a client-supplied country is not a fact — both are trivially
 forged and neither would survive being relied on. There is an explicit comment
 in `api.js` saying so, so nobody "helpfully" adds them.
 
-**Two consents, one field.** When someone also accepts the health-motivation
-opt-in they have agreed to *two* separate texts. The amendment adds one field,
-so both identifiers travel in it, `+`-joined, marketing always first:
+**`motivation_consent_text_version` — agreed, and wired behind a one-line
+switch.** You're adding the field; until it lands, `MOTIVATION_FIELD_LIVE` in
+`api.js` is `false` and both identifiers travel in `consent_text_version`,
+`+`-joined, marketing always first. **Ping me the moment the field ships and I
+flip the boolean** — I'm not flipping it early because an unknown key risks a
+400 from your validator, which would silently discard every step-2 answer.
 
-```
-consent_text_version: "mkt-us-2026-08-15-7d912cf1+mot-all-2026-08-15-14d950d1"
+Both shapes, verified:
+
+```jsonc
+// MOTIVATION_FIELD_LIVE = false  (today)
+{ "consent_text_version": "mkt-eea-…-0dd5ad8b+mot-all-…-14d950d1" }
+
+// MOTIVATION_FIELD_LIVE = true   (after your field lands)
+{ "consent_text_version":            "mkt-eea-…-0dd5ad8b",
+  "motivation_consent_text_version": "mot-all-…-14d950d1" }
 ```
 
-Split on `+` to get the individual versions. **This works, but a dedicated
-`motivation_consent_text_version` is the better shape** — the motivation opt-in
-is health-adjacent, so under GDPR Art 9 it is the consent most likely to be
-challenged, and it deserves its own column rather than a substring. I used the
-join rather than inventing a top-level key because an unknown key risks a 400
-from your validator, which would silently discard every step-2 answer. Add the
-field and I'll switch in one line.
+Interim records split on `+` — marketing first, always — so no evidence is lost
+either side of the cutover.
 
 **You must store the wording, not just the version.** A version identifier is
 only evidence if the text it points at is retained immutably. The strings live
@@ -317,31 +322,53 @@ table above, keeps both eras clean.
 **Emil — the Apps Script is yours; it needs the new columns added before the
 campaign sends.** I don't own that file and haven't touched it.
 
-### ⚠️ `zip` is US-only, and the list is not
+### `zip` is hidden for non-US visitors
 
-The contract fixes `zip` to `/^[0-9]{5}$/` — a US postcode. The outreach list
-spans the US, Latin America, Asia and Europe, so most recipients cannot pass
-that field. I did not change the validation (not mine to change) and did not
-add a country selector (you said no branching beyond the wording).
+The contract fixes `zip` to `/^[0-9]{5}$/` — a US postcode — while the outreach
+list spans four continents. The field is now **not rendered at all** for anyone
+the time-zone guess places outside the US. A field someone has to be told to
+skip is still friction on the only screen that matters.
 
-What I did: the field now carries the hint **"US only — skip this if you're
-somewhere else."** It has always been optional, so nobody is blocked — but
-without the hint an international visitor reads it as a field they failed.
+The postal detector biases the *opposite* way to the consent one, deliberately:
 
-**This means demand-clustering data is US-only.** If you want it globally,
-`zip` needs to become a free-form postal string (varying length, letters and
-spaces, e.g. `SW1A 1AA`, `100-0001`) — that's a contract change, and country is
-already being derived server-side anyway, so the cheaper answer may be to lean
-on `country` and treat `zip` as a US-only refinement. Your call; I've flagged it
-rather than assumed it.
+| Detected | Behaviour |
+|---|---|
+| `us` (incl. PR, USVI, Guam, Saipan, American Samoa — all on 5-digit ZIPs) | Field shown, no hint. It's their own postcode. |
+| `non_us` | Field not rendered. Never validated, always sent as `null`. |
+| `unknown` (no `Intl`, unresolvable zone) | Field shown **with** the "US only — skip this if you're somewhere else" hint. This is what the hint is for. |
 
-### Cadence is now a promise, not copy
+Consent fails toward strict because the downside is a regulator; postal fails
+toward showing because the downside is one optional data point. Both biases are
+documented at the top of `src/components/waitlist/region.js`.
 
-The EEA wording commits to **"no more than about two emails a month."** GDPR
-requires a clear statement of what will be sent and how often, so a number had
-to be there. It is now an operational constraint on the sending schedule, not
-marketing copy. If the real cadence differs, tell me and I'll change the text —
-which mints a new consent version automatically, exactly as it should.
+Verified across `America/New_York` (shown), `Pacific/Guam` (shown),
+`Europe/Berlin`, `Asia/Tokyo`, `America/Sao_Paulo` (all hidden), and all three
+ambiguous paths — no `Intl`, throwing `Intl`, empty time zone (shown + hint).
+
+`step2_view` and `step2_submit` now carry `postal_region`, so you can see how
+much of the list this actually affects.
+
+**Demand-clustering data is therefore US-only by design.** Given `country` is
+now server-derived, leaning on that is probably cheaper than widening `zip` to a
+free-form international postal string (`SW1A 1AA`, `100-0001`). Your call — no
+change needed from me unless you want the wider field.
+
+### Cadence is a promise, not copy
+
+The EEA wording commits to **"about two emails a month, plus a short series when
+we launch."** GDPR requires a clear statement of what will be sent and how
+often, so a number had to be there — and the launch sequence is named up front
+rather than quietly breaking the promise in week one.
+
+This is an operational constraint on the sending schedule. If the real cadence
+changes, tell me and I'll change the text, which mints a new consent version
+automatically — exactly as it should. That is not a cost to avoid; it is the
+mechanism working.
+
+The change from the first draft moved the EEA version from `…-55babc95` to
+`…-0dd5ad8b` with no version number touched by hand. US and motivation versions
+are unchanged, which is the other half of the property: **only the wording that
+actually changed mints a new identifier.**
 
 ### Still open
 

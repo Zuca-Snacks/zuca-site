@@ -72,10 +72,12 @@ export const MOTIVATION = {
 export const ZIP = {
   key: "zip",
   label: "ZIP code",
-  // The contract fixes this to /^[0-9]{5}$/ — a US postcode. The outreach list
-  // spans four continents, so the hint says so plainly rather than letting a
-  // London or Tokyo signup fail a field they cannot pass. Flagged for the
-  // contract in HANDOFF-growth.md.
+  // The contract fixes this to /^[0-9]{5}$/ — a US postcode, while the outreach
+  // list spans four continents. The field is therefore hidden outright for
+  // visitors we can place outside the US (see region.js). The hint below is the
+  // fallback for the ambiguous case, where we show the field but say plainly
+  // that it does not apply to everyone. Flagged for the contract in
+  // HANDOFF-growth.md.
   hint: "US only — skip this if you're somewhere else.",
   why: "Shows us where demand clusters, for shipping and early retail.",
   placeholder: "94305",

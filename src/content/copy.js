@@ -216,12 +216,14 @@ export const consentTexts = {
     // say what will be sent and how often, and that consent can be withdrawn.
     // Same single checkbox, unchecked, never bundled — only the sentence differs.
     //
-    // ⚠️ "no more than about two emails a month" is now an operational promise,
-    // not copy. If the sending cadence changes, this text changes with it — and
-    // changing it mints a new consent version, which is the correct behaviour.
+    // ⚠️ The stated frequency is an operational promise, not copy. Steady state
+    // is about two a month; the launch sequence will exceed that, so it is
+    // named here rather than quietly broken in week one. If the real cadence
+    // changes, this text changes with it — and that mints a new consent
+    // version, which is the correct behaviour.
     eea: {
       authored: "2026-08-15",
-      text: "Yes, email me about Zuca. I'm agreeing to receive the launch date, my first-access window, and occasional notes from the kitchen — no more than about two emails a month, and never anyone else's advertising. Zuca won't email me without this, and I can withdraw it in one click from any email.",
+      text: "Yes, email me about Zuca. I'm agreeing to receive the launch date, my first-access window, and occasional notes from the kitchen — about two emails a month, plus a short series when we launch, and never anyone else's advertising. Zuca won't email me without this, and I can withdraw it in one click from any email.",
       privacyLabel: "Privacy notice",
       privacyHref: "/privacy",
     },

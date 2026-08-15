@@ -36,6 +36,10 @@ export const RESULT = {
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
+// See buildPayload's note. Flip to true the moment the security agent's
+// `motivation_consent_text_version` field is live.
+const MOTIVATION_FIELD_LIVE = false;
+
 /**
  * Build a contract-shaped body. Only `email` and `consent_marketing` are ever
  * required; every other key is null until step 2 supplies it.
@@ -50,10 +54,20 @@ export const RESULT = {
  * being relied on. Do not add them to this payload.
  *
  * When the user also accepts the health-motivation opt-in, they have agreed to
- * two separate texts. The contract has one field, so both identifiers travel in
- * it, `+`-joined and stably ordered (marketing first). Splitting on `+` yields
- * the individual versions. See HANDOFF-growth.md — a dedicated field is the
- * better long-term shape.
+ * two separate texts. `motivation_consent_text_version` is the agreed home for
+ * the second one — the Art 9 consent is the one most likely to be challenged
+ * and deserves its own column rather than a substring.
+ *
+ * ┌─ ONE-LINE SWITCH ──────────────────────────────────────────────────────┐
+ * │ Security is adding the field. Flip MOTIVATION_FIELD_LIVE to true the   │
+ * │ moment it ships and the payload moves to the dedicated key. It stays   │
+ * │ false until then because an unknown key risks a 400 from the           │
+ * │ validator, which would silently discard every step-2 answer.           │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * While false, both identifiers travel in `consent_text_version`, `+`-joined
+ * and stably ordered (marketing first). Splitting on `+` yields the individual
+ * versions, so no evidence is lost in the interim.
  */
 export function buildPayload({
   email,
@@ -64,7 +78,9 @@ export function buildPayload({
   formRenderTs,
   hpField = "",
 }) {
-  const consentVersions = [consentTextVersion, motivationConsentTextVersion].filter(Boolean);
+  const consentVersions = MOTIVATION_FIELD_LIVE
+    ? [consentTextVersion].filter(Boolean)
+    : [consentTextVersion, motivationConsentTextVersion].filter(Boolean);
 
   return {
     email: String(email || "").trim().toLowerCase().slice(0, 254),
@@ -77,6 +93,9 @@ export function buildPayload({
     referral_source: profile.referral_source ?? null,
     consent_marketing: consentMarketing === true,
     consent_text_version: consentVersions.length ? consentVersions.join("+") : null,
+    ...(MOTIVATION_FIELD_LIVE
+      ? { motivation_consent_text_version: motivationConsentTextVersion || null }
+      : {}),
     // consent_timestamp — server-set. Never sent from here.
     // country          — server-derived from request IP. Never sent, never asked.
     utm: getUtm(),

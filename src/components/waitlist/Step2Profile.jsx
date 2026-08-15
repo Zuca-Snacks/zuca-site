@@ -10,12 +10,18 @@ import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist } from "./api.js";
 import { EVENTS, track, trackOnce } from "../../lib/analytics.js";
 import { marketingConsent, motivationConsent } from "./consent.js";
+import { detectPostalRegion } from "./region.js";
 
 const ZIP_RE = /^[0-9]{5}$/;
 
 export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const [consentCopy] = useState(marketingConsent);
   const [motivationCopy] = useState(motivationConsent);
+  // 'us' → show it plainly. 'unknown' → show it with the "US only" hint.
+  // 'non_us' → don't ask at all; a field you have to be told to skip is still
+  // friction, and geography comes from the server-derived country anyway.
+  const [postalRegion] = useState(detectPostalRegion);
+  const showZip = postalRegion !== "non_us";
 
   const [flavor, setFlavor] = useState(null);
   const [intent, setIntent] = useState(null);
@@ -39,8 +45,8 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const touched = useRef(new Set());
 
   useEffect(() => {
-    trackOnce(EVENTS.STEP2_VIEW);
-  }, []);
+    trackOnce(EVENTS.STEP2_VIEW, { postal_region: postalRegion });
+  }, [postalRegion]);
 
   /** One event the first time a field is touched. Enum values only. */
   function noteField(key, value) {
@@ -69,7 +75,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     e.preventDefault();
     if (inFlight.current) return;
 
-    if (zip && !ZIP_RE.test(zip)) {
+    if (showZip && zip && !ZIP_RE.test(zip)) {
       setZipError("A US ZIP is five digits — or leave it blank.");
       return;
     }
@@ -81,7 +87,8 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
       answered: answeredCount(),
       motivation_opt_in: motivationOptIn ? 1 : 0,
       motivation_count: motivationOptIn ? motivation.length : 0,
-      has_zip: zip ? 1 : 0,
+      has_zip: showZip && zip ? 1 : 0,
+      postal_region: postalRegion,
     });
 
     const payload = buildPayload({
@@ -100,7 +107,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
         price_band: priceBand,
         // Stored only when the separate opt-in is ticked.
         motivation: motivationOptIn ? motivation : null,
-        zip: zip || null,
+        zip: showZip ? zip || null : null,
         referral_source: referral,
         is_clinician: isClinician,
       },
@@ -195,22 +202,28 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
           }}
         />
 
-        <Field error={zipError} errorId={zipErrorId} hint={ZIP.hint}>
-          <Input
-            id={zipId}
-            label={ZIP.label}
+        {showZip ? (
+          <Field
             error={zipError}
             errorId={zipErrorId}
-            type="text"
-            inputMode="numeric"
-            autoComplete="postal-code"
-            enterKeyHint="next"
-            maxLength={5}
-            placeholder={ZIP.placeholder}
-            value={zip}
-            onChange={(e) => handleZip(e.target.value)}
-          />
-        </Field>
+            hint={postalRegion === "unknown" ? ZIP.hint : undefined}
+          >
+            <Input
+              id={zipId}
+              label={ZIP.label}
+              error={zipError}
+              errorId={zipErrorId}
+              type="text"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              enterKeyHint="next"
+              maxLength={5}
+              placeholder={ZIP.placeholder}
+              value={zip}
+              onChange={(e) => handleZip(e.target.value)}
+            />
+          </Field>
+        ) : null}
 
         <ChipRadioGroup
           legend={REFERRAL_SOURCE.label}

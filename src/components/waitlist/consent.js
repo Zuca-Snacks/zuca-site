@@ -17,54 +17,17 @@
 // timestamp is not evidence, and a client-supplied country is not a fact.
 
 import { consentTexts } from "../../content/copy.js";
+import { detectConsentRegion } from "./region.js";
 
 // ─── Region → wording ────────────────────────────────────────────────────────
-// The server derives `country` authoritatively from the request IP. The client
-// cannot see that in time to choose wording, so it makes a local, no-network,
-// no-cookie guess from the browser's IANA time zone.
-//
-// The guess is deliberately biased: **anything uncertain gets the EEA/UK
-// wording.** Explicit opt-in wording is never wrong in the US; the softer US
-// wording shown in the EEA is a violation. Failing safe costs a slightly longer
-// sentence, failing open costs a regulator.
+// The region guess lives in region.js. It reads the browser time zone and fails
+// toward the strict wording — see that file for why, and for the opposite bias
+// used by the postal-code field.
 //
 // This matters less than it looks, because the identifier records what was
 // *actually shown*. If the server's country says EEA and the stored version
 // says the US wording, that mismatch is detectable and re-consent is possible —
 // the record never lies about what happened, only the guess can be wrong.
-
-// EEA + UK + the non-"Europe/" zones that GDPR still reaches (EU outermost
-// regions, Iceland, Cyprus). Over-inclusive on purpose.
-const STRICT_ZONES = new Set([
-  "Atlantic/Azores",
-  "Atlantic/Canary",
-  "Atlantic/Madeira",
-  "Atlantic/Reykjavik",
-  "Asia/Nicosia",
-  "Asia/Famagusta",
-  "Indian/Reunion",
-  "Indian/Mayotte",
-  "America/Cayenne",
-  "America/Guadeloupe",
-  "America/Martinique",
-  "America/Miquelon",
-]);
-
-/** 'eea' or 'us'. Uncertain always resolves to 'eea'. */
-export function detectConsentRegion() {
-  if (typeof Intl === "undefined") return "eea";
-  try {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!zone) return "eea";
-    // Europe/* covers the EEA and the UK. It also catches Moscow, Istanbul and
-    // Kyiv, which are not EEA — showing them the stricter wording is harmless.
-    if (zone.startsWith("Europe/")) return "eea";
-    if (STRICT_ZONES.has(zone)) return "eea";
-    return "us";
-  } catch {
-    return "eea";
-  }
-}
 
 // ─── Version derivation ──────────────────────────────────────────────────────
 
