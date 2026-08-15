@@ -491,10 +491,17 @@ narrower container the string wraps to more lines and costs more. **Growth: re-r
 the measurement on your own layout once the string lands — my delta is measured
 in this shell.**
 
-**4. If it does break, here is what I would cut — in order. Never the consent text.**
-That text is a legal commitment and a promise about sending behaviour; trimming
-it for layout would mint a weaker consent record, which is exactly the failure
-mode the amendment exists to prevent.
+**4. 🟢 DECISION (Emil, 15 Aug): nothing is cut.** The fold holds with ~58px
+spare, so the lede, the eyebrow and the email hint all **stay**. The table below
+is a **contingency, not a recommendation** — do not apply any of it on sight.
+It exists so that if a future consent string grows, the next person already knows
+what the cheapest 135px are and does not reach for the consent text first.
+
+**Never cut the consent text.** It is a legal commitment and a promise about
+sending cadence; trimming it for layout would mint a weaker consent record, which
+is exactly the failure mode the amendment exists to prevent. If a future string
+genuinely will not fit, work down this list and come back for more rather than
+touching the wording.
 
 | # | Cut | Saves @390 | Why it is safe to lose |
 |---|---|---|---|
@@ -504,11 +511,13 @@ mode the amendment exists to prevent.
 | 4 | Tighten `.z-waitlist-slot__inner` gap from `--z-space-5` to `--z-space-4` | **8px** | Purely visual rhythm; the section keeps its outer padding. |
 | | **Total available without touching consent** | **~135px** | Nearly 6× the 23px the new clause costs. |
 
-There is a fifth, much larger lever that is **growth's call, not mine**: the Art 9
-motivation consent is a second block costing **184px at 390px** (429px when
-stacked with the EEA marketing consent). Rendering it only *after* the user
-actually selects a motivation — progressive disclosure — removes it from the
-default view entirely. That is a consent-flow decision, so I have not touched it.
+**✅ Resolved separately:** the Art 9 motivation consent was a second block
+costing **184px at 390px** (429px stacked with the EEA marketing consent).
+Growth is putting it behind a progressive disclosure — shown only once the user
+actually selects a motivation — which returns that 184px to the default view.
+That is a consent-flow decision and was growth's to make; no layout change was
+needed from UX, and `.z-waitlist-mount` already tolerates the block appearing and
+disappearing (see the variable-field-count section below).
 
 ### ✅ Step 2 tolerates a variable field count
 
