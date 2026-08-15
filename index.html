@@ -3,16 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZUCA: Physician-recommended fiber snacks</title>
-    <meta name="description" content="Physician-recommended snacks with 10g fiber. Created by a Michelin-trained chef and a Stanford physician.">
-    <meta property="og:title" content="ZUCA: Physician-recommended fiber snacks">
-    <meta property="og:description" content="Physician-recommended snacks with 10g fiber. Created by a Michelin-trained chef and a Stanford physician.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!--
+      Fonts are preloaded, not just @font-face'd, because both are used above
+      the fold (Lazydog for the wordmark, Outfit for the promise line and the
+      email field). crossorigin is required even for same-origin font preloads.
+    -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/lazydog-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/outfit-latin-var.woff2" crossorigin />
+
+    <!--
+      LCP preload. The hero <img> is rendered by React, so it does not exist in
+      this document and the browser's preload scanner cannot discover it — the
+      request would otherwise not start until the JS bundle had downloaded,
+      parsed and mounted. These two links start it immediately instead.
+      They mirror the <picture> in Hero.jsx exactly; keep them in sync.
+      type="image/avif" means non-AVIF browsers skip the preload rather than
+      fetching a format they cannot use.
+    -->
+    <link rel="preload" as="image" type="image/avif" fetchpriority="high"
+          media="(max-width: 47.99em)"
+          imagesrcset="/images/hero-bites-wide-400.avif 400w, /images/hero-bites-wide-600.avif 600w, /images/hero-bites-wide-800.avif 800w"
+          imagesizes="100vw" />
+    <link rel="preload" as="image" type="image/avif" fetchpriority="high"
+          media="(min-width: 48em)"
+          imagesrcset="/images/hero-bites-420.avif 420w, /images/hero-bites-640.avif 640w, /images/hero-bites-900.avif 820w"
+          imagesizes="44vw" />
+
+    <meta name="theme-color" content="#FDE0B4" />
+
+    <!--
+      Marks that JS is alive, before first paint. The section-entrance animation
+      hides its elements only under `.z-js`, so if this never runs (JS off, a
+      crawler, a script error) the page renders fully visible instead of blank.
+    -->
+    <script>document.documentElement.classList.add('z-js');</script>
+
+    <!--
+      COPY OWNERSHIP: the conversion agent owns final wording. The previous
+      title and description read "Physician-recommended fiber snacks", which the
+      brief's health-claim guardrails forbid ("physician-recommended" is on the
+      prohibited list). Replaced with the safe nutrient-content form. See
+      HANDOFF-ux.md.
+    -->
+    <title>Zuca — 10g of fiber in a bite you'll look forward to</title>
+    <meta name="description" content="Zuca turns upcycled apple pulp into snack bites with 10g of fiber and 150 calories per serving. Created by a Michelin-trained chef and a Stanford physician. Join the waitlist.">
+
+    <meta property="og:title" content="Zuca — 10g of fiber in a bite you'll look forward to">
+    <meta property="og:description" content="Snack bites made from upcycled apple pulp. 10g fiber, 150 calories, no added sugar.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://zucasnacks.com">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="ZUCA: Physician-recommended fiber snacks">
-    <meta name="twitter:description" content="Physician-recommended snacks with 10g fiber. Created by a Michelin-trained chef and a Stanford physician.">
+    <meta name="twitter:title" content="Zuca — 10g of fiber in a bite you'll look forward to">
+    <meta name="twitter:description" content="Snack bites made from upcycled apple pulp. 10g fiber, 150 calories, no added sugar.">
   </head>
   <body>
     <div id="root"></div>
