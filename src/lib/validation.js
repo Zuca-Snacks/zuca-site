@@ -98,10 +98,22 @@ export function consentRegime(version) {
   if (entry?.regime) return entry.regime;
 
   const tokens = String(version || '').toLowerCase().split(/[-._]+/);
-  if (tokens.includes('us')) return 'us';
-  if (tokens.some((t) => ['eu', 'eea', 'gdpr', 'uk'].includes(t))) return 'eea';
+  if (tokens.some((t) => US_TOKENS.has(t))) return 'us';
+  if (tokens.some((t) => EEA_TOKENS.has(t))) return 'eea';
   return 'unknown';
 }
+
+/**
+ * Audience tokens recognised in a version identifier.
+ *
+ * `eea` is the canonical spelling — it is what the Conversion agent already
+ * emits, and re-minting live version ids to match a doc would be the wrong way
+ * round. `eu`, `gdpr` and `uk` are accepted as synonyms so nobody has to
+ * remember which one this file prefers; a vocabulary that only works if you
+ * guess right is a vocabulary that silently fails.
+ */
+const EEA_TOKENS = new Set(['eea', 'eu', 'gdpr', 'uk']);
+const US_TOKENS = new Set(['us', 'usa', 'canspam']);
 
 /**
  * Reconcile the wording someone was actually shown against where they actually
@@ -125,21 +137,51 @@ export function reconcileConsentRegime({ country, marketingVersion, healthVersio
   const marketing = consentRegime(marketingVersion);
   const health = healthVersion ? consentRegime(healthVersion) : null;
 
+  // Two distinct failures, both of which put a record in the queue.
+  //
+  //   mismatch     — we know the wording was written for the US, and the
+  //                  person was in the EEA. A definite problem.
+  //   unverifiable — the identifier carries no audience tag, so we cannot say
+  //                  what regime the wording was written for. Not proof of a
+  //                  problem, but Art 7(1) asks us to *demonstrate* consent,
+  //                  and "we cannot tell" is not a demonstration.
+  //
+  // `unverifiable` used to fall straight through as not-flagged, which meant
+  // the weakest evidence state produced the cleanest-looking row. Untagged is
+  // the default state of any new identifier, so that was the case most likely
+  // to occur and least likely to be noticed.
   const mismatched = [];
-  if (inEea && marketing === 'us') mismatched.push('marketing');
-  if (inEea && health === 'us') mismatched.push('health');
+  const unverifiable = [];
 
-  if (!mismatched.length) {
-    return { needs_reconsent: false, reason: null, country, marketing_regime: marketing, health_regime: health };
+  if (inEea) {
+    if (marketing === 'us') mismatched.push('marketing');
+    else if (marketing === 'unknown') unverifiable.push('marketing');
+
+    if (health === 'us') mismatched.push('health');
+    else if (health === 'unknown') unverifiable.push('health');
   }
 
-  return {
-    needs_reconsent: true,
-    reason: `${mismatched.join('+')}_consent_text_is_us_but_country_is_eea:${country}`,
-    country,
-    marketing_regime: marketing,
-    health_regime: health,
-  };
+  const base = { country, marketing_regime: marketing, health_regime: health };
+
+  if (mismatched.length) {
+    return {
+      ...base,
+      needs_reconsent: true,
+      status: 'mismatch',
+      reason: `${mismatched.join('+')}_consent_text_is_us_but_country_is_eea:${country}`,
+    };
+  }
+
+  if (unverifiable.length) {
+    return {
+      ...base,
+      needs_reconsent: true,
+      status: 'unverifiable',
+      reason: `${unverifiable.join('+')}_consent_text_regime_untagged_and_country_is_eea:${country}`,
+    };
+  }
+
+  return { ...base, needs_reconsent: false, status: 'ok', reason: null };
 }
 
 // ─── Geography ───────────────────────────────────────────────────────────────

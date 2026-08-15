@@ -333,6 +333,11 @@ export default async function handler(req, res) {
     // finds, and these are exactly the records an audit would pull.
     motivation_consent_text_version: data.consent_health ? healthConsent.version : null,
     needs_reconsent: reconciliation.needs_reconsent,
+    // ok | mismatch | unverifiable. Separate from the boolean because the two
+    // failure modes need different work: `mismatch` means re-consent this
+    // person, `unverifiable` usually means tag the version identifiers and the
+    // rows resolve themselves.
+    consent_regime_status: reconciliation.status,
     reconsent_reason: reconciliation.reason,
   });
 

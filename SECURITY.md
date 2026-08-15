@@ -454,13 +454,13 @@ the complete answer for one person:
   "schema": "zuca.consent.v2",
   "marketing": {
     "granted": true,
-    "version": "mkt-eu-2026-08.a",
+    "version": "mkt-eea-2026-08.a",
     "text": "Email me when pre-orders open. You can unsubscribe any time.",
     "registry_match": true
   },
   "health": {
     "granted": true,
-    "version": "health-eu-2026-08.a",
+    "version": "health-eea-2026-08.a",
     "text": "Store my reason for interest so you can tailor what you send me.",
     "registry_match": true
   },
@@ -470,6 +470,7 @@ the complete answer for one person:
   "reconciliation": {
     "needs_reconsent": false,
     "reason": null,
+    "status": "ok",
     "marketing_regime": "eea",
     "health_regime": "eea"
   },
@@ -518,18 +519,38 @@ At any real volume that set is not empty. So it is computed on write and promote
 columns, `needs_reconsent` and `reconsent_reason`, rather than left inside the receipt JSON — a flag
 buried in a string is a flag nobody filters on.
 
-The regime of a wording is read from its identifier, tokenised on `. _ -` (`mkt-us-…` → US,
-`mkt-eu-…` → EEA), with an explicit `regime` in the registry overriding the parse. Tokenised rather
-than substring-matched: a naive `/us/` test classifies `2026-08-15.august.a` as US-targeted, and a
-wrong regime here produces a wrong re-consent decision.
+The regime of a wording is read from its identifier, tokenised on `. _ -`, with an explicit `regime`
+in the registry overriding the parse. Canonical tokens are **`eea`** and **`us`**; `eu`, `gdpr`,
+`uk`, `usa` and `canspam` are accepted synonyms, because a vocabulary that only works if you guess
+the right spelling is a vocabulary that fails silently. Tokenised rather than substring-matched: a
+naive `/us/` test classifies `2026-08-15.august.a` as US-targeted, and a wrong regime here produces
+a wrong re-consent decision.
 
-Only the **EEA-person-shown-US-copy** direction is flagged. The converse over-protects the person
-and breaks nothing, so flagging it would only add noise to the one column that has to stay
-actionable.
+**Three outcomes, in `consent_regime_status`:**
 
-To work the queue: filter the sheet on `needs_reconsent = TRUE`, and treat those as consent not
-validly obtained — re-consent them through the current form, or exclude them from EEA sends.
-`reconsent_reason` says which consent was wrong and what the mismatch was, e.g.
+| Status | Condition | Meaning |
+|---|---|---|
+| `ok` | Regimes agree, or the wording is registered `global` | Nothing to do |
+| `mismatch` | EEA visitor, US-tagged wording | Definite problem — re-consent |
+| `unverifiable` | EEA visitor, **untagged** wording | We cannot say what regime the wording targeted |
+
+`unverifiable` was added after being asked what happens to an unknown regime today. The answer was
+**nothing — it fell straight through as unflagged**, and that was the wrong default in the worst
+possible place: Art 7(1) asks us to *demonstrate* consent, "we cannot tell" is not a demonstration,
+and untagged is the default state of every newly minted identifier. So the weakest evidence state
+was producing the cleanest-looking row, in the case most likely to occur. Both statuses now set
+`needs_reconsent`, but they are distinguishable because the work differs: `mismatch` means
+re-consent a person, `unverifiable` usually means tag the identifiers and the rows resolve
+themselves.
+
+Only the **EEA-person-shown-non-EEA-copy** direction is assessed. The converse over-protects the
+person and breaks nothing, so flagging it would only add noise to the one column that has to stay
+actionable. A non-EEA visitor with an untagged id stays `ok` — CAN-SPAM does not ask where the
+wording was written.
+
+To work the queue: filter `needs_reconsent = TRUE`, split by `consent_regime_status`, and treat
+`mismatch` rows as consent not validly obtained — re-consent through the current form, or exclude
+from EEA sends. `reconsent_reason` carries the detail, e.g.
 `marketing+health_consent_text_is_us_but_country_is_eea:NO`.
 
 `registry_match: false` flags a record whose wording could not be resolved — the signup is still

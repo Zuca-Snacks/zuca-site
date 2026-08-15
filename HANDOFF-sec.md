@@ -19,8 +19,8 @@ took the repo from **9 advisories (7 high) → 0**. All were devDependencies —
 `@babel/core`, `launch-editor` — so none of them reached production. They still mattered: one was
 arbitrary file read via the Vite dev server, and three dev servers are running on Emil's laptop.
 
-Four scripts added: `npm run security:test` (67 endpoint cases), `npm run security:test:sheet`
-(20 Apps Script cases), and `npm run security:headers`.
+Three scripts added: `npm run security:test` (94 endpoint cases), `npm run security:test:sheet`
+(24 Apps Script cases), and `npm run security:headers`.
 
 ---
 
@@ -152,8 +152,16 @@ consent_text_version: "2026-08-15.marketing.a"
 
 ```js
 export const CONSENT_TEXTS = {
-  '2026-08-15.marketing.a': 'Email me when pre-orders open. You can unsubscribe any time.',
-  '2026-08-15.health.a':    'Store my reason for interest so you can tailor what you send me.',
+  '2026-08-15.marketing.a': {
+    purpose: 'marketing',
+    regime: 'global',   // 'global' | 'eea' | 'us' — overrides the token parse
+    text: 'Email me when pre-orders open. You can unsubscribe any time.',
+  },
+  '2026-08-15.health.a': {
+    purpose: 'health',
+    regime: 'global',
+    text: 'Store my reason for interest so you can tailor what you send me.',
+  },
 };
 ```
 
@@ -178,8 +186,8 @@ past the strict validator. That was the right instinct given the field available
 shape — so there is now a dedicated field:
 
 ```js
-consent_text_version:            "mkt-eu-2026-08.a",     // the marketing line
-motivation_consent_text_version: "health-eu-2026-08.a",  // the Art 9 line
+consent_text_version:            "mkt-eea-2026-08.a",     // the marketing line
+motivation_consent_text_version: "health-eea-2026-08.a",  // the Art 9 line
 ```
 
 **Why a separate field rather than a delimiter.** The entire legal basis for holding `motivation` is
@@ -206,13 +214,15 @@ have carried the *old* text as its evidence — confidently wrong, which is wors
 
 **Tag your version ids by audience.** I read the regime off the identifier, tokenised on `. _ -`:
 
-| Token in the id | Read as |
-|---|---|
-| `us` | US-targeted wording |
-| `eu`, `eea`, `gdpr`, `uk` | EEA/UK-targeted wording |
-| neither | `unknown` |
+| Token in the id | Read as | |
+|---|---|---|
+| **`eea`** | EEA/UK-targeted wording | **canonical — keep using this** |
+| `eu`, `gdpr`, `uk` | EEA/UK-targeted wording | accepted synonyms |
+| **`us`** | US-targeted wording | canonical |
+| `usa`, `canspam` | US-targeted wording | accepted synonyms |
+| none of the above | `unknown` | **flags the record — see below** |
 
-So `mkt-us-2026-08.a` → US, `mkt-eu-2026-08.a` → EEA. It is tokenised rather than substring-matched
+So `mkt-us-2026-08.a` → US, `mkt-eea-2026-08.a` → EEA. It is tokenised rather than substring-matched
 on purpose: a naive `/us/` test would read `2026-08-15.august.a` as US-targeted, and a wrong regime
 produces a wrong re-consent decision. If you register an id in `CONSENT_TEXTS` you can set
 `regime` explicitly and it overrides the parse.
@@ -223,7 +233,27 @@ cached bundle — is recorded with `needs_reconsent: TRUE` and a reason. That se
 any real volume, and those records are exactly the ones that look complete and would still fail an
 audit. It is a filterable column, not a note in a JSON blob.
 
-You do not need to do anything about the flag. Just tag the ids so it can be computed.
+**An untagged id now flags the record.** This changed in response to the question "what happens to
+`unknown` today?" — the answer was *nothing*, which was wrong. An EEA record whose wording carries no
+audience tag is the state where we can least demonstrate GDPR-grade consent, and it was producing
+the cleanest-looking row in the sheet. Untagged is also the default state of every newly minted
+identifier, so it was simultaneously the most likely case and the least visible one.
+
+Three outcomes now, in column `AA` (`consent_regime_status`):
+
+| Status | When | What it means for you |
+|---|---|---|
+| `ok` | Regime matches, or the wording is registered as `global` | Nothing to do |
+| `mismatch` | EEA visitor, US-tagged wording | **Definite problem.** Re-consent that person |
+| `unverifiable` | EEA visitor, untagged wording | **Tag your ids.** Not proof of a problem, but we cannot demonstrate it was fine either |
+
+So: tag every id `-eea-` or `-us-`, and `unverifiable` disappears. Registering an id in
+`CONSENT_TEXTS` with `regime: 'global'` also clears it, and is the right answer when a single wording
+is written to satisfy the strictest regime and used everywhere — which is what the two current
+entries are.
+
+Only EEA visitors are assessed. A non-EEA visitor with an untagged id stays `ok`; CAN-SPAM does not
+ask where the wording was written.
 
 ### 1f. Map the current fields onto the frozen contract
 
@@ -386,20 +416,21 @@ capitalisation and spaces do not matter, underscores do.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **G1** | `zip` | **S1** | `utm_content` |
-| **H1** | `intent` | **T1** | `utm_term` |
-| **I1** | `price_band` | **U1** | `page_path` |
-| **J1** | `flavor` | **V1** | `consent_text_version` |
-| **K1** | `is_clinician` | **W1** | `motivation_consent_text_version` |
-| **L1** | `referral_source` | **X1** | `consent_timestamp` |
-| **M1** | `consent_marketing` | **Y1** | `country` |
-| **N1** | `consent_health` | **Z1** | `needs_reconsent` |
-| **O1** | `motivation` | **AA1** | `reconsent_reason` |
-| **P1** | `utm_source` | **AB1** | `consent_receipt` |
-| **Q1** | `utm_medium` | **AC1** | `consent_ip_prefix` |
-| **R1** | `utm_campaign` | **AD1** | `user_agent` |
+| **G1** | `zip` | **T1** | `utm_term` |
+| **H1** | `intent` | **U1** | `page_path` |
+| **I1** | `price_band` | **V1** | `consent_text_version` |
+| **J1** | `flavor` | **W1** | `motivation_consent_text_version` |
+| **K1** | `is_clinician` | **X1** | `consent_timestamp` |
+| **L1** | `referral_source` | **Y1** | `country` |
+| **M1** | `consent_marketing` | **Z1** | `needs_reconsent` |
+| **N1** | `consent_health` | **AA1** | `consent_regime_status` |
+| **O1** | `motivation` | **AB1** | `reconsent_reason` |
+| **P1** | `utm_source` | **AC1** | `consent_receipt` |
+| **Q1** | `utm_medium` | **AD1** | `consent_ip_prefix` |
+| **R1** | `utm_campaign` | **AE1** | `user_agent` |
+| **S1** | `utm_content` |  | |
 
-24 new columns, `G` through `AD`. 30 columns total when you are done.
+25 new columns, `G` through `AE`. 31 columns total when you are done.
 
 > **If you already added an earlier version of this list**, the deltas are:
 > `consent_version` → `consent_text_version`, `consent_ts` → `consent_timestamp`, plus four new
@@ -412,11 +443,12 @@ capitalisation and spaces do not matter, underscores do.
 ### Step 1b — put a filter on `needs_reconsent`
 
 Worth thirty seconds now, because this is the column you will actually use. Select row 1 →
-**Data → Create a filter**, then filter column `Z` to `TRUE`.
+**Data → Create a filter**, then filter column `Z` (`needs_reconsent`) to `TRUE`.
 
 That view is your re-consent queue: people the server believes were shown consent wording written
 for the wrong jurisdiction — someone in Oslo served the US copy because of a VPN, travel, a CDN edge
-decision or a stale cached bundle. Column `AA` says which consent was wrong and why. Nothing errors
+decision or a stale cached bundle. Column `AA` (`consent_regime_status`) says whether it is a definite
+`mismatch` or merely `unverifiable`, and `AB` says which consent and why. Nothing errors
 when this happens and the row looks complete, which is precisely why it needs a column rather than
 someone's memory.
 

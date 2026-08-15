@@ -471,6 +471,29 @@ await check('Two identifiers joined with "+" rejected', '400 validation', async 
 {
   const { reconcileConsentRegime, consentRegime } = await import('../src/lib/validation.js');
 
+  // The vocabulary growth actually emits. `eea` is canonical; the rest are
+  // accepted synonyms so nobody has to guess which spelling this file prefers.
+  for (const [id, expected] of [
+    ['mkt-eea-2026-08.a', 'eea'],
+    ['health-eea-2026-08.a', 'eea'],
+    ['mkt-eu-2026-08.a', 'eea'],
+    ['mkt-gdpr-2026-08.a', 'eea'],
+    ['mkt-uk-2026-08.a', 'eea'],
+    ['mkt-us-2026-08.a', 'us'],
+    ['mkt-usa-2026-08.a', 'us'],
+    ['mkt-2026-08.a', 'unknown'],
+  ]) {
+    await check(`consentRegime("${id}") → ${expected}`, expected, async () => {
+      const r = consentRegime(id);
+      return { pass: r === expected, actual: r };
+    });
+  }
+
+  await check('EEA visitor + mkt-eea- id → not flagged', 'clean', async () => {
+    const r = reconcileConsentRegime({ country: 'NO', marketingVersion: 'mkt-eea-2026-08.a' });
+    return { pass: r.needs_reconsent === false && r.status === 'ok', actual: `${r.status}` };
+  });
+
   await check('consentRegime tokenises rather than substring-matches', 'no false US match', async () => {
     const safe = consentRegime('2026-08-15.august.a'); // contains "us" inside a word
     const real = consentRegime('mkt-us-2026-08.a');
@@ -523,6 +546,50 @@ await check('Two identifiers joined with "+" rejected', '400 validation', async 
   await check('Unknown country (XX) not treated as EEA', 'clean', async () => {
     const r = reconcileConsentRegime({ country: 'XX', marketingVersion: 'mkt-us-2026-08.a' });
     return { pass: r.needs_reconsent === false, actual: JSON.stringify(r) };
+  });
+
+  // The fall-through this pass fixed: an untagged id used to produce the
+  // cleanest-looking row despite being the weakest evidence state, and untagged
+  // is the default state of every new identifier.
+  await check('EEA visitor + untagged id → flagged as unverifiable', 'needs_reconsent', async () => {
+    const r = reconcileConsentRegime({ country: 'NO', marketingVersion: 'mkt-2026-08.a' });
+    return {
+      pass: r.needs_reconsent === true && r.status === 'unverifiable',
+      actual: `${r.status}: ${r.reason}`,
+    };
+  });
+
+  await check('EEA visitor + untagged HEALTH id → flagged as unverifiable', 'needs_reconsent', async () => {
+    const r = reconcileConsentRegime({
+      country: 'NO',
+      marketingVersion: 'mkt-eea-2026-08.a',
+      healthVersion: 'health-2026-08.a',
+    });
+    return {
+      pass: r.needs_reconsent === true && r.status === 'unverifiable' && r.reason.startsWith('health'),
+      actual: `${r.status}: ${r.reason}`,
+    };
+  });
+
+  await check('Non-EEA visitor + untagged id → not flagged', 'clean', async () => {
+    const r = reconcileConsentRegime({ country: 'US', marketingVersion: 'mkt-2026-08.a' });
+    return { pass: r.needs_reconsent === false && r.status === 'ok', actual: r.status };
+  });
+
+  await check('Registered "global" wording is not unverifiable', 'clean', async () => {
+    // Wording written to satisfy the strictest regime is valid everywhere, so
+    // it must not land in the queue just for lacking an audience token.
+    const r = reconcileConsentRegime({ country: 'NO', marketingVersion: '2026-08-15.marketing.a' });
+    return { pass: r.needs_reconsent === false && r.status === 'ok', actual: r.status };
+  });
+
+  await check('mismatch outranks unverifiable in the reason', 'mismatch wins', async () => {
+    const r = reconcileConsentRegime({
+      country: 'NO',
+      marketingVersion: 'mkt-us-2026-08.a',
+      healthVersion: 'health-2026-08.a',
+    });
+    return { pass: r.status === 'mismatch', actual: `${r.status}: ${r.reason}` };
   });
 
   await check('Health version ignored when health consent not granted', 'clean', async () => {
