@@ -269,6 +269,114 @@
   cursor: not-allowed;
 }
 
+/* ─── Checkbox / consent block ───────────────────────────────────────────── */
+
+.z-checkbox-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--z-space-2);
+}
+
+.z-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--z-space-3);
+  /* The row, not just the 24px box, is the tap target. */
+  min-height: 44px;
+}
+
+.z-checkbox {
+  appearance: none;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  /* Optically centres the box on the label's first line. */
+  margin-top: 10px;
+
+  display: grid;
+  place-content: center;
+
+  background: var(--z-surface);
+  border: 2px solid var(--z-border-strong);
+  border-radius: var(--z-radius-sm);
+  cursor: pointer;
+
+  transition:
+    background-color var(--z-dur-fast) var(--z-ease),
+    border-color var(--z-dur-fast) var(--z-ease);
+}
+
+/* The tick. Drawn with clip-path so it needs no icon font and no SVG request. */
+.z-checkbox::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  transform: scale(0);
+  transform-origin: center;
+  background: var(--z-accent-ink);
+  clip-path: polygon(
+    14% 44%, 0 58%, 43% 100%, 100% 16%, 84% 0, 43% 68%
+  );
+  transition: transform var(--z-dur-fast) var(--z-ease);
+}
+
+.z-checkbox:checked {
+  background: var(--z-brand-dark);
+  border-color: var(--z-brand-dark);
+}
+
+.z-checkbox:checked::before { transform: scale(1); }
+
+.z-checkbox:hover:not(:disabled) { border-color: var(--z-ink); }
+
+.z-checkbox:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+.z-checkbox[aria-invalid='true'] { border-color: var(--z-danger); }
+
+.z-checkbox:disabled {
+  background: var(--z-surface-alt);
+  border-color: var(--z-border);
+  cursor: not-allowed;
+}
+
+.z-checkbox:disabled + .z-checkbox-label {
+  color: var(--z-ink-muted);
+  cursor: not-allowed;
+}
+
+.z-checkbox-label {
+  /* Padding, not margin — it extends the clickable label to a 44px row. */
+  padding-block: var(--z-space-3);
+  font-size: var(--z-step-0);
+  line-height: 1.4;
+  color: var(--z-ink);
+  cursor: pointer;
+}
+
+/* Smaller print below. Links live HERE, never inside the label — a link inside
+   a <label> toggles the checkbox when clicked. */
+.z-checkbox-legal {
+  /* Aligns under the label text, clear of the 24px box + 12px gap. */
+  margin-left: calc(24px + var(--z-space-3));
+  font-size: var(--z-step--1);
+  line-height: 1.5;
+  color: var(--z-ink-muted);
+  max-width: var(--z-measure);
+}
+
+.z-checkbox-legal a {
+  color: var(--z-brand-dark);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-checkbox,
+  .z-checkbox::before { transition: none; }
+}
+
 /* ─── Card ───────────────────────────────────────────────────────────────── */
 
 .z-card {

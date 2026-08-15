@@ -25,6 +25,7 @@
 import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
 import Field from '../ui/Field.jsx';
+import Checkbox from '../ui/Checkbox.jsx';
 
 function PlaceholderForm() {
   return (
@@ -51,13 +52,25 @@ function PlaceholderForm() {
         )}
       </Field>
 
+      {/* Consent block — layout only. The wording, the version string and the
+          POST are the conversion agent's. consent_marketing is required and
+          must be true, so the shell shows it unchecked and unticked by default:
+          never pre-tick a consent box, it is not freely given consent. */}
+      <Checkbox
+        id="waitlist-consent-placeholder"
+        consentVersion="placeholder-v0"
+        label="Email me when Zuca launches."
+        legal={
+          <>
+            We&rsquo;ll only use your address to tell you about the launch.
+            Unsubscribe anytime. See our <a href="/privacy">Privacy Policy</a>.
+          </>
+        }
+      />
+
       <Button type="submit" size="lg" block>
         Join the waitlist
       </Button>
-
-      <p className="z-fineprint">
-        We&rsquo;ll email you about the launch. Unsubscribe anytime.
-      </p>
     </form>
   );
 }

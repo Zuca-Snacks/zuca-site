@@ -317,9 +317,26 @@ WebP + JPEG at every needed width. Add a job entry per new image.
   mid-merge.
 - **Primitives are fully styled** — rest, hover, `:focus-visible`, `:disabled`,
   error and loading. You should only need to write logic. `Button`, `Input`,
-  `Select`, `Field`, `Chip` + `ChipGroup` (the max-3 multi-select for
+  `Select`, `Field`, `Checkbox`, `Chip` + `ChipGroup` (the max-3 multi-select for
   `motivation`), `Card`, `Badge`, `Accordion`. Props are documented at the top of
   each file. Import from `src/components/ui/index.js`.
+
+- **`Checkbox` + the consent block** were added for the GDPR Art 7(1) amendment.
+  There was no checkbox primitive, so you could not have rendered a consent
+  control without writing your own styles — that is the one piece of the
+  amendment that landed in UX's lane. What it gives you:
+  - A 24px box on a **47px tap row**; the `<label>` toggles it.
+  - A separate `legal` slot beneath the label. **Put the privacy link there, not
+    in `label`** — a link inside a `<label>` toggles the checkbox when clicked.
+    Verified: clicking the label toggles, clicking the privacy link does not.
+  - `consentVersion` prop → rendered as `data-consent-version` on the wrapper,
+    so `consent_text_version` sits adjacent to the wording it describes and is
+    inspectable on the live page. **Bump it in the same commit as any wording
+    change** — a stale-but-plausible consent record is worse than none.
+  - The shell renders it **unticked**. Never pre-tick a consent box; pre-ticked
+    is not freely given consent under GDPR.
+  - `consent_timestamp` and `country` are server-set — send neither from the
+    client, and **never add a country field**; it is derived from request IP.
 - **Hero email prefill.** The hero has its own email field (required: reachable
   without scrolling). It does **not** POST — it dispatches
   `window` event `zuca:hero-email` with `{ detail: { email } }` and scrolls to
@@ -436,6 +453,35 @@ contract and not mine to change.
 contains `preorder_now`. That's an internal enum value describing purchase
 *intent*, not a user-facing claim, so it does not need to change — but do not
 surface the phrase "pre-order" in the UI label for it.
+
+---
+
+### ⚠️ `zip` is US-only, but the outreach list is now international
+
+Not my field and not my call — flagging because it surfaced directly from the
+consent amendment and affects growth **and** security.
+
+The frozen contract defines:
+
+```jsonc
+"zip": "string|null, /^[0-9]{5}$/"
+```
+
+That regex accepts **only US 5-digit ZIPs**. Emil, 15 Aug: *"Our outreach list
+spans the US, Latin America, Asia, and Europe."* Under that scope the field will
+reject the majority of valid postal codes it is shown — UK `SW1A 1AA`,
+Netherlands `1011 AB`, Japan `100-0001`, Brazil `01310-100`, Canada `M5V 2T6`.
+
+The failure is quiet and bad: an international user types a real postcode, gets
+a validation error with no way to proceed, and the most likely outcome is that
+they abandon rather than clear the field. `zip` is optional in the contract, so
+the cheapest fix is to only *show* it when the server-derived `country` is US —
+which is now available, since `country` is being added anyway. Alternatives:
+relax to `^[A-Za-z0-9][A-Za-z0-9\s-]{2,9}$` and validate server-side per country,
+or drop the field.
+
+**No UI change made** — I don't own the field or the contract. Raising it so it
+is a decision rather than a bug report after launch.
 
 ---
 
