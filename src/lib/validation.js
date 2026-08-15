@@ -14,6 +14,20 @@ import { z } from 'zod';
 
 // ─── Limits ──────────────────────────────────────────────────────────────────
 
+/**
+ * Version of the privacy notice a signup consented to.
+ *
+ * GDPR Art 7(1) puts the burden of proof on us: we must be able to demonstrate
+ * that consent was given. "They ticked a box" is not demonstrable on its own —
+ * the question a regulator asks is *what were they shown when they ticked it*.
+ * Stamping the notice version alongside the timestamp answers that.
+ *
+ * BUMP THIS whenever the wording of the consent line or the purposes in
+ * public/privacy.html change materially. Records carrying an older version can
+ * then be identified and re-consented rather than assumed still valid.
+ */
+export const CONSENT_VERSION = '2026-08-15';
+
 export const MAX_BODY_BYTES = 8 * 1024; // 8 KB. The largest legitimate payload is well under 1 KB.
 export const MIN_FILL_MS = 2000; // Faster than a human can read the form, let alone fill it.
 export const MAX_FORM_AGE_MS = 12 * 60 * 60 * 1000; // Stale timestamp = replayed or forged.
@@ -176,9 +190,19 @@ export const waitlistSchema = z
       .optional()
       .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
 
-    // Separate, explicit opt-in for the health-adjacent field, per the brief.
-    // Not part of the frozen contract because the contract predates the
-    // requirement it states; defaults to false, which is the safe direction.
+    // Separate, EXPLICIT opt-in for the health-adjacent field.
+    //
+    // Under GDPR this is not merely good practice. `motivation` values such as
+    // gut_health, digestion and doctor_suggested reveal information about a
+    // person's health, which makes them special category data under Art 9(1).
+    // Processing is prohibited outright unless an Art 9(2) exception applies,
+    // and the only one available to us is 9(2)(a): *explicit* consent — a
+    // higher bar than the ordinary Art 6(1)(a) consent covering the email
+    // address. It must be a separate, unbundled, affirmative act naming the
+    // specific data and purpose.
+    //
+    // Defaults to false, which is the safe direction: absent an unambiguous
+    // yes, the answer is no.
     consent_health: z.boolean().optional().default(false),
 
     intent: optionalEnum(INTENTS),
@@ -266,16 +290,57 @@ export function sanitizeRecord(record) {
 // ─── Logging ─────────────────────────────────────────────────────────────────
 
 /**
- * A stable, non-reversible handle for an email, safe to write to logs.
+ * A stable, non-reversible handle for an email, safe to write to logs and to
+ * store in the rate-limit database.
  *
- * Truncating to 12 hex characters is deliberate: enough to correlate two log
- * lines about the same person while debugging, short enough that the log is not
- * itself a lookup table for confirming whether a known address is on the list.
- * Never log the address.
+ * Keyed (HMAC-SHA256), not a plain digest. A plain SHA-256 of an email address
+ * is *not* anonymous data: the keyspace of real addresses is small enough to
+ * enumerate, so anyone holding the hashes can recover the addresses with a
+ * wordlist. Under GDPR Recital 26 that makes a bare hash pseudonymised personal
+ * data, which would mean our rate-limit store holds a second copy of the
+ * mailing list and inherits every obligation that comes with it.
+ *
+ * With a server-held key the hash cannot be reversed without also stealing the
+ * key, which is a materially stronger pseudonymisation claim and keeps the
+ * third-party store out of scope for the list itself.
+ *
+ * Falls back to an unkeyed digest if no pepper is configured, so the endpoint
+ * still works before the env var is set — but logs the downgrade, because
+ * silently weakening a privacy control is worse than not having it.
  */
+let warnedMissingPepper = false;
+
 export async function emailHandle(email) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(email));
-  return Array.from(new Uint8Array(digest))
+  const pepper = process.env.EMAIL_HASH_PEPPER;
+  const encoder = new TextEncoder();
+  let bytes;
+
+  if (pepper) {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(pepper),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    bytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(email)));
+  } else {
+    if (!warnedMissingPepper) {
+      warnedMissingPepper = true;
+      console.warn(
+        '[validation] EMAIL_HASH_PEPPER is not set. Email handles fall back to an ' +
+          'unkeyed SHA-256, which is reversible by enumeration and therefore still ' +
+          'personal data under GDPR. See SECURITY.md §5.5.'
+      );
+    }
+    bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(email)));
+  }
+
+  // Truncated to 12 hex characters: enough to correlate two log lines about the
+  // same person while debugging, short enough that the log is not itself a
+  // lookup table for confirming whether a known address is on the list.
+  // Never log the address.
+  return Array.from(bytes)
     .slice(0, 6)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');

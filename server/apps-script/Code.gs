@@ -44,7 +44,13 @@ function getToken_() {
 /** Sheet tab that holds signups. Change if yours is named differently. */
 var SHEET_NAME = 'Sheet1';
 
-/** Columns written, in order. Missing ones are appended to row 1 on first use. */
+/**
+ * Columns written, in order. Missing ones are appended to row 1 on first use.
+ *
+ * Header matching is CASE-INSENSITIVE and whitespace-tolerant (see
+ * `ensureColumns_`), so an existing `Email` column is reused rather than having
+ * a second `email` created beside it.
+ */
 var COLUMNS = [
   'timestamp',
   'email',
@@ -63,10 +69,42 @@ var COLUMNS = [
   'utm_content',
   'utm_term',
   'page_path',
+  'consent_version',
   'consent_ts',
   'consent_ip_prefix',
   'user_agent',
+
+  // ── Legacy columns ────────────────────────────────────────────────────────
+  // Written only by the OLD modal, which posts straight to this script and
+  // sends `name`, `phone` and `hearAbout`. Without these entries every one of
+  // those values is silently dropped, because a key absent from COLUMNS is
+  // never written anywhere.
+  //
+  // They are kept as separate columns rather than folded into `referral_source`
+  // on purpose: the two use different vocabularies (`physician` vs `doctor`,
+  // `social` vs `instagram`), and merging them would quietly corrupt the
+  // meaning of the historical values. Backfill deliberately, once, by hand.
+  //
+  // Note what is NOT here: legacy `reason`. See `LEGACY_KEYS` below.
+  'name',
+  'phone',
+  'hearAbout',
 ];
+
+/**
+ * Keys the old modal sends that we still accept.
+ *
+ * `reason` is deliberately absent. It is the health-related field — Art 9
+ * special category data — and the old modal captures no consent for it at all.
+ * Storing it would be unlawful, so it is dropped.
+ *
+ * That drop is intentional, and it is the one case where "the data disappears"
+ * is the correct behaviour rather than the bug. It is logged on every occurrence
+ * so it is a *known* drop and not a silent one. Once the new form ships with its
+ * separate health opt-in, the same information arrives as `motivation` with
+ * `consent_health: true` and is stored normally.
+ */
+var LEGACY_KEYS = ['name', 'phone', 'hearAbout'];
 
 // ─── Safety ──────────────────────────────────────────────────────────────────
 
@@ -118,25 +156,45 @@ function getSheet_() {
  * Map column name → 1-based index, creating any column that does not exist.
  * Preserves whatever columns are already in the sheet, in place.
  */
+function normalizeHeader_(h) {
+  // Case- and separator-insensitive. An existing column called "Email",
+  // "E-mail" or "consent ts" should be recognised as ours rather than
+  // duplicated beside a new one. Getting this wrong is silent and expensive:
+  // half the rows land in one column and half in its twin.
+  return String(h).trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
 function ensureColumns_(sheet) {
   var lastCol = Math.max(1, sheet.getLastColumn());
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
     return String(h).trim();
   });
 
-  var index = {};
+  // Map normalized header -> 1-based column.
+  var byNormalized = {};
   headers.forEach(function (h, i) {
-    if (h) index[h] = i + 1;
+    if (h) byNormalized[normalizeHeader_(h)] = i + 1;
   });
 
-  var toAppend = COLUMNS.filter(function (c) {
-    return !index[c];
+  // Resolve each canonical column name against what is already in the sheet.
+  var index = {};
+  var toAppend = [];
+  COLUMNS.forEach(function (c) {
+    var at = byNormalized[normalizeHeader_(c)];
+    if (at) {
+      index[c] = at;
+    } else {
+      toAppend.push(c);
+    }
   });
 
   if (toAppend.length) {
-    sheet.getRange(1, headers.length + 1, 1, toAppend.length).setValues([toAppend]);
+    // `headers.length` rather than getLastColumn(): a sheet whose last columns
+    // are blank reports a shorter lastColumn and we would overwrite real data.
+    var firstNew = headers.length + 1;
+    sheet.getRange(1, firstNew, 1, toAppend.length).setValues([toAppend]);
     toAppend.forEach(function (c, i) {
-      index[c] = headers.length + 1 + i;
+      index[c] = firstNew + i;
     });
   }
 
@@ -230,10 +288,24 @@ function doPost(e) {
       utm_content: utm.content,
       utm_term: utm.term,
       page_path: payload.page_path,
+      consent_version: payload.consent_version,
       consent_ts: payload.consent_ts,
       consent_ip_prefix: payload.consent_ip_prefix,
       user_agent: payload.user_agent,
+
+      // Legacy keys from the old modal. Absent on the new path, which is fine —
+      // sanitizeCell_ turns undefined into an empty cell.
+      name: payload.name,
+      phone: payload.phone,
+      hearAbout: payload.hearAbout,
     };
+
+    // Legacy `reason` is health data with no consent behind it. Dropped on
+    // purpose (see LEGACY_KEYS), but logged so the drop is visible in
+    // Executions rather than silent.
+    if (payload.reason) {
+      console.log('legacy_reason_dropped: no Art 9 consent on the legacy path');
+    }
 
     var row = sheet.getLastRow() + 1;
     var width = Math.max.apply(

@@ -22,6 +22,7 @@
 
 import {
   MAX_BODY_BYTES,
+  CONSENT_VERSION,
   validateWaitlist,
   detectBot,
   sanitizeRecord,
@@ -229,8 +230,12 @@ export default async function handler(req, res) {
     consent_marketing: data.consent_marketing,
     utm: data.utm,
     page_path: data.page_path,
-    // Consent evidence. If the opt-in is ever challenged, these three fields
-    // plus the timestamp are what answers it.
+    // Consent evidence. GDPR Art 7(1) puts the burden of proof on us, so these
+    // four fields are the record: when, from roughly where, with what browser,
+    // and — the one usually missing — which version of the notice was on screen
+    // at the time. The IP is truncated to a /24 before storage: enough to
+    // corroborate a consent record, not enough to single out a device.
+    consent_version: CONSENT_VERSION,
     consent_ts: new Date().toISOString(),
     consent_ip_prefix: ip.includes(':') ? ip.split(':').slice(0, 3).join(':') : ip.split('.').slice(0, 3).join('.') + '.0',
     user_agent: String(req.headers['user-agent'] || '').slice(0, 200),

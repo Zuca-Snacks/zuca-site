@@ -193,8 +193,12 @@ export async function checkRateLimit(req, { namespace = 'waitlist' } = {}) {
  * Returns true if this address has been seen before. The raw address is never
  * used as a key: Redis keys turn up in dashboards, slow-query logs and backups,
  * and an unhashed key would make the rate-limit store a second copy of the
- * mailing list. With only the durable store absent this returns false — better
- * to accept a duplicate row than to reject a genuine signup.
+ * mailing list. The handle passed in is a *keyed* HMAC (see `emailHandle` in
+ * validation.js) rather than a plain digest, because a plain hash of an email
+ * is reversible by enumeration and would still be personal data under GDPR.
+ *
+ * With the durable store absent this returns false — better to accept a
+ * duplicate row than to reject a genuine signup.
  */
 export async function isDuplicate(emailHash, { namespace = 'waitlist', ttlSec = 400 * 86400 } = {}) {
   if (!DURABLE) return false;

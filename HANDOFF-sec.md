@@ -237,6 +237,121 @@ enforcement actions quote.
 
 ---
 
+## 3b → Sheet migration runbook (Emil, by hand in the Google Sheets UI)
+
+The Conversion agent found a real bug and it is worth stating precisely, because the fix is not
+quite what it looks like.
+
+**The bug.** The old modal posts `hearAbout` and `reason`. The new contract posts `referral_source`
+and `motivation`. An Apps Script that maps a fixed set of keys to columns writes *nothing* for a key
+it does not recognise — no error, no warning, just an empty cell. So on the fallback path, which is
+the only live path until `/api/waitlist` ships, every step-2 answer vanishes silently.
+
+**Confirmed, by running it.** `npm run security:test:sheet` loads the real
+[server/apps-script/Code.gs](server/apps-script/Code.gs) into a sandbox, points it at a mock sheet
+carrying your current header row, and inspects which cell each field lands in. 17 checks, all
+passing. The hardened script **does** accept `referral_source` and `motivation`, and **does**
+auto-append any missing column on first write.
+
+**But checking it surfaced two further problems in my own script, now fixed:**
+
+1. **`name` and `phone` were being dropped too.** My original `COLUMNS` list was built from the
+   frozen contract, which contains neither — so the hardened script would have silently discarded
+   both, the same bug class one layer down. They are now legacy columns and are preserved.
+2. **Header matching was case-sensitive.** An existing `Email` column would not have matched the
+   canonical `email`, so the script would have created a *second* `email` column beside it and split
+   your data across the two. Matching is now case- and separator-insensitive, so `Email`, `E-Mail`
+   and `email` all resolve to one column.
+
+**One field is dropped on purpose.** Legacy `reason` is the health question — GDPR Art 9 special
+category data — and the old modal captures no consent for it whatsoever. Storing it would be
+unlawful, so the hardened script discards it and writes `legacy_reason_dropped` to the execution log
+each time. That is the one case where data disappearing is correct rather than a bug; it is now a
+*known* drop instead of a silent one. Once the new form ships with its separate health opt-in, the
+same information arrives as `motivation` with `consent_health: true` and is stored normally.
+
+### ⚠️ Do this in the right order
+
+**Deploy the hardened Apps Script only *after* the new client is live.** If you rotate first, the old
+modal — which sends no token — gets `forbidden` on every write, and because it uses
+`mode:"no-cors"` it *cannot read the response*. Every visitor would see "You're on the list" and
+every signup would be lost, with nothing in the browser or the sheet to tell you. Sequence:
+
+1. Add the columns (below) — safe at any time, changes nothing.
+2. Conversion agent's client change merges and deploys.
+3. Set the Vercel env vars.
+4. Rotate the Apps Script last, then run the verification signup.
+
+### Step 1 — add the columns
+
+Strictly optional: `ensureColumns_` creates any missing column automatically on the first write.
+Doing it by hand just means you choose the layout and can see it is right before real data arrives.
+
+Open the sheet. **Row 1 only.** Leave `A`–`F` exactly as they are — those are your existing columns
+and the script now recognises all of them.
+
+Type these into row 1, left to right, starting in **cell G1**. Spelling must match exactly;
+capitalisation and spaces do not matter, underscores do.
+
+| Cell | Header | Cell | Header |
+|---|---|---|---|
+| **G1** | `zip` | **Q1** | `utm_medium` |
+| **H1** | `intent` | **R1** | `utm_campaign` |
+| **I1** | `price_band` | **S1** | `utm_content` |
+| **J1** | `flavor` | **T1** | `utm_term` |
+| **K1** | `is_clinician` | **U1** | `page_path` |
+| **L1** | `referral_source` | **V1** | `consent_version` |
+| **M1** | `consent_marketing` | **W1** | `consent_ts` |
+| **N1** | `consent_health` | **X1** | `consent_ip_prefix` |
+| **O1** | `motivation` | **Y1** | `user_agent` |
+| **P1** | `utm_source` | | |
+
+19 new columns, `G` through `Y`. 25 columns total when you are done.
+
+**Do not delete `E` (`hearAbout`) or `F` (`reason`).** They hold your existing 136 rows of answers.
+New signups write to `L` (`referral_source`) and `O` (`motivation`) instead, because the two use
+different vocabularies — old `physician` versus new `doctor`, old `social` versus new `instagram`.
+Merging them would quietly corrupt the meaning of the historical values. If you want one clean
+column later, backfill deliberately with this mapping:
+
+| Old `hearAbout` (col E) | New `referral_source` (col L) |
+|---|---|
+| `physician` | `doctor` |
+| `friend` | `friend` |
+| `social` | `instagram` |
+| `stanford` | `event` |
+| `other` | `other` |
+
+### Step 2 — verify with a test signup
+
+After the client is live and the Apps Script is rotated:
+
+1. Open the site in a **private/incognito window** (so nothing cached interferes).
+2. Fill the form properly — real-looking email you control, tick the consent box, and **take more
+   than 2 seconds**. Submitting faster than that trips the bot timer and the row is discarded by
+   design.
+3. Watch the sheet. A new row should appear within a couple of seconds.
+
+**Check these cells on the new row.** This is the actual test — a row appearing is not proof, since
+the failure mode is a row appearing with empty cells:
+
+| Cell | Should contain | If it is empty |
+|---|---|---|
+| `C` (`email`) | your test address, lowercased | Nothing is working — check the Vercel env vars |
+| `M` (`consent_marketing`) | `TRUE` | The consent checkbox is not being sent |
+| `V` (`consent_version`) | `2026-08-15` | You are on an old build of the endpoint |
+| `W` (`consent_ts`) | an ISO timestamp | Same |
+| `L` (`referral_source`) | your dropdown answer | **The exact bug this runbook is about** — the client is still sending `hearAbout` |
+| `O` (`motivation`) | your answer, *only if* you ticked the health box | Empty with the box **unticked** is correct. Empty with it **ticked** is a bug |
+| `B`, `D`, `E` (`name`, `phone`, `hearAbout`) | empty | These should be blank on the new path. Values here mean the old modal is still live |
+
+4. Delete the test row when you are done.
+
+**If a row does not appear at all**, look at the Apps Script execution log: Apps Script editor →
+**Executions** in the left sidebar. `forbidden` means the token does not match between the
+`ZUCA_TOKEN` script property and Vercel's `SHEETS_WEBHOOK_TOKEN`. Nothing at all means the request
+never arrived — check `SHEETS_WEBHOOK_URL` points at the *new* deployment.
+
 ## 4 → Emil, outside the codebase
 
 Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign blockers.

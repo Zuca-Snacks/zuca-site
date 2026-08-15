@@ -1,0 +1,263 @@
+/**
+ * Apps Script migration test.
+ *
+ *   node scripts/test-apps-script.mjs
+ *
+ * Loads the REAL server/apps-script/Code.gs into a sandbox with the Apps Script
+ * globals stubbed, points it at a mock sheet carrying the OLD header row, and
+ * checks where each field actually lands.
+ *
+ * The bug this exists to catch: a key the script does not know about is written
+ * nowhere and reports no error. That is invisible in code review and invisible
+ * in production — the row appears, just with empty cells. The only way to know
+ * is to run it and look at the cells.
+ */
+
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const SOURCE = fs.readFileSync(new URL('../server/apps-script/Code.gs', import.meta.url), 'utf8');
+
+// ─── Mock sheet ──────────────────────────────────────────────────────────────
+
+function makeSheet(headerRow, dataRows = []) {
+  const grid = [headerRow.slice(), ...dataRows.map((r) => r.slice())];
+
+  const widen = (row, n) => {
+    while (row.length < n) row.push('');
+  };
+
+  return {
+    _grid: grid,
+    getLastRow: () => grid.length,
+    getLastColumn: () => Math.max(...grid.map((r) => r.length)),
+    getRange(row, col, numRows = 1, numCols = 1) {
+      return {
+        getValues() {
+          const out = [];
+          for (let r = row; r < row + numRows; r++) {
+            const src = grid[r - 1] || [];
+            const line = [];
+            for (let c = col; c < col + numCols; c++) line.push(src[c - 1] ?? '');
+            out.push(line);
+          }
+          return out;
+        },
+        setValues(values) {
+          values.forEach((line, i) => {
+            const r = row + i - 1;
+            while (grid.length <= r) grid.push([]);
+            widen(grid[r], col + line.length - 1);
+            line.forEach((v, j) => {
+              grid[r][col + j - 1] = v;
+            });
+          });
+          return this;
+        },
+        setValue(v) {
+          const r = row - 1;
+          while (grid.length <= r) grid.push([]);
+          widen(grid[r], col);
+          grid[r][col - 1] = v;
+          return this;
+        },
+        setNumberFormat() {
+          return this;
+        },
+      };
+    },
+  };
+}
+
+// ─── Sandbox ─────────────────────────────────────────────────────────────────
+
+function loadScript(sheet, token = 'test-token') {
+  const responses = [];
+  const logs = [];
+  const sandbox = {
+    console: { log: (m) => logs.push(String(m)), error: (m) => logs.push(String(m)) },
+    PropertiesService: {
+      getScriptProperties: () => ({ getProperty: (k) => (k === 'ZUCA_TOKEN' ? token : null) }),
+    },
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => ({ getSheetByName: () => sheet, getSheets: () => [sheet] }),
+    },
+    ContentService: {
+      MimeType: { JSON: 'application/json' },
+      createTextOutput: (t) => {
+        responses.push(JSON.parse(t));
+        return { setMimeType: () => t };
+      },
+    },
+    LockService: {
+      getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }),
+    },
+    Date,
+    JSON,
+    String,
+    Number,
+    Math,
+    Array,
+    Object,
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(SOURCE, sandbox);
+  return { sandbox, responses, logs };
+}
+
+function post(sheet, payload, token = 'test-token') {
+  const { sandbox, responses, logs } = loadScript(sheet, token);
+  sandbox.doPost({ postData: { contents: JSON.stringify({ ...payload, token }) } });
+  return { response: responses[responses.length - 1], logs };
+}
+
+// ─── Runner ──────────────────────────────────────────────────────────────────
+
+let failures = 0;
+function check(name, pass, detail) {
+  if (!pass) failures += 1;
+  console.log(`  ${pass ? '✓' : '✗'} ${name}`);
+  if (detail) console.log(`      ${detail}`);
+}
+
+function cellFor(sheet, field, rowIndex = 1) {
+  const headers = sheet._grid[0].map((h) => String(h).trim().toLowerCase().replace(/[\s_-]+/g, ''));
+  const want = field.trim().toLowerCase().replace(/[\s_-]+/g, '');
+  const at = headers.indexOf(want);
+  if (at === -1) return { missing: true };
+  return { column: at + 1, value: sheet._grid[rowIndex]?.[at] ?? '' };
+}
+
+console.log('\n══ Apps Script migration test ══\n');
+
+// The old sheet, as it exists today: whatever the previous script wrote.
+const OLD_HEADERS = ['Timestamp', 'name', 'email', 'phone', 'hearAbout', 'reason'];
+
+console.log('  Scenario A — legacy modal posts to the hardened script');
+console.log('  (the fallback path: old client, new backend)\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  const { response, logs } = post(sheet, {
+    name: 'Kari Nordmann',
+    email: 'Kari@Example.NO',
+    phone: "'+4791234567",
+    hearAbout: 'physician',
+    reason: 'gut',
+  });
+
+  check('accepted', response?.ok === true, JSON.stringify(response));
+  for (const f of ['name', 'phone', 'hearAbout', 'email']) {
+    const c = cellFor(sheet, f);
+    check(`legacy field "${f}" is stored`, !c.missing && c.value !== '', `col ${c.column} = ${JSON.stringify(c.value)}`);
+  }
+  const reason = cellFor(sheet, 'reason');
+  check(
+    'legacy "reason" is dropped (Art 9, no consent) — and logged, not silent',
+    reason.value === '' && logs.some((l) => l.includes('legacy_reason_dropped')),
+    `reason cell = ${JSON.stringify(reason.value)}; log: ${logs.find((l) => l.includes('legacy_reason')) ?? 'NONE'}`
+  );
+  check(
+    'no duplicate column created for existing "Timestamp"',
+    sheet._grid[0].filter((h) => String(h).toLowerCase() === 'timestamp').length === 1,
+    `headers: ${sheet._grid[0].join(', ')}`
+  );
+}
+
+console.log('\n  Scenario B — new contract posts to the hardened script');
+console.log('  (the target path: new client via /api/waitlist)\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  const { response } = post(sheet, {
+    email: 'ola@example.no',
+    zip: '94305',
+    referral_source: 'doctor',
+    motivation: ['gut_health', 'digestion'],
+    consent_health: true,
+    consent_marketing: true,
+    intent: 'preorder_now',
+    price_band: '24_29',
+    flavor: 'both',
+    is_clinician: true,
+    utm: { source: 'newsletter', campaign: 'launch' },
+    page_path: '/',
+    consent_version: '2026-08-15',
+    consent_ts: '2026-08-15T12:00:00.000Z',
+    consent_ip_prefix: '203.0.113.0',
+    user_agent: 'Mozilla/5.0',
+  });
+
+  check('accepted', response?.ok === true, JSON.stringify(response));
+  for (const [f, expect] of [
+    ['referral_source', 'doctor'],
+    ['motivation', 'gut_health|digestion'],
+    ['consent_version', '2026-08-15'],
+    ['utm_source', 'newsletter'],
+    ['zip', '94305'],
+    ['flavor', 'both'],
+  ]) {
+    const c = cellFor(sheet, f);
+    check(`new field "${f}" lands correctly`, !c.missing && String(c.value) === expect, `col ${c.column} = ${JSON.stringify(c.value)}`);
+  }
+  check(
+    'legacy columns left empty on the new path',
+    cellFor(sheet, 'hearAbout').value === '' && cellFor(sheet, 'name').value === '',
+    'name and hearAbout blank'
+  );
+}
+
+console.log('\n  Scenario C — health data without the separate consent\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'a@example.no', motivation: ['gut_health'], consent_health: false });
+  check(
+    'motivation dropped when consent_health is false',
+    cellFor(sheet, 'motivation').value === '',
+    `motivation cell = ${JSON.stringify(cellFor(sheet, 'motivation').value)}`
+  );
+}
+
+console.log('\n  Scenario D — case-insensitive header matching\n');
+{
+  const sheet = makeSheet(['Timestamp', 'E-Mail', 'Consent TS']);
+  post(sheet, { email: 'b@example.no', consent_ts: '2026-08-15T00:00:00Z' });
+  const headers = sheet._grid[0];
+  check(
+    'existing "E-Mail" reused, no second email column',
+    headers.filter((h) => normalize(h) === 'email').length === 1,
+    `headers: ${headers.join(', ')}`
+  );
+  check(
+    'existing "Consent TS" reused, no second consent_ts column',
+    headers.filter((h) => normalize(h) === 'consentts').length === 1,
+    `headers: ${headers.join(', ')}`
+  );
+  function normalize(h) {
+    return String(h).trim().toLowerCase().replace(/[\s_-]+/g, '');
+  }
+}
+
+console.log('\n  Scenario E — auth\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  const { sandbox, responses } = loadScript(sheet, 'real-token');
+  sandbox.doPost({ postData: { contents: JSON.stringify({ email: 'x@y.no', token: 'wrong' }) } });
+  check('wrong token rejected', responses[0]?.error === 'forbidden', JSON.stringify(responses[0]));
+
+  const { sandbox: s2, responses: r2 } = loadScript(makeSheet(OLD_HEADERS), 'real-token');
+  s2.doPost({ postData: { contents: JSON.stringify({ email: 'x@y.no' }) } });
+  check('missing token rejected', r2[0]?.error === 'forbidden', JSON.stringify(r2[0]));
+}
+
+console.log('\n  Final header row after migration:\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'z@example.no' });
+  sheet._grid[0].forEach((h, i) => {
+    const col = String.fromCharCode(65 + (i % 26));
+    const prefix = i >= 26 ? 'A' : '';
+    console.log(`      ${(prefix + col).padEnd(4)} ${h}`);
+  });
+}
+
+console.log(`\n  ${failures === 0 ? 'All checks passed.' : `${failures} check(s) FAILED.`}\n`);
+process.exit(failures ? 1 : 0);

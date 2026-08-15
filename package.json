@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "security:test": "node scripts/attack-waitlist.mjs",
+    "security:test:sheet": "node scripts/test-apps-script.mjs",
     "security:headers": "node scripts/check-headers.mjs"
   },
   "dependencies": {
