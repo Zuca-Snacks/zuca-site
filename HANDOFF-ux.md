@@ -59,11 +59,16 @@ I reverted it. If you want to go under 2.0 s properly, the real levers are
 pre-rendering/SSG for the landing route, or dropping React for this one page.
 Say the word and I'll cost it out.
 
-**On SEO 92.** The single deduction is `robots.txt is not valid` — there isn't
-one, so the dev server returns `index.html` for `/robots.txt` and the parser
-chokes. A four-line `public/robots.txt` fixes it, but that file is outside my
-ownership (it's site config, not `public/images/**`), so **I did not create it**.
-Security agent or you: please add one.
+**On SEO.** The single deduction was `robots.txt is not valid` — there wasn't
+one, so the server returned `index.html` for `/robots.txt` and the parser choked.
+Emil handed me ownership of these, so `public/robots.txt` and
+`public/sitemap.xml` now exist and the deduction is closed (**SEO 92 → 100**).
+
+⚠️ The sitemap lists **only `/`**. The footer links to `/privacy` and `/terms`,
+which don't exist yet — they're the security agent's. **Add them to
+`public/sitemap.xml` when those routes ship**; listing URLs that 404 wastes crawl
+budget and counts as a quality signal against the site. Both files hardcode
+`https://zucasnacks.com` — update if the production domain differs.
 
 **Verified with a browser at 360 / 390 / 430 / 768 / 1280 px:**
 - No horizontal scroll at any width; no element wider than the viewport.
@@ -100,6 +105,16 @@ value.** Ten pairings from the real palette fail WCAG AA:
 | 9 | Green-accent text on background | `--green-accent #089B35` on `#FDE0B4` | **2.87:1** | 4.5:1 | `#067428` → 4.66:1 |
 | 10 | Green-accent text on card | `#089B35` on `#FFFDF8` | **3.59:1** | 4.5:1 | `#067428` → 4.87:1 |
 
+### ✅ RESOLVED — muted text (#1, #2, #3)
+
+**Emil approved `#666666`.** The two tokens are collapsed: `--z-ink-muted` now
+holds `#666666` and `--z-ink-muted-aa` no longer exists. Rationale, in his words:
+a barely-perceptible darkening of gray is worth more than matching `#888888`
+exactly, and muted text is everywhere. Contrast is now 4.51:1 on the cream
+background, 5.65:1 on cards, 5.24:1 on the alt surface — all pass.
+
+**Rows 4–10 are still open** and use real brand values as shipped; see below.
+
 **What I shipped in the meantime.** Rather than alter your brand or ship failing
 text, the layout only uses these colors where they *do* pass:
 
@@ -110,11 +125,8 @@ text, the layout only uses these colors where they *do* pass:
 - **Brand red** is used for CTA fills (white on red = 5.42:1) and for the
   wordmark. Red *text* on cream uses `--red-dark` instead, which is a real brand
   color, not an invented one.
-- **Gray `#888`** is the one I could not route around: it is the muted-text role
-  and muted text is everywhere (hints, notes, fine print). `--z-ink-muted` holds
-  the real `#888888`, and a second token `--z-ink-muted-aa: #666666` carries the
-  actual text. **This is the one decision I'd most like you to confirm** —
-  approve `#666666` and I'll collapse the two tokens into one.
+- **Gray `#888`** was the one I could not route around. **Resolved above** —
+  `--z-ink-muted` is now `#666666`.
 
 Run the audit yourself any time:
 `node scratchpad/contrast-brand.mjs` (script path in my session notes; happy to
@@ -132,7 +144,7 @@ commit it to the repo if useful).
 | `--z-surface` | `#FFFDF8` | `--white` |
 | `--z-surface-alt` | `#FFF3E0` | `--cream-2` |
 | `--z-ink` | `#524128` | `--brown` (the site's `body` color) |
-| `--z-ink-muted` | `#888888` | `--gray` |
+| `--z-ink-muted` | `--gray #888888` → shipped as `#666666` | `--gray`, darkened to pass AA (approved) |
 | `--z-brand` | `#CC1850` | `--red` |
 | `--z-brand-dark` | `#A3112D` | `--red-dark` |
 | `--z-accent` | `#CC1850` | `--red` — the site's CTA fill, so accent = brand deliberately |
@@ -151,7 +163,7 @@ commit it to the repo if useful).
 
 | Token | Value | Reasoning |
 |---|---|---|
-| `--z-ink-muted-aa` | `#666666` | AA-passing muted text. See §2. **Needs approval.** |
+| `--z-ink-muted` | `#666666` | **Approved by Emil.** The brand's `--gray #888888` is 2.78:1 on cream and fails AA at body size. Same hue, darkened until it passes. See §2. |
 | `--z-border` | `#E9C88C` | Decorative hairline. No border color existed. |
 | `--z-border-strong` | `#8A7250` | Input/control edges need 3:1 per WCAG 1.4.11; the decorative hairline is 1.26:1. 3.58:1 on cream. |
 | `--z-danger` | `#B3261E` | No error color on the site. Kept visibly distinct from the pink-red brand so an error never reads as a CTA. 5.14:1 on cream. |
@@ -194,10 +206,52 @@ and generated metric overrides so nothing reflows when the webfont swaps in:
 | Outfit → Arial | 97.61% | 102.45% | 26.64% | −1.62% → **0.00%** |
 | Lazydog → Arial Black | 96.76% | 87.85% | 20.67% | −2.27% → **0.00%** |
 
-⚠️ **Lazy Dog ships one weight only.** Your investor site sets `font-weight:800`
-on it, which the browser fakes by smearing the glyphs. I declared it `400` and
-let size carry emphasis instead. If you want a genuinely bold display face, that
-needs a real bold cut from the foundry.
+### ⚠️ Lazy Dog ships one weight — what a real bold cut would take
+
+Your investor site sets `font-weight:800` on Lazy Dog. The font contains only a
+Regular, so the browser **fakes** the bold by algorithmically smearing each glyph
+outward. It looks cheap at display sizes — exactly where the wordmark and every
+headline live. I declared the face `400` and let size carry emphasis instead.
+
+**Who made it**, read out of the font file's own name table:
+
+| Field | Value |
+|---|---|
+| Family / style | `Lazydog` / `Regular` (single weight) |
+| Designer | **Juliya Kochkanyan** |
+| Vendor / license URL | <https://creativemarket.com/Juliya89> |
+| Version | 1.005, built with Fontself Maker 3.5.1 |
+
+**What that tells us.** It is an independent Creative Market display font, not a
+foundry family with a weight range. Fonts in this category are typically sold as
+a one-off desktop licence in the ~$15–30 range, usually with a separate webfont
+licence — but **I have not verified current pricing or what licence Zuca already
+holds, and you should not budget off my estimate.** Two things to check before
+anything else:
+
+1. **Does Zuca's existing licence cover web embedding at all?** A desktop-only
+   licence does not permit serving the file from your site, which is what both
+   the investor site and this branch now do. Worth confirming regardless of the
+   bold question — this is a live compliance item, not a nice-to-have.
+2. **Is there a bold weight for sale?** The name table shows a single-weight
+   family, so most likely not. Ask Juliya Kochkanyan directly via the Creative
+   Market link.
+
+**Your realistic options, cheapest first:**
+
+- **Do nothing** (what's shipped). Regular-only, emphasis via size. Costs $0 and
+  looks correct. My recommendation until the brand needs more range.
+- **Commission a bold cut** from the original designer. Preserves the brand
+  exactly. Custom weight work from an independent designer is normally a
+  low-hundreds-to-low-thousands commission depending on character set — get a
+  quote, don't assume.
+- **Switch display faces** to a variable font with a real weight axis. Free
+  options with genuine display bolds exist, but it changes the brand's voice, so
+  it is a brand decision rather than a technical one.
+
+⚠️ Do **not** "solve" this by setting `font-weight: 700+` on Lazy Dog. That is
+the faux-bold that motivated the change. If a heavier look is needed before a
+real cut exists, increase size or use color/spacing for hierarchy.
 
 ---
 
@@ -288,12 +342,36 @@ the brief's **forbidden** list:
 | Hero body | "A chronic **disease** epidemic" | Removed. |
 | Intro tagline | "the snack brand that **clinicians recommend**" | Removed. |
 | Product + footer | "**Clinician-formulated**" | Removed. |
-| Founders list | "**Reversed autoimmune disease** through diet" | Removed and **not** reworded — it names a disease alongside diet and a founder. Needs your and/or Cooley's call before it goes anywhere. |
+| Founders list | "**Reversed autoimmune disease** through plant-based diet" | **CUT, not reworded — Emil's explicit decision.** See the Cooley item below. |
 | Pre-order form | "Why do you want Zuca?" → "**Weight management**" option | Gone with the old form. The brief's `motivation` enum has no weight option — conversion agent should not add one. |
 
 Nothing I wrote names a disease, implies treatment or prevention, or claims
 endorsement. The strongest health line on the page is "Fiber supports digestive
 health", which is an allowed structure/function claim.
+
+### 📋 FOR COOLEY LLP TO CONFIRM
+
+**Item: removal of the autoimmune credential from the founders section.**
+
+- **Removed text:** "Reversed autoimmune disease through plant-based diet",
+  previously listed as a credential under Kelley Yuan, MD.
+- **Decision:** cut entirely. Not softened, not reworded, not moved elsewhere on
+  the site. Emil's call, and I agree with the reasoning: the sentence is
+  unobjectionable in an investor deck, but on a consumer product page it sits
+  inches from the product and beside a physician's credentials, where proximity
+  converts a personal biographical fact into an **implied claim that the product
+  treats or mitigates a disease**. Zuca is a food, not a drug.
+- **Replaced with**, carrying the same authority and no claim: "Stanford Medicine
+  physician" and "Leads Zuca's clinical network — 10+ physicians across 7
+  specialties".
+- **Ask of Cooley:** confirm (a) the removal is sufficient, and (b) that the
+  remaining founders copy — a physician co-founder listed beside a fiber product
+  — does not itself constitute an implied endorsement or disease claim. This is
+  the one part of the page where a compliant sentence and a non-compliant one
+  look almost identical, so it is worth an explicit sign-off rather than an
+  assumption.
+- **Guard in code:** `src/components/sections/Founders.jsx` carries a
+  do-not-reinstate comment at the top of the file.
 
 ---
 

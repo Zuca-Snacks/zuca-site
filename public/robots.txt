@@ -1,0 +1,7 @@
+# Zuca Snacks — https://zucasnacks.com
+# Everything on the site is public marketing content; nothing is disallowed.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://zucasnacks.com/sitemap.xml

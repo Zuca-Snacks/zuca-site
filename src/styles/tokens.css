@@ -26,12 +26,13 @@
   --z-surface: #fffdf8;     /* [BRAND] --white — cards, inputs */
   --z-surface-alt: #fff3e0; /* [BRAND] --cream-2 — banded sections */
   --z-ink: #524128;         /* [BRAND] --brown — body text (7.69:1 on bg) */
-  --z-ink-muted: #888888;   /* [BRAND] --gray — FAILS AA at body size (2.78:1) */
 
-  /* [INVENTED] Accessible stand-in for --z-ink-muted, used for any muted text
-     at body size. A straight darkening of the brand gray, hue preserved.
-     Pending Emil's approval — see HANDOFF-ux.md. */
-  --z-ink-muted-aa: #666666; /* 4.51:1 on bg */
+  /* [BRAND-DERIVED, APPROVED] The brand's --gray is #888888, which is 2.78:1 on
+     cream and fails AA at body size. Emil approved darkening it: a
+     barely-perceptible shift is worth more than matching #888888 exactly, since
+     muted text (hints, notes, fine print) appears everywhere on the page.
+     Same hue, same neutrality — just dark enough to read. */
+  --z-ink-muted: #666666;   /* 4.51:1 on bg · 5.65:1 on surface · 5.24:1 on alt */
 
   --z-border: #e9c88c;        /* [INVENTED] decorative hairline on cream */
   --z-border-strong: #8a7250; /* [INVENTED] control edges, needs 3:1 */

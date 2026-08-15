@@ -6,10 +6,18 @@
  * in HANDOFF-ux.md. Until they arrive, a monogram stands in — it reads as a
  * deliberate placeholder rather than pretending to be a photo of someone.
  *
- * GUARDRAIL NOTE: the previous site listed "Reversed autoimmune disease through
- * diet" under Dr. Yuan. That names a disease alongside the product's founder
- * and diet, which the brief forbids. It is omitted here and flagged in the
- * handoff rather than being reworded on my own authority.
+ * ⚠️ GUARDRAIL — DO NOT REINSTATE.
+ * The previous site listed "Reversed autoimmune disease through plant-based
+ * diet" under Dr. Yuan. It is CUT, not reworded — Emil's explicit decision.
+ * The line is fine in an investor deck and dangerous on a consumer product
+ * page: sitting inches from the product, next to a physician's credentials, it
+ * reads as an implied claim that the product treats disease. Nothing about a
+ * named condition belongs in this section in any wording.
+ *
+ * The authority it carried is replaced by credentials that carry no claim:
+ * Stanford Medicine physician, and leading Zuca's clinical network of 10+
+ * physicians across 7 specialties. Logged in HANDOFF-ux.md for Cooley to
+ * confirm.
  */
 const FOUNDERS = [
   {

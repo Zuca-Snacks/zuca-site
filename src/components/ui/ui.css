@@ -123,12 +123,12 @@
 
 .z-field__optional {
   font-weight: 400;
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
 }
 
 .z-field__hint {
   font-size: var(--z-step--1);
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
 }
 
 /* Cancels the parent's flex gap while there is no error to show, so the field's
@@ -172,7 +172,7 @@
     box-shadow var(--z-dur-fast) var(--z-ease);
 }
 
-.z-input::placeholder { color: var(--z-ink-muted-aa); opacity: 1; }
+.z-input::placeholder { color: var(--z-ink-muted); opacity: 1; }
 
 .z-input:hover:not(:disabled),
 .z-select:hover:not(:disabled) { border-color: var(--z-ink); }
@@ -187,7 +187,7 @@
 .z-input:disabled,
 .z-select:disabled {
   background: var(--z-surface-alt);
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
   cursor: not-allowed;
 }
 
@@ -360,7 +360,7 @@
 
 .z-accordion__panel {
   padding-bottom: var(--z-space-5);
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
   max-width: var(--z-measure);
 }
 

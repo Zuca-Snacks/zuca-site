@@ -183,7 +183,7 @@
 
 .z-hero__microcopy {
   font-size: var(--z-step--1);
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
 }
 
 /* Side-by-side from tablet up. Below this the photo would otherwise grow to
@@ -271,7 +271,7 @@
 
 .z-number__note {
   font-size: var(--z-step--1);
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
 }
 
 @media (min-width: 40em) {
@@ -367,7 +367,7 @@
 .z-founder__role {
   font-size: var(--z-step--1);
   font-weight: 600;
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -546,5 +546,5 @@
 
 .z-fineprint {
   font-size: var(--z-step--1);
-  color: var(--z-ink-muted-aa);
+  color: var(--z-ink-muted);
 }
