@@ -39,8 +39,33 @@ export const RESULT = {
 /**
  * Build a contract-shaped body. Only `email` and `consent_marketing` are ever
  * required; every other key is null until step 2 supplies it.
+ *
+ * ── Consent evidence (contract amendment, 15 Aug 2026) ──────────────────────
+ * `consent_text_version` is client-supplied because the client is the only
+ * party that knows which wording was rendered.
+ *
+ * `consent_timestamp` and `country` are **server-set and deliberately absent
+ * here.** A client-supplied timestamp is not evidence and a client-supplied
+ * country is not a fact — both are trivially forged and neither would survive
+ * being relied on. Do not add them to this payload.
+ *
+ * When the user also accepts the health-motivation opt-in, they have agreed to
+ * two separate texts. The contract has one field, so both identifiers travel in
+ * it, `+`-joined and stably ordered (marketing first). Splitting on `+` yields
+ * the individual versions. See HANDOFF-growth.md — a dedicated field is the
+ * better long-term shape.
  */
-export function buildPayload({ email, consentMarketing, profile = {}, formRenderTs, hpField = "" }) {
+export function buildPayload({
+  email,
+  consentMarketing,
+  consentTextVersion = null,
+  motivationConsentTextVersion = null,
+  profile = {},
+  formRenderTs,
+  hpField = "",
+}) {
+  const consentVersions = [consentTextVersion, motivationConsentTextVersion].filter(Boolean);
+
   return {
     email: String(email || "").trim().toLowerCase().slice(0, 254),
     zip: profile.zip || null,
@@ -51,6 +76,9 @@ export function buildPayload({ email, consentMarketing, profile = {}, formRender
     is_clinician: typeof profile.is_clinician === "boolean" ? profile.is_clinician : null,
     referral_source: profile.referral_source ?? null,
     consent_marketing: consentMarketing === true,
+    consent_text_version: consentVersions.length ? consentVersions.join("+") : null,
+    // consent_timestamp — server-set. Never sent from here.
+    // country          — server-derived from request IP. Never sent, never asked.
     utm: getUtm(),
     page_path: getPagePath(),
     hp_field: hpField || null,

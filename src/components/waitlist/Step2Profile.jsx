@@ -9,10 +9,14 @@ import { FLAVOR, INTENT, IS_CLINICIAN, MOTIVATION, PRICE_BAND, REFERRAL_SOURCE, 
 import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist } from "./api.js";
 import { EVENTS, track, trackOnce } from "../../lib/analytics.js";
+import { marketingConsent, motivationConsent } from "./consent.js";
 
 const ZIP_RE = /^[0-9]{5}$/;
 
 export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
+  const [consentCopy] = useState(marketingConsent);
+  const [motivationCopy] = useState(motivationConsent);
+
   const [flavor, setFlavor] = useState(null);
   const [intent, setIntent] = useState(null);
   const [priceBand, setPriceBand] = useState(null);
@@ -83,6 +87,12 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     const payload = buildPayload({
       email,
       consentMarketing: true,
+      // The marketing consent is what `consent_marketing: true` refers to, so
+      // its version is what this field must carry. The motivation opt-in has
+      // its own wording and its own version, and the contract has nowhere to
+      // put it yet — see HANDOFF-growth.md.
+      consentTextVersion: consentCopy.version,
+      motivationConsentTextVersion: motivationOptIn ? motivationCopy.version : null,
       formRenderTs,
       profile: {
         flavor,
@@ -169,7 +179,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             if (!next) setMotivation([]);
           }}
         >
-          {copy.motivationConsent}
+          {motivationCopy.text}
         </Consent>
 
         <ChipMultiGroup
@@ -185,7 +195,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
           }}
         />
 
-        <Field error={zipError} errorId={zipErrorId}>
+        <Field error={zipError} errorId={zipErrorId} hint={ZIP.hint}>
           <Input
             id={zipId}
             label={ZIP.label}

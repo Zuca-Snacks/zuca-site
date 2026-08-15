@@ -189,16 +189,59 @@ export const faq = [
   },
 ];
 
+// ─── Consent wording ─────────────────────────────────────────────────────────
+// GDPR Art 7(1): if there is no record of what the person was shown, there is
+// no consent — regardless of what actually happened. The outreach list spans
+// the US, Latin America, Asia and Europe, so this is evidence, not decoration.
+//
+// These strings are the SOURCE OF TRUTH for what the user saw. The version
+// identifier sent to the server is derived from a hash of the exact text (see
+// src/components/waitlist/consent.js), so editing a word here changes the
+// version automatically. Do NOT hand-write a version, and do NOT edit these
+// strings anywhere else — a version that drifts from its wording is worse than
+// no version at all, because it looks like evidence and isn't.
+//
+// `authored` is the date the wording was written. It is cosmetic; the hash is
+// what makes the identifier trustworthy.
+export const consentTexts = {
+  marketing: {
+    // US and comparable opt-out regimes.
+    us: {
+      authored: "2026-08-15",
+      text: "Email me about Zuca — launch date, first access, and the occasional note from the kitchen. I can unsubscribe from any email.",
+      privacyLabel: "Privacy",
+      privacyHref: "/privacy",
+    },
+    // EEA and UK. GDPR needs a freely given, specific and INFORMED act: it must
+    // say what will be sent and how often, and that consent can be withdrawn.
+    // Same single checkbox, unchecked, never bundled — only the sentence differs.
+    //
+    // ⚠️ "no more than about two emails a month" is now an operational promise,
+    // not copy. If the sending cadence changes, this text changes with it — and
+    // changing it mints a new consent version, which is the correct behaviour.
+    eea: {
+      authored: "2026-08-15",
+      text: "Yes, email me about Zuca. I'm agreeing to receive the launch date, my first-access window, and occasional notes from the kitchen — no more than about two emails a month, and never anyone else's advertising. Zuca won't email me without this, and I can withdraw it in one click from any email.",
+      privacyLabel: "Privacy notice",
+      privacyHref: "/privacy",
+    },
+  },
+  // Health-adjacent data, and under GDPR Art 9 the consent most likely to be
+  // challenged. Its wording is versioned separately from marketing.
+  motivation: {
+    authored: "2026-08-15",
+    text: "I'm happy to tell Zuca why fiber matters to me. This is optional, it's stored with my signup, it's never sold and never sent to an ad or analytics tool, and I can ask Zuca to delete it at any time.",
+  },
+};
+
 // ─── Step 1 ──────────────────────────────────────────────────────────────────
 export const step1 = {
   label: "Email address",
   placeholder: "you@example.com",
   cta: ACTIVE_CTA.step1,
   ctaBusy: ACTIVE_CTA.step1Busy,
-  consent:
-    "Email me about Zuca — launch date, first access, and the occasional note from the kitchen. I can unsubscribe from any email.",
-  privacyLabel: "Privacy",
-  privacyHref: "/privacy",
+  // Wording, privacy label and href are resolved per region at render time —
+  // see src/components/waitlist/consent.js. Nothing reads them from here.
   errors: {
     empty: "Enter your email and we'll save your spot.",
     invalid: "That email doesn't look right — mind checking it?",
@@ -218,8 +261,7 @@ export const step2 = {
   skip: "Skip — just the email is fine",
   // The health-motivation opt-in is deliberately separate from the marketing
   // consent. It is never bundled and never pre-checked.
-  motivationConsent:
-    "I'm happy to tell Zuca why fiber matters to me. Stored with my signup, never sold, and never sent to an ad or analytics tool.",
+  motivationConsent: consentTexts.motivation.text,
   motivationHint: "Pick up to 3.",
 };
 

@@ -128,13 +128,85 @@ optimistically treated as accepted. That is precisely why it is a fallback.
 3. **Rate limit per-IP, not per-email.** Two POSTs per signup is the normal path,
    plus retries. A limit of 2/min would break the happy path.
 
-### 3. Bot signals I already send
+### 3. Consent evidence — contract amendment of 15 Aug 2026
+
+**What I send.** Every payload — step 1 and step 2 — now carries
+`consent_text_version`, a stable identifier for the exact wording the user was
+shown. It is derived in `src/components/waitlist/consent.js` as:
+
+```
+<purpose>-<region>-<authored>-<fingerprint>
+mkt-us-2026-08-15-7d912cf1
+mkt-eea-2026-08-15-55babc95
+mot-all-2026-08-15-14d950d1
+```
+
+The fingerprint is an FNV-1a hash of the exact rendered string, **including the
+privacy link's label and href** — a consent that pointed at a different privacy
+notice is a different consent. Because it's derived rather than hand-written,
+editing a word in `src/content/copy.js` changes the version automatically. A
+hand-maintained version number is worse than none: it looks like evidence right
+up until someone edits the text and forgets to bump it.
+
+**What I deliberately do NOT send.** `consent_timestamp` and `country` are
+absent from the payload and must stay that way. A client-supplied timestamp is
+not evidence and a client-supplied country is not a fact — both are trivially
+forged and neither would survive being relied on. There is an explicit comment
+in `api.js` saying so, so nobody "helpfully" adds them.
+
+**Two consents, one field.** When someone also accepts the health-motivation
+opt-in they have agreed to *two* separate texts. The amendment adds one field,
+so both identifiers travel in it, `+`-joined, marketing always first:
+
+```
+consent_text_version: "mkt-us-2026-08-15-7d912cf1+mot-all-2026-08-15-14d950d1"
+```
+
+Split on `+` to get the individual versions. **This works, but a dedicated
+`motivation_consent_text_version` is the better shape** — the motivation opt-in
+is health-adjacent, so under GDPR Art 9 it is the consent most likely to be
+challenged, and it deserves its own column rather than a substring. I used the
+join rather than inventing a top-level key because an unknown key risks a 400
+from your validator, which would silently discard every step-2 answer. Add the
+field and I'll switch in one line.
+
+**You must store the wording, not just the version.** A version identifier is
+only evidence if the text it points at is retained immutably. The strings live
+in `src/content/copy.js` and are therefore in git history, but git history is
+not a compliance record — please snapshot `version → exact text` server-side at
+write time.
+
+### 4. Region-based consent wording
+
+EEA/UK visitors get explicit opt-in wording naming what we send and how often;
+everyone else gets the US phrasing. **Same single unchecked checkbox either way
+— only the sentence changes.** No country-based form branching beyond that.
+
+`country` is server-derived, so the client cannot know it at render time.
+Rather than block the hero on a lookup, the client guesses the region from the
+browser's IANA time zone — no network call, no cookie, no IP handling — and the
+guess is **deliberately biased toward the strict wording**: anything uncertain,
+unparseable, or `Europe/*` resolves to EEA. Explicit wording is never wrong in
+the US; the softer US wording shown in the EEA is a violation.
+
+**The guess being wrong doesn't corrupt the evidence**, which is the point of
+doing it this way — `consent_text_version` records what was *actually rendered*.
+That gives you a reconciliation you should run:
+
+> if server-derived `country` ∈ EEA/UK **and** stored `consent_text_version`
+> starts with `mkt-us-` → that person saw the weaker wording. Flag for
+> re-consent before including them in an EEA send.
+
+I expect this to be a small number (VPNs, travellers, misconfigured clocks), but
+it will not be zero.
+
+### 5. Bot signals I already send
 
 - `hp_field` — honeypot, off-screen (not `display:none`). Must be empty.
 - `form_render_ts` — ms epoch stamped once per form mount. `<2s` to submit = bot.
 - Both are in every payload, including the fallback path.
 
-### 4. `/privacy` link — no action needed
+### 6. `/privacy` link — no action needed
 
 The consent checkbox links to `/privacy` (`step1.privacyHref` in
 `src/content/copy.js`). It 404s on my branch and that is expected: you build
@@ -144,7 +216,7 @@ merge. Confirmed with Emil — **the link stays as-is.**
 Only tell me if the real path is something other than `/privacy`; that's a
 one-line change.
 
-### 5. Failed submissions are queued client-side
+### 7. Failed submissions are queued client-side
 
 On total transport failure the payload is parked in `localStorage`
 (`zuca_waitlist_queue_v1`, max 10) and replayed on next mount and on the `online`
@@ -244,6 +316,32 @@ table above, keeps both eras clean.
 
 **Emil — the Apps Script is yours; it needs the new columns added before the
 campaign sends.** I don't own that file and haven't touched it.
+
+### ⚠️ `zip` is US-only, and the list is not
+
+The contract fixes `zip` to `/^[0-9]{5}$/` — a US postcode. The outreach list
+spans the US, Latin America, Asia and Europe, so most recipients cannot pass
+that field. I did not change the validation (not mine to change) and did not
+add a country selector (you said no branching beyond the wording).
+
+What I did: the field now carries the hint **"US only — skip this if you're
+somewhere else."** It has always been optional, so nobody is blocked — but
+without the hint an international visitor reads it as a field they failed.
+
+**This means demand-clustering data is US-only.** If you want it globally,
+`zip` needs to become a free-form postal string (varying length, letters and
+spaces, e.g. `SW1A 1AA`, `100-0001`) — that's a contract change, and country is
+already being derived server-side anyway, so the cheaper answer may be to lean
+on `country` and treat `zip` as a US-only refinement. Your call; I've flagged it
+rather than assumed it.
+
+### Cadence is now a promise, not copy
+
+The EEA wording commits to **"no more than about two emails a month."** GDPR
+requires a clear statement of what will be sent and how often, so a number had
+to be there. It is now an operational constraint on the sending schedule, not
+marketing copy. If the real cadence differs, tell me and I'll change the text —
+which mints a new consent version automatically, exactly as it should.
 
 ### Still open
 

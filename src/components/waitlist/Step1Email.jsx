@@ -7,12 +7,18 @@ import { Button, Consent, Field, Input } from "./primitives.jsx";
 import { step1 as copy, hero } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist } from "./api.js";
 import { EVENTS, observeOnce, track, trackOnce } from "../../lib/analytics.js";
+import { marketingConsent } from "./consent.js";
 
 // Deliberately permissive: the server is the authority on validity, and a
 // strict client regex rejects real addresses. This catches typos, not edge cases.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function Step1Email({ formRenderTs, location = "hero", onSuccess, prefetchStep2 }) {
+  // Resolved once per mount. Uncertain detection deliberately yields the
+  // stricter EEA wording — see consent.js. `consent.version` records what was
+  // actually shown, so the evidence is truthful even if the region guess isn't.
+  const [consentCopy] = useState(marketingConsent);
+
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false); // never pre-checked
   const [hp, setHp] = useState("");
@@ -73,11 +79,12 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
     setBusy(true);
     setError("");
     setConsentError("");
-    track(EVENTS.STEP1_SUBMIT, { location });
+    track(EVENTS.STEP1_SUBMIT, { location, consent_region: consentCopy.region });
 
     const payload = buildPayload({
       email: value,
       consentMarketing: true,
+      consentTextVersion: consentCopy.version,
       formRenderTs,
       hpField: hp,
     });
@@ -158,7 +165,8 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
             if (next) setConsentError("");
           }}
         >
-          {copy.consent} <a href={copy.privacyHref}>{copy.privacyLabel}</a>
+          {consentCopy.text}{" "}
+          <a href={consentCopy.privacyHref}>{consentCopy.privacyLabel}</a>
         </Consent>
         <span className="zw-error" id={consentErrorId} role="alert" aria-live="assertive">
           {consentError}
