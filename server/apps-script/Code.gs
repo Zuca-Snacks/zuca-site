@@ -69,8 +69,10 @@ var COLUMNS = [
   'utm_content',
   'utm_term',
   'page_path',
-  'consent_version',
-  'consent_ts',
+  'consent_text_version',
+  'consent_timestamp',
+  'country',
+  'consent_receipt',
   'consent_ip_prefix',
   'user_agent',
 
@@ -114,13 +116,27 @@ var LEGACY_KEYS = ['name', 'phone', 'hearAbout'];
  * The leading apostrophe forces Sheets to treat the value as text. It is not
  * displayed in the cell and is not part of the stored string.
  */
-function sanitizeCell_(value) {
+/**
+ * Per-column length caps. Default is 500 — long enough for any real answer,
+ * short enough that a junk payload cannot bloat the sheet.
+ *
+ * `consent_receipt` is the exception. It is a JSON document, and truncating
+ * JSON does not shorten it, it *destroys* it: the result is unparseable, which
+ * turns the one artefact meant to prove consent into a broken string at exactly
+ * the moment someone needs to read it. 4000 is comfortably above the ~550 a
+ * full receipt occupies, and still far below Sheets' 50k cell limit.
+ */
+var CELL_MAX_DEFAULT = 500;
+var CELL_MAX = { consent_receipt: 4000, user_agent: 250 };
+
+function sanitizeCell_(value, column) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
   if (typeof value === 'number') return value;
 
+  var limit = (column && CELL_MAX[column]) || CELL_MAX_DEFAULT;
   var s = String(value).replace(/[\r\n\t]/g, ' ').trim();
-  if (s.length > 500) s = s.slice(0, 500);
+  if (s.length > limit) s = s.slice(0, limit);
   return /^[=+\-@]/.test(s) ? "'" + s : s;
 }
 
@@ -288,8 +304,10 @@ function doPost(e) {
       utm_content: utm.content,
       utm_term: utm.term,
       page_path: payload.page_path,
-      consent_version: payload.consent_version,
-      consent_ts: payload.consent_ts,
+      consent_text_version: payload.consent_text_version,
+      consent_timestamp: payload.consent_timestamp,
+      country: payload.country,
+      consent_receipt: payload.consent_receipt,
       consent_ip_prefix: payload.consent_ip_prefix,
       user_agent: payload.user_agent,
 
@@ -318,7 +336,7 @@ function doPost(e) {
     var rowValues = new Array(width).fill('');
     COLUMNS.forEach(function (col) {
       var at = index[col];
-      if (at) rowValues[at - 1] = sanitizeCell_(values[col]);
+      if (at) rowValues[at - 1] = sanitizeCell_(values[col], col);
     });
 
     // Force the whole row to plain text before writing. Belt and braces with

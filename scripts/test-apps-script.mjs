@@ -180,8 +180,24 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     is_clinician: true,
     utm: { source: 'newsletter', campaign: 'launch' },
     page_path: '/',
-    consent_version: '2026-08-15',
-    consent_ts: '2026-08-15T12:00:00.000Z',
+    consent_text_version: '2026-08-15.marketing.a',
+    consent_timestamp: '2026-08-15T12:00:00.000Z',
+    country: 'NO',
+    consent_receipt: JSON.stringify({
+      schema: 'zuca.consent.v1',
+      version: '2026-08-15.marketing.a',
+      text: 'Email me when pre-orders open. You can unsubscribe any time.',
+      registry_match: true,
+      marketing: true,
+      health: true,
+      health_text: 'Store my reason for interest so you can tailor what you send me.',
+      timestamp: '2026-08-15T12:00:00.000Z',
+      country: 'NO',
+      regime: 'eea',
+      ip_prefix: '203.0.113.0',
+      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
+      method: 'web_form',
+    }),
     consent_ip_prefix: '203.0.113.0',
     user_agent: 'Mozilla/5.0',
   });
@@ -190,7 +206,8 @@ console.log('  (the target path: new client via /api/waitlist)\n');
   for (const [f, expect] of [
     ['referral_source', 'doctor'],
     ['motivation', 'gut_health|digestion'],
-    ['consent_version', '2026-08-15'],
+    ['consent_text_version', '2026-08-15.marketing.a'],
+    ['country', 'NO'],
     ['utm_source', 'newsletter'],
     ['zip', '94305'],
     ['flavor', 'both'],
@@ -198,6 +215,34 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     const c = cellFor(sheet, f);
     check(`new field "${f}" lands correctly`, !c.missing && String(c.value) === expect, `col ${c.column} = ${JSON.stringify(c.value)}`);
   }
+  // The receipt is ~550 chars and the default cell cap is 500. Truncated JSON
+  // is not shortened JSON, it is broken JSON — and it would break precisely
+  // when someone needs to read it. Prove it survives whole.
+  {
+    const c = cellFor(sheet, 'consent_receipt');
+    let parsed = null;
+    try {
+      parsed = JSON.parse(String(c.value));
+    } catch {
+      /* stays null */
+    }
+    check(
+      'consent_receipt round-trips as valid JSON (not truncated)',
+      parsed !== null,
+      `${String(c.value).length} chars, parse ${parsed ? 'OK' : 'FAILED'}`
+    );
+    check(
+      'consent_receipt carries the verbatim wording, not just the version id',
+      parsed?.text === 'Email me when pre-orders open. You can unsubscribe any time.',
+      `text = ${JSON.stringify(parsed?.text)}`
+    );
+    check(
+      'consent_receipt records the legal regime',
+      parsed?.regime === 'eea' && parsed?.country === 'NO',
+      `regime = ${parsed?.regime}, country = ${parsed?.country}`
+    );
+  }
+
   check(
     'legacy columns left empty on the new path',
     cellFor(sheet, 'hearAbout').value === '' && cellFor(sheet, 'name').value === '',
@@ -218,8 +263,8 @@ console.log('\n  Scenario C — health data without the separate consent\n');
 
 console.log('\n  Scenario D — case-insensitive header matching\n');
 {
-  const sheet = makeSheet(['Timestamp', 'E-Mail', 'Consent TS']);
-  post(sheet, { email: 'b@example.no', consent_ts: '2026-08-15T00:00:00Z' });
+  const sheet = makeSheet(['Timestamp', 'E-Mail', 'Consent Timestamp']);
+  post(sheet, { email: 'b@example.no', consent_timestamp: '2026-08-15T00:00:00Z' });
   const headers = sheet._grid[0];
   check(
     'existing "E-Mail" reused, no second email column',
@@ -227,8 +272,8 @@ console.log('\n  Scenario D — case-insensitive header matching\n');
     `headers: ${headers.join(', ')}`
   );
   check(
-    'existing "Consent TS" reused, no second consent_ts column',
-    headers.filter((h) => normalize(h) === 'consentts').length === 1,
+    'existing "Consent Timestamp" reused, no second consent_timestamp column',
+    headers.filter((h) => normalize(h) === 'consenttimestamp').length === 1,
     `headers: ${headers.join(', ')}`
   );
   function normalize(h) {

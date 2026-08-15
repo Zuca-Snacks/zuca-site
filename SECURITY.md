@@ -338,6 +338,73 @@ subject to transfer rules and erasure requests. It is now a **keyed HMAC** using
 pepper (`EMAIL_HASH_PEPPER`), which cannot be reversed without also stealing the key. Two-line
 change, removes a processor from the scope of the list.
 
+### 5.6 Art 27 EEA representative — do we need one before contacting EEA recipients?
+
+Asked directly, so answered directly: **the obligation has already been triggered. It is not
+pending on the campaign — it is currently unmet.**
+
+Art 27 attaches to the *processing*, not to any outbound message. It applies where a controller
+outside the Union offers goods or services to data subjects in the Union, and we crossed that line
+the day a Norwegian typed their address into the pre-order form. The waitlist already holds EEA
+personal data. Sending nothing at all would not cure it.
+
+So the sequence is not "appoint one before emailing" — it is "appoint one, because we should
+already have had one."
+
+**The exemption does not reach us.** Art 27(2)(a) lets you skip it where processing is *occasional*,
+**and** excludes large-scale special category data, **and** is unlikely to result in risk. Those are
+cumulative, not alternatives. Ours is not occasional — it is a continuous, ongoing waitlist — and we
+process Art 9 health data. Either failure alone disqualifies us.
+
+**What it actually requires:**
+
+- A designation **in writing** (a mandate letter), naming a representative established in a member
+  state where the data subjects are. Norway is where ours are.
+- The representative's **identity and contact details published in the privacy notice** —
+  Art 13(1)(a). There is a marked placeholder waiting in `public/privacy.html`; the policy is
+  incomplete until it is filled.
+- The representative must be **addressable by both data subjects and Datatilsynet**, and must keep a
+  copy of the Art 30 record.
+
+**Cost and effort:** commercial services run roughly €200–500/year and onboard in days. Several are
+Norway-based. This is one of the cheapest items on the entire list and one of the most visible when
+absent — its absence is discoverable from the privacy policy alone, by anyone, without any
+investigation. It is the finding that tells a regulator the rest was probably not done either.
+
+**Note the representative is not a liability shield.** Art 27(5) is explicit: designating one does
+not affect the controller's own liability. It provides a point of contact, not cover.
+
+### 5.7 The list is global — five more regimes are in scope
+
+The outreach list spans the US, Latin America, Asia and Europe. GDPR is therefore not the whole
+picture, only the strictest part of it so far. **Naming these for Cooley rather than attempting to
+resolve them** — each needs local counsel, and pretending otherwise would be worse than saying so.
+
+| Regime | Territory | Why it bites us specifically |
+|---|---|---|
+| **LGPD** — Lei Geral de Proteção de Dados | Brazil | Closely modelled on GDPR: extraterritorial reach, consent-based lawful basis, data subject rights, and a **local representative requirement** mirroring Art 27. Health-related data is *dado sensível* with heightened conditions. Enforced by the ANPD |
+| **LFPDPPP** | Mexico | Requires an *aviso de privacidad* with prescribed content, delivered **at the point of collection** — the notice itself is the regulated artefact, and a generic policy page may not satisfy it. Sensitive data requires **express written** consent, a higher bar than GDPR's explicit consent |
+| **PDPA** | Singapore | Consent-based, with a statutory **Do Not Call registry** for phone numbers. Notable for us: **PDPA has criminal penalties for certain breaches**, and unsolicited commercial messaging has its own regime |
+| **APPI** | Japan | Consent required for third-party transfer *and* for cross-border transfer, with prescribed disclosures about the recipient country. Health information is *sensitive personal information* requiring opt-in. The PPC enforces |
+| **PIPA** | South Korea | Historically the strictest consent regime of the five. Requires **separate, itemised consent per purpose** — a single combined checkbox is not sufficient — plus specific rules for marketing consent, and it must be as easy to refuse as to accept. Fines are turnover-based |
+
+**Three practical observations, since they change engineering rather than legal work:**
+
+1. **Every one of these is opt-in.** Not one of the five follows CAN-SPAM's opt-out model. The
+   geographic split in §5.3 is therefore not "US versus Europe" — it is **the US versus almost
+   everywhere else**. The US is the outlier, and it is the only market where the current campaign
+   design is lawful as written.
+2. **Korea's itemised-consent rule and Mexico's notice-at-collection rule are the two most likely to
+   require UI changes**, not just policy text. A single combined checkbox will not satisfy PIPA.
+3. **The `country` field added in this amendment is what makes any of this tractable.** Without a
+   per-record regime marker, the only compliant option for a global list is to apply the strictest
+   rule to everyone. With it, the list can be segmented and each cohort handled correctly — which is
+   the difference between a campaign that runs and one that cannot.
+
+The consent receipt records `regime: "eea" | "other"`, which is enough for the EEA/non-EEA split
+that matters today. If Cooley confirms LGPD/PIPA/APPI need distinct handling, that field is where
+the finer classification belongs, and extending it is a small change.
+
 ## 6. Retention and deletion
 
 Written to be executable, not aspirational. Revised for GDPR: Art 5(1)(e) requires a **stated,
@@ -375,6 +442,50 @@ everyone — running two clocks is how one gets missed.
    you must not keep the data you deleted in order to prove you deleted it.
 6. Reply confirming completion. **Free of charge** — Art 12(5) permits a fee only for manifestly
    unfounded or excessive requests, which in practice means never for a list this size.
+
+### Demonstrating consent for a specific person
+
+The contract amendment adds `consent_text_version`, `consent_timestamp` and `country`, all set
+server-side. Alongside them the endpoint writes **`consent_receipt`** — a single JSON cell that is
+the complete answer for one person:
+
+```json
+{
+  "schema": "zuca.consent.v1",
+  "version": "2026-08-15.marketing.a",
+  "text": "Email me when pre-orders open. You can unsubscribe any time.",
+  "registry_match": true,
+  "marketing": true,
+  "health": false,
+  "health_text": null,
+  "timestamp": "2026-08-15T12:04:31.118Z",
+  "country": "NO",
+  "regime": "eea",
+  "ip_prefix": "203.0.113.0",
+  "user_agent": "Mozilla/5.0 …",
+  "method": "web_form"
+}
+```
+
+**To answer "prove this person consented":** find their row, copy the `consent_receipt` cell. That
+is the whole procedure. It states what they were shown, in the words they read, when, from which
+country, under which regime, and by what method.
+
+Two deliberate design choices behind it:
+
+- **It embeds the verbatim wording, not just the version id.** An identifier is only evidence while
+  something can still resolve it, and the code that resolves it will have changed many times over a
+  retention period. `2026-08-15.marketing.a` will mean nothing in eighteen months; the sentence the
+  person actually read will mean exactly what it meant.
+- **The cell length cap is raised to 4000 for this column specifically.** The default is 500, and a
+  receipt runs ~550. Truncated JSON is not shortened JSON — it is unparseable, which would break the
+  one artefact meant to prove consent at precisely the moment someone needed to read it. There is a
+  test asserting it round-trips.
+
+`registry_match: false` flags a record whose wording could not be resolved — the signup is still
+accepted, because rejecting would mean a copy change that forgets to register a wording breaks every
+signup on the site. It is logged as `consent.unregistered_text_version` so it gets fixed rather than
+accumulating quietly.
 
 ### The other rights, and how each is actually served
 

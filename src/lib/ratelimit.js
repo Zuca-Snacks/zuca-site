@@ -99,6 +99,20 @@ function memoryIncr(key, windowSec) {
   return { count: entry.count, ttl: Math.ceil((entry.resetAt - now) / 1000) };
 }
 
+/**
+ * Test-only: clear in-memory bucket state so one test group's traffic does not
+ * exhaust the global ceiling for the next.
+ *
+ * Hard no-op in production. A function that resets a live rate limiter is
+ * exactly the sort of convenience that turns into a bypass, so it refuses to
+ * do anything where it would matter.
+ */
+export function __resetInMemoryLimiter() {
+  if (process.env.NODE_ENV === 'production') return false;
+  memory.clear();
+  return true;
+}
+
 async function incr(key, windowSec) {
   if (!DURABLE) return memoryIncr(key, windowSec);
   try {

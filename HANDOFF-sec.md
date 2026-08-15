@@ -19,7 +19,8 @@ took the repo from **9 advisories (7 high) → 0**. All were devDependencies —
 `@babel/core`, `launch-editor` — so none of them reached production. They still mattered: one was
 arbitrary file read via the Vite dev server, and three dev servers are running on Emil's laptop.
 
-Two scripts added: `npm run security:test` and `npm run security:headers`.
+Four scripts added: `npm run security:test` (67 endpoint cases), `npm run security:test:sheet`
+(20 Apps Script cases), and `npm run security:headers`.
 
 ---
 
@@ -133,6 +134,42 @@ collect that data and silently lose all of it.
 ```
 
 Show it only once a motivation is selected, so it never appears on the hero email capture.
+
+### 1e-bis. Send `consent_text_version` with every submission · **contract amendment**
+
+Three fields were added to the contract for consent evidence. **Two of them are mine and need
+nothing from you** — `consent_timestamp` and `country` are set server-side and are *rejected with a
+400* if the client sends them, because evidence a submitter can supply is not evidence.
+
+The third is yours, because only the client knows which wording it rendered:
+
+```js
+consent_text_version: "2026-08-15.marketing.a"
+```
+
+**You own the wording; I own storing it.** The registry lives in `CONSENT_TEXTS` in
+[src/lib/validation.js](src/lib/validation.js) and maps each id to its verbatim text:
+
+```js
+export const CONSENT_TEXTS = {
+  '2026-08-15.marketing.a': 'Email me when pre-orders open. You can unsubscribe any time.',
+  '2026-08-15.health.a':    'Store my reason for interest so you can tailor what you send me.',
+};
+```
+
+The wording in 1d and 1e above matches these entries exactly. **If you change a single word of
+either line, add a NEW entry rather than editing the existing one** — editing would retroactively
+rewrite what past signups are recorded as having agreed to, which is precisely what this exists to
+prevent. Old ids stay forever so historical records remain resolvable. Tell me the new id and text
+and I will add it, or add it yourself; that file is mine but this constant is genuinely shared.
+
+**Forgetting to register an id does not break signups.** An unknown version is accepted, the record
+is flagged `registry_match: false`, and the endpoint logs
+`consent.unregistered_text_version`. Rejecting would mean a copy change that skips this step breaks
+every signup on the site — a documentation lapse traded for total data loss. But it does weaken the
+evidence, so do not lean on it.
+
+Format is `YYYY-MM-DD.<purpose>.<letter>`; only `A-Z a-z 0-9 . _ -` are accepted, max 64 chars.
 
 ### 1f. Map the current fields onto the frozen contract
 
@@ -295,18 +332,26 @@ capitalisation and spaces do not matter, underscores do.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **G1** | `zip` | **Q1** | `utm_medium` |
-| **H1** | `intent` | **R1** | `utm_campaign` |
-| **I1** | `price_band` | **S1** | `utm_content` |
-| **J1** | `flavor` | **T1** | `utm_term` |
-| **K1** | `is_clinician` | **U1** | `page_path` |
-| **L1** | `referral_source` | **V1** | `consent_version` |
-| **M1** | `consent_marketing` | **W1** | `consent_ts` |
-| **N1** | `consent_health` | **X1** | `consent_ip_prefix` |
-| **O1** | `motivation` | **Y1** | `user_agent` |
-| **P1** | `utm_source` | | |
+| **G1** | `zip` | **R1** | `utm_campaign` |
+| **H1** | `intent` | **S1** | `utm_content` |
+| **I1** | `price_band` | **T1** | `utm_term` |
+| **J1** | `flavor` | **U1** | `page_path` |
+| **K1** | `is_clinician` | **V1** | `consent_text_version` |
+| **L1** | `referral_source` | **W1** | `consent_timestamp` |
+| **M1** | `consent_marketing` | **X1** | `country` |
+| **N1** | `consent_health` | **Y1** | `consent_receipt` |
+| **O1** | `motivation` | **Z1** | `consent_ip_prefix` |
+| **P1** | `utm_source` | **AA1** | `user_agent` |
+| **Q1** | `utm_medium` | | |
 
-19 new columns, `G` through `Y`. 25 columns total when you are done.
+21 new columns, `G` through `AA`. 27 columns total when you are done.
+
+> **If you already added the earlier list:** the contract amendment renamed two columns and added
+> two more. Rename `consent_version` → `consent_text_version` and `consent_ts` →
+> `consent_timestamp`, then insert `country` and `consent_receipt`. Header matching ignores case,
+> spaces, hyphens and underscores, so `Consent Timestamp` and `consent_timestamp` are the same
+> column — but `consent_version` and `consent_text_version` are genuinely different names and a
+> stale one would leave that cell permanently empty.
 
 **Do not delete `E` (`hearAbout`) or `F` (`reason`).** They hold your existing 136 rows of answers.
 New signups write to `L` (`referral_source`) and `O` (`motivation`) instead, because the two use
@@ -339,8 +384,10 @@ the failure mode is a row appearing with empty cells:
 |---|---|---|
 | `C` (`email`) | your test address, lowercased | Nothing is working — check the Vercel env vars |
 | `M` (`consent_marketing`) | `TRUE` | The consent checkbox is not being sent |
-| `V` (`consent_version`) | `2026-08-15` | You are on an old build of the endpoint |
-| `W` (`consent_ts`) | an ISO timestamp | Same |
+| `V` (`consent_text_version`) | `2026-08-15.marketing.a` | The client is not sending the wording id — see §1e-bis |
+| `W` (`consent_timestamp`) | an ISO timestamp | You are on an old build of the endpoint |
+| `X` (`country`) | your 2-letter country, e.g. `NO` | Expected as `XX` on localhost; empty in production means the geo header is missing |
+| `Y` (`consent_receipt`) | a JSON blob starting `{"schema":"zuca.consent.v1"` | The consent evidence record — this is what you would hand a regulator |
 | `L` (`referral_source`) | your dropdown answer | **The exact bug this runbook is about** — the client is still sending `hearAbout` |
 | `O` (`motivation`) | your answer, *only if* you ticked the health box | Empty with the box **unticked** is correct. Empty with it **ticked** is a bug |
 | `B`, `D`, `E` (`name`, `phone`, `hearAbout`) | empty | These should be blank on the new path. Values here mean the old modal is still live |

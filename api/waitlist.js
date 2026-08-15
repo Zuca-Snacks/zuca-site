@@ -22,7 +22,10 @@
 
 import {
   MAX_BODY_BYTES,
-  CONSENT_VERSION,
+  CONSENT_TEXTS,
+  resolveConsentText,
+  deriveCountry,
+  isEea,
   validateWaitlist,
   detectBot,
   sanitizeRecord,
@@ -209,7 +212,31 @@ export default async function handler(req, res) {
     return send(res, 409, { ok: false, error: 'duplicate' });
   }
 
-  // 10. Build the record. Bot signals and the honeypot are dropped here — they
+  // 10. Derive the consent evidence, server-side.
+  //
+  //     `consent_timestamp` is taken from our clock, not the client's: a
+  //     submitter-supplied time is worthless as evidence, and a wrong clock on
+  //     one laptop would otherwise put a record outside its own retention
+  //     window. `country` comes from the edge's IP geolocation and is never
+  //     asked of the user — one less question on the form, and an answer that
+  //     cannot be mistyped. Both are rejected by the schema if a client sends
+  //     them.
+  const consentTimestamp = new Date().toISOString();
+  const country = deriveCountry(req);
+  const consent = resolveConsentText(data.consent_text_version);
+  const ipPrefix = ip.includes(':')
+    ? ip.split(':').slice(0, 3).join(':')
+    : ip.split('.').slice(0, 3).join('.') + '.0';
+  const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+
+  if (!consent.registry_match) {
+    // Not fatal — see resolveConsentText. But it means this record's wording
+    // cannot be reconstructed from the registry, which weakens it as evidence,
+    // so it should be noticed and fixed rather than accumulating quietly.
+    audit('consent.unregistered_text_version', { handle, version: consent.version });
+  }
+
+  // 11. Build the record. Bot signals and the honeypot are dropped here — they
   //     are inputs to a decision already made, and storing them would put
   //     needless junk next to real data.
   //
@@ -230,22 +257,51 @@ export default async function handler(req, res) {
     consent_marketing: data.consent_marketing,
     utm: data.utm,
     page_path: data.page_path,
-    // Consent evidence. GDPR Art 7(1) puts the burden of proof on us, so these
-    // four fields are the record: when, from roughly where, with what browser,
-    // and — the one usually missing — which version of the notice was on screen
-    // at the time. The IP is truncated to a /24 before storage: enough to
-    // corroborate a consent record, not enough to single out a device.
-    consent_version: CONSENT_VERSION,
-    consent_ts: new Date().toISOString(),
-    consent_ip_prefix: ip.includes(':') ? ip.split(':').slice(0, 3).join(':') : ip.split('.').slice(0, 3).join('.') + '.0',
-    user_agent: String(req.headers['user-agent'] || '').slice(0, 200),
+    // ── Consent evidence (contract amendment) ──────────────────────────────
+    // All three are set here, on the server, never taken from the body.
+    consent_text_version: consent.version,
+    consent_timestamp: consentTimestamp,
+    country,
+
+    // Supporting evidence. The IP is truncated to a /24 before storage: enough
+    // to corroborate a consent record, not enough to single out a device.
+    consent_ip_prefix: ipPrefix,
+    user_agent: userAgent,
+
+    // A self-contained receipt for this one person, as a single cell.
+    //
+    // The columns above are for querying; this is for *answering*. If someone
+    // ever has to demonstrate consent for a named individual, the answer should
+    // be one cell that can be copied into an email — not a reconstruction from
+    // eight columns plus a version identifier that needs resolving against a
+    // registry in code that has changed a dozen times since.
+    //
+    // So it embeds the verbatim wording rather than only its id. That is the
+    // whole point: in eighteen months `2026-08-15.marketing.a` means nothing on
+    // its own, but the sentence the person actually read still means exactly
+    // what it meant.
+    consent_receipt: JSON.stringify({
+      schema: 'zuca.consent.v1',
+      version: consent.version,
+      text: consent.text,
+      registry_match: consent.registry_match,
+      marketing: data.consent_marketing,
+      health: data.consent_health,
+      health_text: data.consent_health ? CONSENT_TEXTS['2026-08-15.health.a'] ?? null : null,
+      timestamp: consentTimestamp,
+      country,
+      regime: isEea(country) ? 'eea' : 'other',
+      ip_prefix: ipPrefix,
+      user_agent: userAgent,
+      method: 'web_form',
+    }),
   });
 
   if (data.motivation && !data.consent_health) {
     audit('motivation.dropped_no_consent', { handle });
   }
 
-  // 11. Forward to the sheet, server-to-server, with a shared secret.
+  // 12. Forward to the sheet, server-to-server, with a shared secret.
   //
   //     If the webhook is not configured we still return 200. The endpoint is
   //     being deployed ahead of the Apps Script rotation (SECURITY.md §8 item

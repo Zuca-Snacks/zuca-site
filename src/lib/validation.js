@@ -15,18 +15,104 @@ import { z } from 'zod';
 // ─── Limits ──────────────────────────────────────────────────────────────────
 
 /**
- * Version of the privacy notice a signup consented to.
+ * Registry of consent wordings, keyed by the identifier the client sends as
+ * `consent_text_version`.
  *
  * GDPR Art 7(1) puts the burden of proof on us: we must be able to demonstrate
  * that consent was given. "They ticked a box" is not demonstrable on its own —
- * the question a regulator asks is *what were they shown when they ticked it*.
- * Stamping the notice version alongside the timestamp answers that.
+ * the question a regulator asks is *what exactly were they shown when they
+ * ticked it*, and the answer has to be reconstructable years later.
  *
- * BUMP THIS whenever the wording of the consent line or the purposes in
- * public/privacy.html change materially. Records carrying an older version can
- * then be identified and re-consented rather than assumed still valid.
+ * Which is why this maps an id to the **verbatim text**, not just to a date. An
+ * id alone is only useful while something can still resolve it, and the code
+ * that resolves it will have changed a dozen times by then. Storing the
+ * resolved wording in each consent receipt makes every record self-contained.
+ *
+ * ── FOR THE CONVERSION AGENT ──────────────────────────────────────────────
+ * You own the wording; I own storing it. When you change either consent line,
+ * add a NEW entry here rather than editing an existing one — editing would
+ * retroactively rewrite what past signups are recorded as having agreed to,
+ * which is the precise thing this exists to prevent. Old entries stay forever
+ * so historical records remain resolvable.
  */
-export const CONSENT_VERSION = '2026-08-15';
+export const CONSENT_TEXTS = {
+  '2026-08-15.marketing.a':
+    'Email me when pre-orders open. You can unsubscribe any time.',
+  '2026-08-15.health.a':
+    'Store my reason for interest so you can tailor what you send me.',
+};
+
+/** Default when the client sends nothing — see `resolveConsentText`. */
+export const DEFAULT_CONSENT_TEXT_VERSION = '2026-08-15.marketing.a';
+
+/**
+ * Resolve a version id to its wording.
+ *
+ * An unknown id does NOT fail the request. Rejecting would mean that a
+ * Conversion-agent deploy which forgets to register a new wording breaks every
+ * signup on the site — trading a documentation lapse for total data loss, which
+ * is a far worse outcome than a slightly weaker evidence record. Instead the
+ * signup is accepted, the receipt records `registry_match: false`, and the
+ * anomaly is logged so it gets fixed. The wording itself stays recoverable from
+ * the client's git history.
+ */
+export function resolveConsentText(version) {
+  const id = typeof version === 'string' && version ? version : null;
+  if (!id) {
+    return { version: 'unspecified', text: null, registry_match: false };
+  }
+  const text = CONSENT_TEXTS[id];
+  return text
+    ? { version: id, text, registry_match: true }
+    : { version: id, text: null, registry_match: false };
+}
+
+// ─── Geography ───────────────────────────────────────────────────────────────
+
+/**
+ * EEA member states, plus the UK.
+ *
+ * Not stored as a field — this exists so the list can be segmented by legal
+ * regime, which is the difference between a lawful campaign and an unlawful one
+ * (SECURITY.md §5.3). The UK is included because UK GDPR is materially the same
+ * for our purposes even though the UK left the EU.
+ */
+export const EEA_COUNTRIES = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
+  'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
+  'SI', 'ES', 'SE',            // EU 27
+  'IS', 'LI', 'NO',            // EEA EFTA
+  'GB',                        // UK GDPR
+]);
+
+export function isEea(country) {
+  return EEA_COUNTRIES.has(String(country || '').toUpperCase());
+}
+
+/**
+ * Two-letter ISO 3166-1 country for the requester, derived from their IP by the
+ * edge — never asked of the user and never accepted from the request body.
+ *
+ * Vercel sets `x-vercel-ip-country` and, per its documentation, overwrites
+ * `x-forwarded-for` rather than passing through client-supplied values
+ * specifically to prevent IP spoofing. So in production this header is
+ * platform-controlled. We still validate the shape, because a header that is
+ * trustworthy today is a header someone routes around a year from now, and an
+ * unvalidated value lands in a spreadsheet cell.
+ *
+ * Returns `'XX'` when unavailable (local dev, or a platform that does not
+ * provide it). An honest unknown beats a wrong guess: this value decides which
+ * privacy regime a record falls under.
+ */
+export function deriveCountry(req) {
+  const raw =
+    req.headers['x-vercel-ip-country'] ||
+    req.headers['cf-ipcountry'] ||
+    req.headers['x-country-code'];
+
+  const code = String(raw || '').trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : 'XX';
+}
 
 export const MAX_BODY_BYTES = 8 * 1024; // 8 KB. The largest legitimate payload is well under 1 KB.
 export const MIN_FILL_MS = 2000; // Faster than a human can read the form, let alone fill it.
@@ -204,6 +290,20 @@ export const waitlistSchema = z
     // Defaults to false, which is the safe direction: absent an unambiguous
     // yes, the answer is no.
     consent_health: z.boolean().optional().default(false),
+
+    // Identifier for the exact wording shown. Client-supplied by necessity —
+    // only the client knows which variant it rendered.
+    //
+    // Note what is deliberately NOT accepted here: `consent_timestamp` and
+    // `country`. Both are server-derived, and because this schema is .strict(),
+    // a client that tries to supply either gets a 400 rather than having its
+    // value quietly trusted. Consent evidence a submitter can forge is not
+    // evidence.
+    consent_text_version: z
+      .string()
+      .max(64, { message: 'too_long' })
+      .regex(/^[A-Za-z0-9._-]+$/, { message: 'illegal_chars' })
+      .nullish(),
 
     intent: optionalEnum(INTENTS),
     price_band: optionalEnum(PRICE_BANDS),

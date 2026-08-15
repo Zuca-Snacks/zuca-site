@@ -129,7 +129,8 @@
       <tr><td>Whether you are a clinician <em>(optional)</em></td><td>Clinicians receive more technical updates. Nothing else differs.</td></tr>
       <tr><td>How you heard about us <em>(optional)</em></td><td>To know which of our efforts are worth repeating.</td></tr>
       <tr><td>Campaign tags in the link you arrived on, and the page you signed up from</td><td>Same reason. Taken from the URL you clicked — not from tracking you across the web.</td></tr>
-      <tr><td><strong>Consent record:</strong> the date and time you opted in, the version of this policy shown to you at that moment, a shortened form of your IP address, and your browser's user-agent string</td><td>GDPR Art 7(1) requires us to be able to <em>prove</em> you consented. Your IP address is shortened before it is stored (for example <code>203.0.113.0</code>) so it identifies a network rather than a device — enough to corroborate a consent record, no more.</td></tr>
+      <tr><td><strong>Your country</strong>, worked out from your IP address</td><td>We never ask you for this. Your country determines which privacy law protects you, and we would rather derive it than get it wrong — it is the difference between treating you correctly and treating you as though you lived somewhere else. We store the two-letter country code only. Not your city, not your coordinates, not your full IP.</td></tr>
+      <tr><td><strong>Consent record:</strong> the date and time you opted in, <em>the exact wording you were shown</em>, a shortened form of your IP address, and your browser's user-agent string</td><td>GDPR Art 7(1) requires us to be able to <em>prove</em> you consented, and the honest version of that proof is a copy of the sentence you actually read — not a reference number. The timestamp is taken from our server, not your device. Your IP address is shortened before storage (for example <code>203.0.113.0</code>) so it identifies a network rather than a device — enough to corroborate the record, no more.</td></tr>
     </tbody>
   </table>
 
@@ -168,8 +169,12 @@
         <td><strong>Consent</strong> — Art 6(1)(a), given at the same time and for the stated purpose.</td>
       </tr>
       <tr>
-        <td>Keep the consent record itself (time, policy version, shortened IP, user-agent)</td>
+        <td>Keep the consent record itself (time, the wording you were shown, country, shortened IP, user-agent)</td>
         <td><strong>Legal obligation</strong> — Art 6(1)(c), read with Art 7(1), which requires us to be able to demonstrate consent.</td>
+      </tr>
+      <tr>
+        <td>Work out your country from your IP address</td>
+        <td><strong>Legal obligation</strong> — Art 6(1)(c). We have to know which privacy regime applies to you in order to comply with it. We keep the country code and discard the rest.</td>
       </tr>
       <tr>
         <td>Rate limiting and anti-spam on the signup form</td>
