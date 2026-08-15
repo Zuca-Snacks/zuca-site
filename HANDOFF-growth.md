@@ -159,13 +159,29 @@ with that, tell me and I'll drop it — but then an offline submit is simply los
    change; my UTM-based skip is gone and no growth code branches on traffic
    source. UTM capture and attribution are unaffected. Details in the UX
    section above.
-2. **No price appears anywhere on the waitlist page.** The page is measuring
-   willingness to pay, and any figure corrupts the `price_band` answer. The
-   hero and footer `$28 / box of 12` blocks are gone, and the "What will it
-   cost?" FAQ now names no number — it says the price isn't fixed and points at
-   the step 2 question, which turns the objection into a reason to answer.
-   Verified D2C reference is **$2.99/unit**; the $28 figure was stale. That
-   number lives only in a code comment. `price_band` stays framed as a 12-pack.
+2. **No figures of any kind on the page — in either direction.**
+
+   *Retail price.* The page is measuring willingness to pay, and any figure
+   corrupts the `price_band` answer. The hero and footer `$28 / box of 12`
+   blocks are gone, and the "What will it cost?" FAQ names no number — it says
+   the price isn't fixed and points at the step 2 question, which turns the
+   objection into a reason to answer. Verified D2C reference is **$2.99/unit**;
+   the $28 figure was stale. `price_band` stays framed as a 12-pack.
+
+   *Input costs.* The pulp disposal figure (**$25/ton**) is removed everywhere:
+   it is supplier-negotiation and competitor-intelligence information, and to a
+   consumer it reads "cheap" rather than "clever". Headline variant B was built
+   entirely on that number and is rewritten — it now reads *"Juiceries throw the
+   fiber away. We rescued it and turned it into dessert."* The pulp FAQ keeps
+   the rescue story with no economics in it.
+
+   **The upcycling story stays; no number is ever attached to it.** There is a
+   standing note at the top of `src/content/copy.js` stating this, so a figure
+   doesn't creep back in.
+
+   Verified against the production bundle: the only dollar strings that ship are
+   the five `price_band` *answer options*, which are the question itself and are
+   fixed by the frozen contract.
 3. **Allergens: publish only what is certain.** Both flavors contain tree nuts —
    almonds and pecans — and that is stated plainly in the three-number block
    footnote and in full in the FAQ. **Nothing else is published.** Gluten/oats

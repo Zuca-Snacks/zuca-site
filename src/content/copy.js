@@ -22,11 +22,16 @@
 // add any of the above to this file — or soften the "we're not publishing a
 // guess" line in the allergen FAQ — until that confirmation exists in writing.
 //
-// ── PRICING ──────────────────────────────────────────────────────────────────
-// No price appears anywhere on this page, by decision. The waitlist measures
-// willingness to pay via the price_band question, and any figure on the page
-// anchors the answer. Verified D2C reference is $2.99/unit (the old $28 /
-// 12-pack figure was stale) — internal only until launch.
+// ── PRICING — NO FIGURES OF ANY KIND ON THIS PAGE ────────────────────────────
+// This applies to BOTH directions:
+//   • Retail price. The waitlist measures willingness to pay via price_band;
+//     any figure on the page anchors the answer. Verified D2C reference is
+//     $2.99/unit (the old $28 / 12-pack figure was stale) — internal only.
+//   • Input costs. The pulp disposal figure is supplier-negotiation and
+//     competitor-intelligence information, and to a consumer it reads "cheap"
+//     rather than "clever".
+// Keep the upcycling story — fruit that was going to be thrown away, rescued
+// and made into something good — with no number attached to it.
 
 // ─── Headline variants ───────────────────────────────────────────────────────
 // Three tested-ready variants. See HANDOFF-growth.md for the reasoning.
@@ -42,7 +47,7 @@ export const HEADLINES = {
   // juiceries before they care about the snack.
   b: {
     id: "b",
-    headline: "Juiceries pay $25 a ton to throw this away. We turned it into dessert.",
+    headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
       "10g of fiber, 150 calories, no added sugar. Chocolate Raspberry Sea Salt or Maple Pecan, built by a Michelin-trained chef and a Stanford physician.",
   },
@@ -52,7 +57,7 @@ export const HEADLINES = {
     id: "c",
     headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories. No added sugar. Made from apple pulp a juicery was paying to throw away, by a Michelin-trained chef and a Stanford physician.",
+      "150 calories. No added sugar. Made from apple pulp a juicery was about to throw away, by a Michelin-trained chef and a Stanford physician.",
   },
 };
 
@@ -157,7 +162,7 @@ export const faq = [
   },
   {
     q: "\"Made from apple pulp\" — is that gross? Is it safe?",
-    a: "It's the fruit. When a juicery presses apples, the juice goes in the bottle and the rest of the apple — the fiber, mostly — gets thrown out, at a cost of about $25 a ton. That pulp is the same apple you'd eat whole. We collect it fresh, and it's made in facilities that comply with 21 CFR 117, the FDA's food safety rules for human food. Nothing about it is a byproduct except the accounting.",
+    a: "It's the fruit. When a juicery presses apples, the juice goes in the bottle and the rest of the apple — the fiber, mostly — gets thrown out as waste. That pulp is the same apple you'd eat whole. We rescue it fresh, and it's made in facilities that comply with 21 CFR 117, the FDA's food safety rules for human food. Nothing about it is a byproduct except the accounting.",
   },
   {
     q: "What's in it, and what about allergens?",
