@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import WaitlistForm from "./components/waitlist/WaitlistForm.jsx";
 import { Faq, NumberBlock, ProofStrip } from "./components/content/sections.jsx";
 import { fetchCount } from "./components/waitlist/api.js";
-import { EVENTS, isCampaignTraffic, track, trackPageView } from "./lib/analytics.js";
+import { EVENTS, track, trackPageView } from "./lib/analytics.js";
 import { founders, hero, introLines, sections, step1 } from "./content/copy.js";
 
 // ─── Grain canvas ───────────────────────────────────────────────────────────
@@ -916,13 +916,7 @@ const LINES = introLines;
 const MONO = "'IBM Plex Mono', monospace";
 
 export default function ZucaGate() {
-  // Cold campaign traffic arrives with a 5-second attention budget and no prior
-  // brand knowledge. The intro gate costs 6+ seconds before the product is even
-  // visible, so anyone carrying a utm_* param goes straight to the page.
-  // Organic and direct visitors still get the full intro, untouched.
-  const [skipGate] = useState(isCampaignTraffic);
-
-  const [phase, setPhase]         = useState(skipGate ? "product" : "intro");
+  const [phase, setPhase]         = useState("intro");
   const [line1, setLine1]         = useState(false);
   const [line2, setLine2]         = useState(false);
   const [line3, setLine3]         = useState(false);
@@ -930,8 +924,8 @@ export default function ZucaGate() {
   const [logoClick, setLogoClick] = useState(false);
   const [hov, setHov]             = useState(false);
   const [clicks, setClicks]       = useState(null);
-  const [veil, setVeil]           = useState(skipGate ? "gone" : "idle"); // idle | darken | lighten | gone
-  const [productIn, setProductIn] = useState(skipGate);
+  const [veil, setVeil]           = useState("idle"); // idle | darken | lighten | gone
+  const [productIn, setProductIn] = useState(false);
 
   const noiseRef = useRef();
   const dotRef   = useRef();
@@ -942,17 +936,15 @@ export default function ZucaGate() {
 
   useEffect(() => {
     trackPageView();
-    if (skipGate) track(EVENTS.INTRO_GATE_SKIPPED, { reason: "campaign" });
-  }, [skipGate]);
+  }, []);
 
   useEffect(() => {
-    if (skipGate) return undefined;
     const t1 = setTimeout(() => setLine1(true),  900);
     const t2 = setTimeout(() => setLine2(true), 2800);
     const t3 = setTimeout(() => setLine3(true), 4600);
     const t4 = setTimeout(() => setPrompt(true), 6200);
     return () => [t1,t2,t3,t4].forEach(clearTimeout);
-  }, [skipGate]);
+  }, []);
 
   useEffect(() => {
     fetchCount().then(count => setClicks(typeof count === "number" ? count : 0));
@@ -1107,10 +1099,10 @@ export default function ZucaGate() {
               </div>
             </div>
 
-            {/* The $28 / box-of-12 price block was removed from the hero: it
-                sat directly above the "what would you pay for a 12-pack?"
-                question and would anchor every answer. Price is answered in the
-                FAQ instead. See HANDOFF-growth.md. */}
+            {/* No price appears anywhere on this page, by decision: the
+                waitlist measures willingness to pay, and any figure anchors the
+                price_band answer. The old $28 / box-of-12 block was also stale.
+                See the pricing note in src/content/copy.js. */}
             <div className="cta-cluster si5">
               <button
                 className="order-btn"

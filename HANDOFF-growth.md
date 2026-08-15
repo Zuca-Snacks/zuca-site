@@ -59,7 +59,28 @@ it and I'll follow.
 could ship. Absorb or restyle them freely; **all copy comes from
 `src/content/copy.js`, so restyling never touches wording.**
 
-### 5. Layout bugs I found but did not fix (yours)
+### 5. The intro gate is yours to remove
+
+Decision (Emil, 15 Aug): **the gate goes away for everyone** — no conditional
+skip — and the ZUCA logo moment folds into the hero as a fast, non-blocking
+entrance. One behaviour, no branching.
+
+I had briefly shipped a UTM-based skip. **It is now removed**: `zuca-gate-v4.jsx`
+is back to the unconditional gate, and no growth code branches on campaign
+traffic. UTM *capture* is untouched — `page_view` still carries a `campaign`
+flag, and every payload still carries the contract's `utm` object.
+
+Two consequences for you:
+
+- **On my branch alone the gate is still there.** Merge order is UX →
+  Conversion → Security, so your removal lands first and mine inherits it.
+  Nothing in my code depends on `page-a`, `veil`, or `productIn` existing.
+- `introLines` in `src/content/copy.js` holds the three claim-safe tagline lines
+  (the old ones said "the snack brand that **clinicians recommend**" — not
+  usable). If the hero entrance reuses a tagline, take it from there. If nothing
+  uses it, tell me and I'll delete the export.
+
+### 6. Layout bugs I found but did not fix (yours)
 
 - **`.nav-strip` collides at 390px.** "ZUCA" and "Waitlist open" overlap — see
   `docs/screenshots/01-hero-390-above-fold.png`, top of frame. Pre-existing; the
@@ -113,12 +134,15 @@ optimistically treated as accepted. That is precisely why it is a fallback.
 - `form_render_ts` — ms epoch stamped once per form mount. `<2s` to submit = bot.
 - Both are in every payload, including the fallback path.
 
-### 4. `/privacy` must exist before the campaign sends
+### 4. `/privacy` link — no action needed
 
 The consent checkbox links to `/privacy` (`step1.privacyHref` in
-`src/content/copy.js`). Right now that 404s. **A cold outbound campaign with a
-broken privacy link is the one thing here that is actually a legal problem.**
-Point me at the real path if it isn't `/privacy` and I'll change one line.
+`src/content/copy.js`). It 404s on my branch and that is expected: you build
+those pages on `sec/hardening` and the link resolves once all three branches
+merge. Confirmed with Emil — **the link stays as-is.**
+
+Only tell me if the real path is something other than `/privacy`; that's a
+one-line change.
 
 ### 5. Failed submissions are queued client-side
 
@@ -129,25 +153,91 @@ with that, tell me and I'll drop it — but then an offline submit is simply los
 
 ---
 
-## → For Emil — decisions I need from you
+## → Decisions taken (Emil, 15 Aug 2026)
 
-1. **Price discrepancy.** The site said **$28 / box of 12** ($2.33 a unit); the
-   brief says the target is **$2.99 a unit** ($35.88 / 12). Those are different
-   products or a stale number. I removed the `$28` block from the hero and the
-   footer — it sat directly above "what would you pay for a 12-pack?" and would
-   have anchored every answer. The FAQ now says "we're targeting about $2.99 a
-   bite". **Confirm which number is right.**
-2. **Allergens.** The FAQ states "Contains tree nuts (including almonds and
-   pecans)". Almonds came from your brief, pecans from the Maple Pecan flavor.
-   **Confirm the exact allergen panel before the campaign sends** — this is a
-   legal requirement, not a copy choice, and I don't have the spec sheet.
-3. **Analytics tool.** Nothing is installed. Events buffer and auto-forward the
-   moment `window.plausible`, `window.dataLayer`, or `window.gtag` exists. Say
-   the word and I'll add a cookieless script tag — no banner needed.
-4. **"Pre-orders" vs "waitlist".** 130+ pre-orders is a fact about the past and I
-   kept it as proof. But the CTA now takes no payment, so I moved all
-   forward-looking language to first-access framing. If you are actually taking
-   pre-orders, that's a different funnel and I should build it differently.
+1. **Intro gate: removed for everyone**, not conditionally skipped. UX owns the
+   change; my UTM-based skip is gone and no growth code branches on traffic
+   source. UTM capture and attribution are unaffected. Details in the UX
+   section above.
+2. **No price appears anywhere on the waitlist page.** The page is measuring
+   willingness to pay, and any figure corrupts the `price_band` answer. The
+   hero and footer `$28 / box of 12` blocks are gone, and the "What will it
+   cost?" FAQ now names no number — it says the price isn't fixed and points at
+   the step 2 question, which turns the objection into a reason to answer.
+   Verified D2C reference is **$2.99/unit**; the $28 figure was stale. That
+   number lives only in a code comment. `price_band` stays framed as a 12-pack.
+3. **Allergens: publish only what is certain.** Both flavors contain tree nuts —
+   almonds and pecans — and that is stated plainly in the three-number block
+   footnote and in full in the FAQ. **Nothing else is published.** Gluten/oats
+   status, dairy in the Chocolate Raspberry Sea Salt, and shared-facility
+   cross-contact are all absent by design, pending written confirmation from
+   Step Change Innovations. The allergen FAQ ends with "We're not publishing a
+   guess."
+
+   ⚠️ **There is a BLOCKING TODO at the top of `src/content/copy.js`** listing
+   exactly what is unconfirmed. **Do not add any of those items, and do not
+   soften that FAQ line, until Emil has the manufacturer's written
+   confirmation.** This is the one item on this branch that must be closed
+   before a large list reads the page.
+4. **`/privacy`** — expected 404 on this branch, resolves on merge. No change.
+
+## Historical sheet reconciliation
+
+The live sheet already holds rows from the old pre-order modal, with their own
+value sets:
+
+```
+Reason:         fiber, gut, sustainability, weight, other
+How They Heard: friend, stanford, social, physician, other
+```
+
+The contract enums are frozen, so I reconciled in code rather than changing
+either side. **`LEGACY_MAP` and `DISCONTINUITIES` in
+`src/components/waitlist/fields.js`** are the authority — apply `LEGACY_MAP` to
+old rows to unify each column.
+
+| Legacy | → New | Note |
+|---|---|---|
+| `gut` | `gut_health` | Clean 1:1. |
+| `sustainability` | `sustainability` | Unchanged. |
+| `other` | `other` | Unchanged, both columns. |
+| `friend` | `friend` | Clean 1:1. |
+| `physician` | `doctor` | Same concept; the contract spells it `doctor`. I changed the visible label from "A doctor or dietitian" to **"A physician"** so the wording stays continuous. |
+| `fiber` | — | **No successor.** It was the general "I want more fiber" reason; the new options split that across `digestion`, `regularity`, `gut_health`, `energy`, `family_health`. For period comparison, treat legacy (`fiber` + `gut`) as the union of those five. Do **not** bucket it into `other`. |
+| `weight` | — | **Retired.** Weight-loss framing is forbidden by the claim guardrails, so it is not offered as a new option. Historical rows keep the value — don't rewrite or delete them — but the series ends at the cutover. |
+| `social` | `instagram` + `tiktok` | **Split.** Legacy rows can't be attributed to a platform after the fact, so platform-level series start at the cutover. For a continuous series, sum `instagram + tiktok` against legacy `social`. |
+| `stanford` | — | **No successor.** The contract enum has no equivalent and adding one would break the frozen contract. New rows from that channel land in `event` or `other`, so this is a closed series. UTMs are the better instrument for it now. |
+
+### ⚠️ The column *names* changed too — this needs action on the Apps Script
+
+The old modal posted `{name, email, phone, hearAbout, reason, ts}`. The contract
+payload posts `{email, zip, motivation, intent, price_band, flavor,
+is_clinician, referral_source, consent_marketing, utm, page_path, hp_field,
+form_render_ts}`.
+
+**`hearAbout` → `referral_source` and `reason` → `motivation`.** If the Apps
+Script maps a fixed set of keys to columns, every step-2 answer is silently
+dropped on the fallback path — which is the *only* live path until
+`/api/waitlist` ships.
+
+I deliberately did **not** alias the new values back into the legacy
+`hearAbout` / `reason` columns. Writing `motivation: "digestion"` into a column
+whose historical domain is `fiber|gut|sustainability|weight|other` would corrupt
+exactly the continuity we're trying to preserve. New columns, plus the mapping
+table above, keeps both eras clean.
+
+**Emil — the Apps Script is yours; it needs the new columns added before the
+campaign sends.** I don't own that file and haven't touched it.
+
+### Still open
+
+- **Analytics tool.** Nothing is installed. Events buffer and auto-forward the
+  moment `window.plausible`, `window.dataLayer`, or `window.gtag` exists. Say
+  the word and I'll add a cookieless script tag — no banner needed.
+- **"Pre-orders" vs "waitlist".** 130+ pre-orders is a fact about the past and I
+  kept it as proof. But the CTA now takes no payment, so all forward-looking
+  language is first-access framing. If you are actually taking pre-orders,
+  that's a different funnel and I should build it differently.
 
 ---
 

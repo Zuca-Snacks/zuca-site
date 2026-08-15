@@ -83,7 +83,9 @@ export const REFERRAL_SOURCE = {
   why: "Catches the offline channels UTMs miss.",
   options: [
     { value: "email", label: "An email" },
-    { value: "doctor", label: "A doctor or dietitian" },
+    // Label keeps the historical word "physician" so the column reads
+    // continuously against the legacy "How They Heard" values. See LEGACY_MAP.
+    { value: "doctor", label: "A physician" },
     { value: "friend", label: "Friend or family" },
     { value: "instagram", label: "Instagram" },
     { value: "tiktok", label: "TikTok" },
@@ -110,3 +112,60 @@ export const IS_CLINICIAN = {
 };
 
 export const STEP2_FIELDS = [FLAVOR, INTENT, PRICE_BAND, MOTIVATION, ZIP, REFERRAL_SOURCE, IS_CLINICIAN];
+
+// ─── Reconciliation with the historical sheet ────────────────────────────────
+// The live Google Sheet already holds rows written by the old pre-order modal,
+// under two columns with their own value sets:
+//
+//   Reason:         fiber, gut, sustainability, weight, other
+//   How They Heard: friend, stanford, social, physician, other
+//
+// The contract enums in AGENTS_BRIEF.md are frozen, so the reconciliation
+// happens here rather than by changing either side. Apply LEGACY_MAP to old
+// rows to bring both eras into one analyzable column.
+//
+// Anything mapping to null has NO 1:1 successor — see DISCONTINUITIES. Those
+// cases must be handled explicitly, not silently bucketed into `other`, or a
+// period-over-period comparison will quietly lie.
+
+export const LEGACY_MAP = {
+  // "Reason" → motivation
+  motivation: {
+    gut: "gut_health",
+    sustainability: "sustainability", // unchanged
+    other: "other", // unchanged
+    fiber: null, // no successor — see DISCONTINUITIES.fiber
+    weight: null, // retired — see DISCONTINUITIES.weight
+  },
+  // "How They Heard" → referral_source
+  referral_source: {
+    friend: "friend",
+    physician: "doctor", // same concept, contract spells it `doctor`
+    other: "other", // unchanged
+    social: null, // now split — see DISCONTINUITIES.social
+    stanford: null, // no successor — see DISCONTINUITIES.stanford
+  },
+};
+
+export const DISCONTINUITIES = {
+  fiber:
+    'Legacy "fiber" was the general "I want more fiber" reason. The new options ' +
+    "split that intent across digestion, regularity, gut_health, energy and " +
+    "family_health. Do not fold it into `other` — when comparing periods, treat " +
+    "legacy (fiber + gut) as the union of those five new values.",
+  weight:
+    'Legacy "weight" is retired and is NOT offered as a new option: weight-loss ' +
+    "framing is forbidden by the claim guardrails in AGENTS_BRIEF.md. Historical " +
+    "rows keep the value — do not rewrite or delete them — but the series ends at " +
+    "the cutover and no new rows will carry it.",
+  social:
+    'Legacy "social" is one bucket; new rows split it into `instagram` and ' +
+    "`tiktok`. Legacy rows cannot be attributed to a platform after the fact, so " +
+    "platform-level series start at the cutover. For a continuous series, sum " +
+    "instagram + tiktok and compare that against legacy social.",
+  stanford:
+    'Legacy "stanford" (the Stanford community) has no successor — the contract ' +
+    "enum has no equivalent and adding one would break the frozen contract. New " +
+    "rows from that channel land in `event` or `other`, so the legacy value is a " +
+    "closed series. UTMs are the better instrument for it going forward.",
+};

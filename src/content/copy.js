@@ -9,6 +9,24 @@
 // mitigates a disease. No named diseases. No "physician-recommended",
 // "doctor-approved", "clinically proven", or weight-loss framing. Structure/
 // function and factual nutrient-content statements only.
+//
+// ── TODO (BLOCKING before the outbound campaign sends) ───────────────────────
+// ALLERGEN PANEL IS INCOMPLETE ON PURPOSE.
+// Confirmed and safe to publish: both flavors contain TREE NUTS — almonds and
+// pecans. Nothing else is confirmed.
+// NOT yet confirmed, and therefore NOT stated anywhere on the site:
+//   • gluten / oats status
+//   • dairy in the Chocolate Raspberry Sea Salt
+//   • shared-facility cross-contact with other allergens
+// Emil is obtaining written confirmation from Step Change Innovations. Do not
+// add any of the above to this file — or soften the "we're not publishing a
+// guess" line in the allergen FAQ — until that confirmation exists in writing.
+//
+// ── PRICING ──────────────────────────────────────────────────────────────────
+// No price appears anywhere on this page, by decision. The waitlist measures
+// willingness to pay via the price_band question, and any figure on the page
+// anchors the answer. Verified D2C reference is $2.99/unit (the old $28 /
+// 12-pack figure was stale) — internal only until launch.
 
 // ─── Headline variants ───────────────────────────────────────────────────────
 // Three tested-ready variants. See HANDOFF-growth.md for the reasoning.
@@ -78,7 +96,7 @@ export const numbers = {
     { value: "150", unit: "calories", note: "Plus 4g of protein and 6g of natural sugar." },
     { value: "0g", unit: "added sugar", note: "The sweetness is the fruit. Nothing is added to it." },
   ],
-  footnote: "Per serving. Contains tree nuts.",
+  footnote: "Per serving. Contains tree nuts — almonds and pecans.",
 };
 
 // ─── Section headers ─────────────────────────────────────────────────────────
@@ -142,12 +160,15 @@ export const faq = [
     a: "It's the fruit. When a juicery presses apples, the juice goes in the bottle and the rest of the apple — the fiber, mostly — gets thrown out, at a cost of about $25 a ton. That pulp is the same apple you'd eat whole. We collect it fresh, and it's made in facilities that comply with 21 CFR 117, the FDA's food safety rules for human food. Nothing about it is a byproduct except the accounting.",
   },
   {
-    q: "What's in it, and what are the allergens?",
-    a: "Contains tree nuts (including almonds and pecans). Per serving: 10g fiber, 150 calories, 4g protein, 6g natural sugar, no added sugar. If you have a tree nut allergy, this is not a product for you — we'd rather tell you now than sell you one bite.",
+    q: "What's in it, and what about allergens?",
+    a: "Both flavors contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein, 6g natural sugar, no added sugar. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
   },
   {
     q: "What will it cost?",
-    a: "We're targeting about $2.99 a bite, and the waitlist gets the first run at launch pricing. Joining costs nothing and commits you to nothing — there's no card, and no charge.",
+    // Deliberately no number. The waitlist is measuring willingness to pay, and
+    // any figure on this page anchors the price question in step 2. Verified
+    // internal reference is $2.99/unit — it stays internal until launch.
+    a: "We haven't fixed the price yet, and we're not going to pretend otherwise — what a 12-pack should cost is one of the questions we ask people who join. Joining costs nothing and commits you to nothing: no card, no charge. Waitlist members get the first run at launch pricing, and hear the number before anyone else.",
   },
   {
     q: "When does it ship?",

@@ -221,8 +221,7 @@ export const EVENTS = {
   STEP2_SUBMIT: "step2_submit",
   STEP2_SKIP: "step2_skip",
   SHARE_CLICK: "share_click",
-  // Supporting events, outside the core funnel.
-  INTRO_GATE_SKIPPED: "intro_gate_skipped",
+  // Supporting event, outside the core funnel.
   FAQ_OPEN: "faq_open",
 };
 
