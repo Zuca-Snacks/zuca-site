@@ -181,19 +181,29 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     utm: { source: 'newsletter', campaign: 'launch' },
     page_path: '/',
     consent_text_version: '2026-08-15.marketing.a',
+    motivation_consent_text_version: '2026-08-15.health.a',
     consent_timestamp: '2026-08-15T12:00:00.000Z',
     country: 'NO',
+    needs_reconsent: false,
+    reconsent_reason: null,
     consent_receipt: JSON.stringify({
-      schema: 'zuca.consent.v1',
-      version: '2026-08-15.marketing.a',
-      text: 'Email me when pre-orders open. You can unsubscribe any time.',
-      registry_match: true,
-      marketing: true,
-      health: true,
-      health_text: 'Store my reason for interest so you can tailor what you send me.',
+      schema: 'zuca.consent.v2',
+      marketing: {
+        granted: true,
+        version: '2026-08-15.marketing.a',
+        text: 'Email me when pre-orders open. You can unsubscribe any time.',
+        registry_match: true,
+      },
+      health: {
+        granted: true,
+        version: '2026-08-15.health.a',
+        text: 'Store my reason for interest so you can tailor what you send me.',
+        registry_match: true,
+      },
       timestamp: '2026-08-15T12:00:00.000Z',
       country: 'NO',
       regime: 'eea',
+      reconciliation: { needs_reconsent: false, reason: null, country: 'NO', marketing_regime: 'global', health_regime: 'global' },
       ip_prefix: '203.0.113.0',
       user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36',
       method: 'web_form',
@@ -207,6 +217,7 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     ['referral_source', 'doctor'],
     ['motivation', 'gut_health|digestion'],
     ['consent_text_version', '2026-08-15.marketing.a'],
+    ['motivation_consent_text_version', '2026-08-15.health.a'],
     ['country', 'NO'],
     ['utm_source', 'newsletter'],
     ['zip', '94305'],
@@ -232,9 +243,16 @@ console.log('  (the target path: new client via /api/waitlist)\n');
       `${String(c.value).length} chars, parse ${parsed ? 'OK' : 'FAILED'}`
     );
     check(
-      'consent_receipt carries the verbatim wording, not just the version id',
-      parsed?.text === 'Email me when pre-orders open. You can unsubscribe any time.',
-      `text = ${JSON.stringify(parsed?.text)}`
+      'consent_receipt carries the verbatim MARKETING wording',
+      parsed?.marketing?.text === 'Email me when pre-orders open. You can unsubscribe any time.',
+      `marketing.text = ${JSON.stringify(parsed?.marketing?.text)}`
+    );
+    check(
+      'consent_receipt carries the verbatim HEALTH wording and its own version',
+      parsed?.health?.text === 'Store my reason for interest so you can tailor what you send me.' &&
+        parsed?.health?.version === '2026-08-15.health.a' &&
+        parsed?.health?.version !== parsed?.marketing?.version,
+      `health.version = ${parsed?.health?.version}, health.text = ${JSON.stringify(parsed?.health?.text)?.slice(0, 40)}…`
     );
     check(
       'consent_receipt records the legal regime',

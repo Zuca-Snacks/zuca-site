@@ -22,8 +22,8 @@
 
 import {
   MAX_BODY_BYTES,
-  CONSENT_TEXTS,
   resolveConsentText,
+  reconcileConsentRegime,
   deriveCountry,
   isEea,
   validateWaitlist,
@@ -223,17 +223,37 @@ export default async function handler(req, res) {
   //     them.
   const consentTimestamp = new Date().toISOString();
   const country = deriveCountry(req);
-  const consent = resolveConsentText(data.consent_text_version);
+  const consent = resolveConsentText(data.consent_text_version, 'marketing');
+  const healthConsent = resolveConsentText(data.motivation_consent_text_version, 'health');
   const ipPrefix = ip.includes(':')
     ? ip.split(':').slice(0, 3).join(':')
     : ip.split('.').slice(0, 3).join('.') + '.0';
   const userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
+
+  // Was the wording this person saw written for the place they actually are?
+  // VPNs, travel and cached bundles guarantee this is sometimes no.
+  const reconciliation = reconcileConsentRegime({
+    country,
+    marketingVersion: data.consent_text_version,
+    healthVersion: data.consent_health ? data.motivation_consent_text_version : null,
+  });
+
+  if (reconciliation.needs_reconsent) {
+    audit('consent.regime_mismatch', { handle, reason: reconciliation.reason });
+  }
 
   if (!consent.registry_match) {
     // Not fatal — see resolveConsentText. But it means this record's wording
     // cannot be reconstructed from the registry, which weakens it as evidence,
     // so it should be noticed and fixed rather than accumulating quietly.
     audit('consent.unregistered_text_version', { handle, version: consent.version });
+  }
+
+  // Health consent claimed but no wording identifier for it: the Art 9 record
+  // is incomplete. Accepted rather than rejected, for the same reason as above,
+  // but this is the weakest evidence state we can be in and should be loud.
+  if (data.consent_health && !healthConsent.registry_match) {
+    audit('consent.health_text_version_unresolved', { handle, version: healthConsent.version });
   }
 
   // 11. Build the record. Bot signals and the honeypot are dropped here — they
@@ -281,20 +301,39 @@ export default async function handler(req, res) {
     // its own, but the sentence the person actually read still means exactly
     // what it meant.
     consent_receipt: JSON.stringify({
-      schema: 'zuca.consent.v1',
-      version: consent.version,
-      text: consent.text,
-      registry_match: consent.registry_match,
-      marketing: data.consent_marketing,
-      health: data.consent_health,
-      health_text: data.consent_health ? CONSENT_TEXTS['2026-08-15.health.a'] ?? null : null,
+      schema: 'zuca.consent.v2',
+      // Two consents, recorded symmetrically and independently. The previous
+      // shape embedded a hardcoded health wording and no health version at all,
+      // which meant a copy change would have silently attached the OLD text to
+      // NEW records — evidence that is confidently wrong, which is worse than
+      // evidence that is missing.
+      marketing: {
+        granted: data.consent_marketing,
+        version: consent.version,
+        text: consent.text,
+        registry_match: consent.registry_match,
+      },
+      health: {
+        granted: data.consent_health,
+        version: data.consent_health ? healthConsent.version : null,
+        text: data.consent_health ? healthConsent.text : null,
+        registry_match: data.consent_health ? healthConsent.registry_match : null,
+      },
       timestamp: consentTimestamp,
       country,
       regime: isEea(country) ? 'eea' : 'other',
+      reconciliation,
       ip_prefix: ipPrefix,
       user_agent: userAgent,
       method: 'web_form',
     }),
+
+    // Promoted out of the receipt into their own columns so the set is
+    // filterable in the sheet. A flag buried in a JSON string is a flag nobody
+    // finds, and these are exactly the records an audit would pull.
+    motivation_consent_text_version: data.consent_health ? healthConsent.version : null,
+    needs_reconsent: reconciliation.needs_reconsent,
+    reconsent_reason: reconciliation.reason,
   });
 
   if (data.motivation && !data.consent_health) {

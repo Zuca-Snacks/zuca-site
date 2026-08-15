@@ -36,14 +36,17 @@ import { z } from 'zod';
  * so historical records remain resolvable.
  */
 export const CONSENT_TEXTS = {
-  '2026-08-15.marketing.a':
-    'Email me when pre-orders open. You can unsubscribe any time.',
-  '2026-08-15.health.a':
-    'Store my reason for interest so you can tailor what you send me.',
+  '2026-08-15.marketing.a': {
+    purpose: 'marketing',
+    regime: 'global',
+    text: 'Email me when pre-orders open. You can unsubscribe any time.',
+  },
+  '2026-08-15.health.a': {
+    purpose: 'health',
+    regime: 'global',
+    text: 'Store my reason for interest so you can tailor what you send me.',
+  },
 };
-
-/** Default when the client sends nothing — see `resolveConsentText`. */
-export const DEFAULT_CONSENT_TEXT_VERSION = '2026-08-15.marketing.a';
 
 /**
  * Resolve a version id to its wording.
@@ -56,15 +59,87 @@ export const DEFAULT_CONSENT_TEXT_VERSION = '2026-08-15.marketing.a';
  * anomaly is logged so it gets fixed. The wording itself stays recoverable from
  * the client's git history.
  */
-export function resolveConsentText(version) {
+export function resolveConsentText(version, expectedPurpose = null) {
   const id = typeof version === 'string' && version ? version : null;
   if (!id) {
-    return { version: 'unspecified', text: null, registry_match: false };
+    return {
+      version: 'unspecified',
+      text: null,
+      registry_match: false,
+      purpose: expectedPurpose,
+      regime: 'unknown',
+    };
   }
-  const text = CONSENT_TEXTS[id];
-  return text
-    ? { version: id, text, registry_match: true }
-    : { version: id, text: null, registry_match: false };
+
+  const entry = CONSENT_TEXTS[id];
+  return {
+    version: id,
+    text: entry ? entry.text : null,
+    registry_match: Boolean(entry),
+    purpose: entry ? entry.purpose : expectedPurpose,
+    regime: consentRegime(id),
+  };
+}
+
+/**
+ * Which legal regime a consent wording was written for.
+ *
+ * The registry is authoritative where it knows the id. Otherwise the id itself
+ * is parsed, because the Conversion agent versions its copy by audience —
+ * `mkt-us-…` versus `mkt-eu-…` — and an unregistered id is exactly the case
+ * where we most want a signal rather than a shrug.
+ *
+ * Tokenised rather than substring-matched: a naive /us/ test would classify
+ * `2026-08-15.august.a` as US-targeted, and a wrong regime here produces a
+ * wrong re-consent decision.
+ */
+export function consentRegime(version) {
+  const entry = CONSENT_TEXTS[version];
+  if (entry?.regime) return entry.regime;
+
+  const tokens = String(version || '').toLowerCase().split(/[-._]+/);
+  if (tokens.includes('us')) return 'us';
+  if (tokens.some((t) => ['eu', 'eea', 'gdpr', 'uk'].includes(t))) return 'eea';
+  return 'unknown';
+}
+
+/**
+ * Reconcile the wording someone was actually shown against where they actually
+ * were.
+ *
+ * The failure this catches: a visitor in Oslo is served the US consent copy —
+ * because of a VPN, a CDN edge decision, travel, or a cached bundle — ticks the
+ * box, and is recorded as consenting under wording that was never written to
+ * meet GDPR. Nothing errors. The record looks complete. It would fail an audit
+ * precisely because it looks fine.
+ *
+ * That set is never empty at any real volume, which is the point: it needs to
+ * be a queryable column, not a thing someone remembers to check.
+ *
+ * Only the EEA-person-shown-US-copy direction is flagged. The converse — an EEA
+ * wording shown to someone in Texas — over-protects them and breaks nothing, so
+ * flagging it would only add noise to the column that matters.
+ */
+export function reconcileConsentRegime({ country, marketingVersion, healthVersion }) {
+  const inEea = isEea(country);
+  const marketing = consentRegime(marketingVersion);
+  const health = healthVersion ? consentRegime(healthVersion) : null;
+
+  const mismatched = [];
+  if (inEea && marketing === 'us') mismatched.push('marketing');
+  if (inEea && health === 'us') mismatched.push('health');
+
+  if (!mismatched.length) {
+    return { needs_reconsent: false, reason: null, country, marketing_regime: marketing, health_regime: health };
+  }
+
+  return {
+    needs_reconsent: true,
+    reason: `${mismatched.join('+')}_consent_text_is_us_but_country_is_eea:${country}`,
+    country,
+    marketing_regime: marketing,
+    health_regime: health,
+  };
 }
 
 // ─── Geography ───────────────────────────────────────────────────────────────
@@ -168,6 +243,20 @@ function safeString(max) {
     .transform(normalizeText)
     .refine((v) => !FORBIDDEN_CHARS.test(v), { message: 'illegal_chars' })
     .refine((v) => v.length <= max, { message: 'too_long' });
+}
+
+/**
+ * A consent-wording identifier. Deliberately narrow: these end up in a
+ * spreadsheet cell and in an evidence record, so no delimiters beyond `. _ -`.
+ * Notably `+` is not permitted, which is what stops two identifiers being
+ * concatenated into one field.
+ */
+function consentVersionField() {
+  return z
+    .string()
+    .max(64, { message: 'too_long' })
+    .regex(/^[A-Za-z0-9._-]+$/, { message: 'illegal_chars' })
+    .nullish();
 }
 
 /** Treats "" and "  " as absent, so an untouched optional input is not a validation error. */
@@ -299,11 +388,17 @@ export const waitlistSchema = z
     // a client that tries to supply either gets a 400 rather than having its
     // value quietly trusted. Consent evidence a submitter can forge is not
     // evidence.
-    consent_text_version: z
-      .string()
-      .max(64, { message: 'too_long' })
-      .regex(/^[A-Za-z0-9._-]+$/, { message: 'illegal_chars' })
-      .nullish(),
+    consent_text_version: consentVersionField(),
+
+    // Dedicated identifier for the Art 9 health opt-in wording.
+    //
+    // Separate field, not a delimited pair inside `consent_text_version`. The
+    // whole legal basis for holding `motivation` is that its consent was
+    // separate and unbundled from the marketing consent, and a record that
+    // packs both into one string does not evidence that — it evidences one
+    // combined act, which is the thing Art 9(2)(a) does not accept. The shape
+    // of the record should match the shape of the claim it supports.
+    motivation_consent_text_version: consentVersionField(),
 
     intent: optionalEnum(INTENTS),
     price_band: optionalEnum(PRICE_BANDS),

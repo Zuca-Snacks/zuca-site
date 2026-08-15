@@ -70,8 +70,11 @@ var COLUMNS = [
   'utm_term',
   'page_path',
   'consent_text_version',
+  'motivation_consent_text_version',
   'consent_timestamp',
   'country',
+  'needs_reconsent',
+  'reconsent_reason',
   'consent_receipt',
   'consent_ip_prefix',
   'user_agent',
@@ -111,12 +114,6 @@ var LEGACY_KEYS = ['name', 'phone', 'hearAbout'];
 // ─── Safety ──────────────────────────────────────────────────────────────────
 
 /**
- * Neutralize spreadsheet formula injection and cell-breaking characters.
- *
- * The leading apostrophe forces Sheets to treat the value as text. It is not
- * displayed in the cell and is not part of the stored string.
- */
-/**
  * Per-column length caps. Default is 500 — long enough for any real answer,
  * short enough that a junk payload cannot bloat the sheet.
  *
@@ -129,6 +126,12 @@ var LEGACY_KEYS = ['name', 'phone', 'hearAbout'];
 var CELL_MAX_DEFAULT = 500;
 var CELL_MAX = { consent_receipt: 4000, user_agent: 250 };
 
+/**
+ * Neutralize spreadsheet formula injection and cell-breaking characters.
+ *
+ * The leading apostrophe forces Sheets to treat the value as text. It is not
+ * displayed in the cell and is not part of the stored string.
+ */
 function sanitizeCell_(value, column) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
@@ -305,8 +308,11 @@ function doPost(e) {
       utm_term: utm.term,
       page_path: payload.page_path,
       consent_text_version: payload.consent_text_version,
+      motivation_consent_text_version: payload.motivation_consent_text_version,
       consent_timestamp: payload.consent_timestamp,
       country: payload.country,
+      needs_reconsent: payload.needs_reconsent,
+      reconsent_reason: payload.reconsent_reason,
       consent_receipt: payload.consent_receipt,
       consent_ip_prefix: payload.consent_ip_prefix,
       user_agent: payload.user_agent,

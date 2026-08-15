@@ -446,6 +446,127 @@ await check('Malformed consent_text_version rejected', '400 validation', async (
   });
 }
 
+// 18 — motivation_consent_text_version as its own field
+await check('motivation_consent_text_version accepted as a separate field', '200', async () => {
+  const r = await post(
+    goodPayload({
+      consent_health: true,
+      motivation: ['gut_health'],
+      consent_text_version: '2026-08-15.marketing.a',
+      motivation_consent_text_version: '2026-08-15.health.a',
+    })
+  );
+  return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+await check('Two identifiers joined with "+" rejected', '400 validation', async () => {
+  // The shape growth was forced into before this field existed. `+` is outside
+  // the permitted charset precisely so a packed pair cannot masquerade as one id.
+  const r = await post(
+    goodPayload({ consent_text_version: '2026-08-15.marketing.a+2026-08-15.health.a' })
+  );
+  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+});
+
+// 19 — regime reconciliation
+{
+  const { reconcileConsentRegime, consentRegime } = await import('../src/lib/validation.js');
+
+  await check('consentRegime tokenises rather than substring-matches', 'no false US match', async () => {
+    const safe = consentRegime('2026-08-15.august.a'); // contains "us" inside a word
+    const real = consentRegime('mkt-us-2026-08.a');
+    return { pass: safe !== 'us' && real === 'us', actual: `august→${safe}, mkt-us→${real}` };
+  });
+
+  await check('EEA visitor shown US marketing copy → flagged', 'needs_reconsent', async () => {
+    const r = reconcileConsentRegime({ country: 'NO', marketingVersion: 'mkt-us-2026-08.a' });
+    return { pass: r.needs_reconsent === true, actual: r.reason ?? 'not flagged' };
+  });
+
+  await check('UK visitor shown US marketing copy → flagged', 'needs_reconsent', async () => {
+    const r = reconcileConsentRegime({ country: 'GB', marketingVersion: 'mkt-us-2026-08.a' });
+    return { pass: r.needs_reconsent === true, actual: r.reason ?? 'not flagged' };
+  });
+
+  await check('EEA visitor shown US health copy → flagged', 'needs_reconsent', async () => {
+    const r = reconcileConsentRegime({
+      country: 'DE',
+      marketingVersion: 'mkt-eu-2026-08.a',
+      healthVersion: 'health-us-2026-08.a',
+    });
+    return { pass: r.needs_reconsent === true && r.reason.startsWith('health'), actual: r.reason ?? 'not flagged' };
+  });
+
+  await check('Both consents US, visitor in EEA → both named in reason', 'marketing+health', async () => {
+    const r = reconcileConsentRegime({
+      country: 'NO',
+      marketingVersion: 'mkt-us-2026-08.a',
+      healthVersion: 'health-us-2026-08.a',
+    });
+    return { pass: r.reason?.startsWith('marketing+health'), actual: r.reason ?? 'not flagged' };
+  });
+
+  await check('EEA visitor shown EEA copy → not flagged', 'clean', async () => {
+    const r = reconcileConsentRegime({ country: 'NO', marketingVersion: 'mkt-eu-2026-08.a' });
+    return { pass: r.needs_reconsent === false, actual: JSON.stringify(r) };
+  });
+
+  await check('US visitor shown US copy → not flagged', 'clean', async () => {
+    const r = reconcileConsentRegime({ country: 'US', marketingVersion: 'mkt-us-2026-08.a' });
+    return { pass: r.needs_reconsent === false, actual: JSON.stringify(r) };
+  });
+
+  await check('US visitor shown EEA copy → not flagged (over-protection is fine)', 'clean', async () => {
+    const r = reconcileConsentRegime({ country: 'US', marketingVersion: 'mkt-eu-2026-08.a' });
+    return { pass: r.needs_reconsent === false, actual: JSON.stringify(r) };
+  });
+
+  await check('Unknown country (XX) not treated as EEA', 'clean', async () => {
+    const r = reconcileConsentRegime({ country: 'XX', marketingVersion: 'mkt-us-2026-08.a' });
+    return { pass: r.needs_reconsent === false, actual: JSON.stringify(r) };
+  });
+
+  await check('Health version ignored when health consent not granted', 'clean', async () => {
+    // The endpoint passes healthVersion: null unless consent_health is true.
+    const r = reconcileConsentRegime({ country: 'NO', marketingVersion: 'mkt-eu-2026-08.a', healthVersion: null });
+    return { pass: r.needs_reconsent === false, actual: JSON.stringify(r) };
+  });
+}
+
+// 20 — end-to-end: the receipt covers BOTH consents independently
+{
+  const { __resetInMemoryLimiter } = await import('../src/lib/ratelimit.js');
+  __resetInMemoryLimiter();
+
+  await check('Receipt records marketing and health separately, each with its own version', 'v2 shape', async () => {
+    // Rebuild what the handler builds, from the same helpers it uses.
+    const { resolveConsentText, reconcileConsentRegime, isEea } = await import('../src/lib/validation.js');
+    const m = resolveConsentText('2026-08-15.marketing.a', 'marketing');
+    const h = resolveConsentText('2026-08-15.health.a', 'health');
+    const rec = reconcileConsentRegime({
+      country: 'NO',
+      marketingVersion: '2026-08-15.marketing.a',
+      healthVersion: '2026-08-15.health.a',
+    });
+    const receipt = {
+      schema: 'zuca.consent.v2',
+      marketing: { granted: true, version: m.version, text: m.text, registry_match: m.registry_match },
+      health: { granted: true, version: h.version, text: h.text, registry_match: h.registry_match },
+      country: 'NO',
+      regime: isEea('NO') ? 'eea' : 'other',
+      reconciliation: rec,
+    };
+    const ok =
+      receipt.marketing.text?.startsWith('Email me when pre-orders open') &&
+      receipt.health.text?.startsWith('Store my reason for interest') &&
+      receipt.marketing.version !== receipt.health.version &&
+      receipt.health.version === '2026-08-15.health.a';
+    return {
+      pass: Boolean(ok),
+      actual: `mkt=${receipt.marketing.version}, health=${receipt.health.version}`,
+    };
+  });
+}
+
 // 18 — no PII in responses
 await check('Error response never echoes submitted input', 'no email in body', async () => {
   const r = await post(goodPayload({ email: 'canary-string@mailinator.com' }));

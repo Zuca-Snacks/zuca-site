@@ -451,21 +451,45 @@ the complete answer for one person:
 
 ```json
 {
-  "schema": "zuca.consent.v1",
-  "version": "2026-08-15.marketing.a",
-  "text": "Email me when pre-orders open. You can unsubscribe any time.",
-  "registry_match": true,
-  "marketing": true,
-  "health": false,
-  "health_text": null,
+  "schema": "zuca.consent.v2",
+  "marketing": {
+    "granted": true,
+    "version": "mkt-eu-2026-08.a",
+    "text": "Email me when pre-orders open. You can unsubscribe any time.",
+    "registry_match": true
+  },
+  "health": {
+    "granted": true,
+    "version": "health-eu-2026-08.a",
+    "text": "Store my reason for interest so you can tailor what you send me.",
+    "registry_match": true
+  },
   "timestamp": "2026-08-15T12:04:31.118Z",
   "country": "NO",
   "regime": "eea",
+  "reconciliation": {
+    "needs_reconsent": false,
+    "reason": null,
+    "marketing_regime": "eea",
+    "health_regime": "eea"
+  },
   "ip_prefix": "203.0.113.0",
   "user_agent": "Mozilla/5.0 …",
-  "method": "web_form"
+  "method": "web_form",
+  "…": "~710 bytes; column cap 4000"
 }
 ```
+
+**The two consents are recorded symmetrically and independently**, each with its own identifier,
+its own resolved wording and its own registry-match flag. That symmetry is the point: the legal
+basis for holding `motivation` at all is that its consent was *separate and unbundled* from the
+marketing consent, and a record that cannot show two distinct acts does not evidence that.
+
+> **A defect this caught.** The v1 receipt embedded a **hardcoded** health wording — a literal
+> lookup of one fixed id — and recorded no health version whatsoever. A change to that line of copy
+> would have attached the *old* text to every *new* record: evidence that is confidently wrong,
+> which is materially worse than evidence that is missing, because nothing about it looks broken.
+> Found by checking the claim rather than re-reading the summary of it.
 
 **To answer "prove this person consented":** find their row, copy the `consent_receipt` cell. That
 is the whole procedure. It states what they were shown, in the words they read, when, from which
@@ -481,6 +505,32 @@ Two deliberate design choices behind it:
   receipt runs ~550. Truncated JSON is not shortened JSON — it is unparseable, which would break the
   one artefact meant to prove consent at precisely the moment someone needed to read it. There is a
   test asserting it round-trips.
+
+### Regime reconciliation — the records that look fine and are not
+
+A signup can be complete, internally consistent and still worthless as evidence: someone in Oslo
+served the **US** consent copy — because of a VPN, travel, a CDN edge decision, or a bundle cached
+before the geo split shipped — ticks the box and is recorded as having consented under wording never
+written to meet GDPR. Nothing errors. No field is missing. It would fail an audit *precisely
+because* it looks fine, which is why nobody would ever go looking for it.
+
+At any real volume that set is not empty. So it is computed on write and promoted to its own
+columns, `needs_reconsent` and `reconsent_reason`, rather than left inside the receipt JSON — a flag
+buried in a string is a flag nobody filters on.
+
+The regime of a wording is read from its identifier, tokenised on `. _ -` (`mkt-us-…` → US,
+`mkt-eu-…` → EEA), with an explicit `regime` in the registry overriding the parse. Tokenised rather
+than substring-matched: a naive `/us/` test classifies `2026-08-15.august.a` as US-targeted, and a
+wrong regime here produces a wrong re-consent decision.
+
+Only the **EEA-person-shown-US-copy** direction is flagged. The converse over-protects the person
+and breaks nothing, so flagging it would only add noise to the one column that has to stay
+actionable.
+
+To work the queue: filter the sheet on `needs_reconsent = TRUE`, and treat those as consent not
+validly obtained — re-consent them through the current form, or exclude them from EEA sends.
+`reconsent_reason` says which consent was wrong and what the mismatch was, e.g.
+`marketing+health_consent_text_is_us_but_country_is_eea:NO`.
 
 `registry_match: false` flags a record whose wording could not be resolved — the signup is still
 accepted, because rejecting would mean a copy change that forgets to register a wording breaks every

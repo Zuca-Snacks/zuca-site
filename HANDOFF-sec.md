@@ -171,6 +171,60 @@ evidence, so do not lean on it.
 
 Format is `YYYY-MM-DD.<purpose>.<letter>`; only `A-Z a-z 0-9 . _ -` are accepted, max 64 chars.
 
+### 1e-ter. Stop packing two identifiers into one field · **now fixed on my side**
+
+You were joining the marketing and health identifiers into `consent_text_version` with a `+` to get
+past the strict validator. That was the right instinct given the field available, and the wrong
+shape — so there is now a dedicated field:
+
+```js
+consent_text_version:            "mkt-eu-2026-08.a",     // the marketing line
+motivation_consent_text_version: "health-eu-2026-08.a",  // the Art 9 line
+```
+
+**Why a separate field rather than a delimiter.** The entire legal basis for holding `motivation` is
+that its consent was *separate and unbundled* from the marketing consent. A record that packs both
+into one string does not evidence two acts — it evidences one combined act, which is the specific
+thing Art 9(2)(a) does not accept. The shape of the record has to match the shape of the claim it
+supports. `+` remains outside the permitted charset, so a packed pair still 400s rather than
+silently becoming a fake single identifier.
+
+The receipt now carries both independently:
+
+```jsonc
+{
+  "schema": "zuca.consent.v2",
+  "marketing": { "granted": true, "version": "…", "text": "Email me when pre-orders open…", "registry_match": true },
+  "health":    { "granted": true, "version": "…", "text": "Store my reason for interest…",  "registry_match": true },
+  …
+}
+```
+
+Worth knowing what your question caught: the previous receipt embedded a **hardcoded** health
+wording and recorded no health version at all. If you had changed that line, every new record would
+have carried the *old* text as its evidence — confidently wrong, which is worse than missing. Fixed.
+
+**Tag your version ids by audience.** I read the regime off the identifier, tokenised on `. _ -`:
+
+| Token in the id | Read as |
+|---|---|
+| `us` | US-targeted wording |
+| `eu`, `eea`, `gdpr`, `uk` | EEA/UK-targeted wording |
+| neither | `unknown` |
+
+So `mkt-us-2026-08.a` → US, `mkt-eu-2026-08.a` → EEA. It is tokenised rather than substring-matched
+on purpose: a naive `/us/` test would read `2026-08-15.august.a` as US-targeted, and a wrong regime
+produces a wrong re-consent decision. If you register an id in `CONSENT_TEXTS` you can set
+`regime` explicitly and it overrides the parse.
+
+**What this buys us.** The server compares the regime of the wording you served against the country
+it derived from the IP. Someone in Oslo shown the US copy — VPN, travel, CDN edge decision, stale
+cached bundle — is recorded with `needs_reconsent: TRUE` and a reason. That set is never empty at
+any real volume, and those records are exactly the ones that look complete and would still fail an
+audit. It is a filterable column, not a note in a JSON blob.
+
+You do not need to do anything about the flag. Just tag the ids so it can be computed.
+
 ### 1f. Map the current fields onto the frozen contract
 
 The live form collects fields the contract does not have, and misses fields it does:
@@ -332,26 +386,39 @@ capitalisation and spaces do not matter, underscores do.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **G1** | `zip` | **R1** | `utm_campaign` |
-| **H1** | `intent` | **S1** | `utm_content` |
-| **I1** | `price_band` | **T1** | `utm_term` |
-| **J1** | `flavor` | **U1** | `page_path` |
-| **K1** | `is_clinician` | **V1** | `consent_text_version` |
-| **L1** | `referral_source` | **W1** | `consent_timestamp` |
-| **M1** | `consent_marketing` | **X1** | `country` |
-| **N1** | `consent_health` | **Y1** | `consent_receipt` |
-| **O1** | `motivation` | **Z1** | `consent_ip_prefix` |
-| **P1** | `utm_source` | **AA1** | `user_agent` |
-| **Q1** | `utm_medium` | | |
+| **G1** | `zip` | **S1** | `utm_content` |
+| **H1** | `intent` | **T1** | `utm_term` |
+| **I1** | `price_band` | **U1** | `page_path` |
+| **J1** | `flavor` | **V1** | `consent_text_version` |
+| **K1** | `is_clinician` | **W1** | `motivation_consent_text_version` |
+| **L1** | `referral_source` | **X1** | `consent_timestamp` |
+| **M1** | `consent_marketing` | **Y1** | `country` |
+| **N1** | `consent_health` | **Z1** | `needs_reconsent` |
+| **O1** | `motivation` | **AA1** | `reconsent_reason` |
+| **P1** | `utm_source` | **AB1** | `consent_receipt` |
+| **Q1** | `utm_medium` | **AC1** | `consent_ip_prefix` |
+| **R1** | `utm_campaign` | **AD1** | `user_agent` |
 
-21 new columns, `G` through `AA`. 27 columns total when you are done.
+24 new columns, `G` through `AD`. 30 columns total when you are done.
 
-> **If you already added the earlier list:** the contract amendment renamed two columns and added
-> two more. Rename `consent_version` → `consent_text_version` and `consent_ts` →
-> `consent_timestamp`, then insert `country` and `consent_receipt`. Header matching ignores case,
-> spaces, hyphens and underscores, so `Consent Timestamp` and `consent_timestamp` are the same
-> column — but `consent_version` and `consent_text_version` are genuinely different names and a
-> stale one would leave that cell permanently empty.
+> **If you already added an earlier version of this list**, the deltas are:
+> `consent_version` → `consent_text_version`, `consent_ts` → `consent_timestamp`, plus four new
+> columns: `motivation_consent_text_version`, `needs_reconsent`, `reconsent_reason` and
+> `consent_receipt`. Header matching ignores case, spaces, hyphens and underscores, so
+> `Consent Timestamp` and `consent_timestamp` are the same column — but `consent_version` and
+> `consent_text_version` are genuinely different names, and a stale one leaves that cell
+> permanently empty. Order does not matter; the script matches on header text, not position.
+
+### Step 1b — put a filter on `needs_reconsent`
+
+Worth thirty seconds now, because this is the column you will actually use. Select row 1 →
+**Data → Create a filter**, then filter column `Z` to `TRUE`.
+
+That view is your re-consent queue: people the server believes were shown consent wording written
+for the wrong jurisdiction — someone in Oslo served the US copy because of a VPN, travel, a CDN edge
+decision or a stale cached bundle. Column `AA` says which consent was wrong and why. Nothing errors
+when this happens and the row looks complete, which is precisely why it needs a column rather than
+someone's memory.
 
 **Do not delete `E` (`hearAbout`) or `F` (`reason`).** They hold your existing 136 rows of answers.
 New signups write to `L` (`referral_source`) and `O` (`motivation`) instead, because the two use
@@ -384,10 +451,12 @@ the failure mode is a row appearing with empty cells:
 |---|---|---|
 | `C` (`email`) | your test address, lowercased | Nothing is working — check the Vercel env vars |
 | `M` (`consent_marketing`) | `TRUE` | The consent checkbox is not being sent |
-| `V` (`consent_text_version`) | `2026-08-15.marketing.a` | The client is not sending the wording id — see §1e-bis |
-| `W` (`consent_timestamp`) | an ISO timestamp | You are on an old build of the endpoint |
-| `X` (`country`) | your 2-letter country, e.g. `NO` | Expected as `XX` on localhost; empty in production means the geo header is missing |
-| `Y` (`consent_receipt`) | a JSON blob starting `{"schema":"zuca.consent.v1"` | The consent evidence record — this is what you would hand a regulator |
+| `V` (`consent_text_version`) | `2026-08-15.marketing.a` | The client is not sending the marketing wording id — see §1e-bis |
+| `W` (`motivation_consent_text_version`) | the health wording id, *only if* you ticked the health box | Empty with the box ticked means the client is not sending it |
+| `X` (`consent_timestamp`) | an ISO timestamp | You are on an old build of the endpoint |
+| `Y` (`country`) | your 2-letter country, e.g. `NO` | Expected as `XX` on localhost; empty in production means the geo header is missing |
+| `Z` (`needs_reconsent`) | `TRUE` or `FALSE` | Should never be blank. `TRUE` on your own test signup means the copy variant and your location disagree — see §1e-ter |
+| `AB` (`consent_receipt`) | a JSON blob starting `{"schema":"zuca.consent.v2"` | The consent evidence record — this is what you would hand a regulator. Check it contains BOTH a `marketing` and a `health` block |
 | `L` (`referral_source`) | your dropdown answer | **The exact bug this runbook is about** — the client is still sending `hearAbout` |
 | `O` (`motivation`) | your answer, *only if* you ticked the health box | Empty with the box **unticked** is correct. Empty with it **ticked** is a bug |
 | `B`, `D`, `E` (`name`, `phone`, `hearAbout`) | empty | These should be blank on the new path. Values here mean the old modal is still live |
