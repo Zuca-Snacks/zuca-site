@@ -73,7 +73,9 @@ export default function WaitlistSlot({ children }) {
       <div className="z-container">
         <div className="z-waitlist-slot__inner">
           <div>
-            <span className="z-section__eyebrow">Pre-order</span>
+            {/* Labelled "Waitlist", not "Pre-order" — this form takes an email,
+                not an order, and no payment is collected anywhere on the site. */}
+            <span className="z-section__eyebrow">Waitlist</span>
             <h2 id="waitlist-title" className="z-waitlist-slot__title">
               Get first access when it ships.
             </h2>

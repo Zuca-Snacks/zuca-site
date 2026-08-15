@@ -230,9 +230,21 @@ holds, and you should not budget off my estimate.** Two things to check before
 anything else:
 
 1. **Does Zuca's existing licence cover web embedding at all?** A desktop-only
-   licence does not permit serving the file from your site, which is what both
-   the investor site and this branch now do. Worth confirming regardless of the
-   bold question — this is a live compliance item, not a nice-to-have.
+   licence does not permit serving the file from your site. Worth confirming
+   regardless of the bold question — this is a live compliance item, not a
+   nice-to-have.
+
+   > ⚠️ **This is NOT a this-branch problem — it applies to two properties, and
+   > fixing one does not fix the other.**
+   >
+   > | Property | Exposure |
+   > |---|---|
+   > | **zucainvestor.netlify.app** | Serves the **unsubsetted `Lazydog.otf` (100KB)** from its web root today. This is the pre-existing exposure and it is live right now. |
+   > | **This branch (zuca.com)** | Serves a 23KB latin **woff2 subset** I generated from that same OTF. Subsetting and format-converting a font is itself a modification that many licences restrict separately from embedding. |
+   >
+   > Do not close this item when only the marketing site is sorted. The investor
+   > site is the one that is already public. If the licence turns out not to
+   > cover web use, **both** need remediating, and the investor site first.
 2. **Is there a bold weight for sale?** The name table shows a single-weight
    family, so most likely not. Ask Juliya Kochkanyan directly via the Creative
    Market link.
@@ -355,6 +367,19 @@ WebP + JPEG at every needed width. Add a job entry per new image.
   it is still in the repo and in git history.
 - The footer links to `/privacy` and `/terms`, which don't exist yet. They're
   plain paths so they'll work the moment your pages land.
+
+- 🔴 **ACTION REQUIRED WHEN YOUR BRANCH MERGES — add your routes to the sitemap.**
+  `public/sitemap.xml` currently lists only `/`. Deliberate: listing URLs that
+  404 wastes crawl budget and is read as a quality signal against the site. Once
+  `/privacy` and `/terms` exist, add them:
+
+  ```xml
+  <url><loc>https://zucasnacks.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://zucasnacks.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  ```
+
+  Also update `<lastmod>` on `/` and confirm the domain — both `robots.txt` and
+  `sitemap.xml` hardcode `https://zucasnacks.com`.
 - `index.html` now has one small inline `<script>` (adds a `z-js` class before
   paint). **If you add a CSP, it needs a hash or nonce** — or tell me and I'll
   move it to an external file.
@@ -377,6 +402,42 @@ the brief's **forbidden** list:
 Nothing I wrote names a disease, implies treatment or prevention, or claims
 endorsement. The strongest health line on the page is "Fiber supports digestive
 health", which is an allowed structure/function claim.
+
+### 🔴 "Pre-order" language removed sitewide — AGENTS_BRIEF.md is now wrong
+
+**Emil, 15 Aug:** *"Nobody has paid us — these are waitlist signups, not
+pre-orders, and a badge claiming otherwise is a claim we can't support."*
+
+That principle is broader than the badge it was aimed at. The page said
+"pre-order" in **five** places, each implying a transaction that has not
+happened and that the site cannot even perform — there is no payment step
+anywhere. All five are changed:
+
+| Where | Was | Now |
+|---|---|---|
+| Hero badge | "Pre-order open" | **deleted at every breakpoint** |
+| Hero microcopy | "130+ people already pre-ordered." | "130+ people are already on the list." |
+| Waitlist section eyebrow | "Pre-order" | "Waitlist" |
+| FAQ, ship date | "We're in pre-order now and manufacturing with…" | "We're manufacturing with… now" |
+| Proof strip | "130+ **pre-orders** placed before launch" | "130+ **signed up** before we launched" |
+
+⚠️ **The last row conflicts with the shared brief.** `AGENTS_BRIEF.md` lists
+**"Traction: 130+ pre-orders"** under *"verified facts — do not invent others"*.
+Emil's statement supersedes it, but the brief is the document the conversion and
+security agents are working from, and it will keep telling them "pre-orders" is
+verified.
+
+**→ Emil: please correct the verified-facts list in `AGENTS_BRIEF.md` at source**
+(e.g. "130+ waitlist signups"), otherwise the stronger wording gets reintroduced
+by another agent in good faith. I have not edited the brief — it is the shared
+contract and not mine to change.
+
+**→ Conversion agent:** the `intent` enum in the frozen waitlist contract still
+contains `preorder_now`. That's an internal enum value describing purchase
+*intent*, not a user-facing claim, so it does not need to change — but do not
+surface the phrase "pre-order" in the UI label for it.
+
+---
 
 ### 📋 FOR COOLEY LLP TO CONFIRM
 

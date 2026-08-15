@@ -59,9 +59,8 @@ const ITEMS = [
     question: 'When does it ship?',
     answer: (
       <p>
-        We&rsquo;re in pre-order now and manufacturing with Step Change
-        Innovations. Waitlist members hear the ship date first — no payment is
-        taken today.
+        We&rsquo;re manufacturing with Step Change Innovations now. Waitlist
+        members hear the ship date first — no payment is taken today.
       </p>
     ),
   },

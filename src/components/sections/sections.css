@@ -133,10 +133,13 @@
   .z-hero__tagline { animation: none; }
 }
 
-/* Hidden on phones. The tagline now occupies this slot, and the badges repeat
-   what the lede states one line later ("10g of fiber") — not worth 40px of a
-   844px fold, which is the difference between the CTA being visible or not.
-   They return at tablet width where the space is free. */
+/* Hidden on phones — Emil's call: if the badge and the credential tagline can't
+   both fit above the fold, the tagline wins, because it is the more
+   differentiating of the two for cold traffic who have never heard of Zuca.
+   Measured: the badge row costs ~40px whether it holds one badge or two (it is
+   one wrapped row either way), which put the CTA at 857px against an 844px
+   fold. "10g fiber" is also restated in the lede one line below.
+   Returns at tablet width where the space is free. */
 .z-hero__eyebrow {
   display: none;
   flex-wrap: wrap;

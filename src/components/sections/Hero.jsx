@@ -61,8 +61,10 @@ export default function Hero() {
           {/* Part of the brand entrance: fades up with the wordmark. */}
           <p className="z-hero__tagline">{INTRO_LINE.replace(/,$/, '')}</p>
 
+          {/* "Pre-order open" was removed at every breakpoint: nobody has paid,
+              these are waitlist signups, and a badge implying an open
+              transaction is a claim we cannot support. */}
           <div className="z-hero__eyebrow">
-            <Badge variant="warm">Pre-order open</Badge>
             <Badge>10g fiber</Badge>
           </div>
 
@@ -96,7 +98,7 @@ export default function Hero() {
               </Button>
             </div>
             <p className="z-hero__microcopy">
-              130+ people already pre-ordered. No payment today.
+              130+ people are already on the list. No payment today.
             </p>
           </form>
         </div>
