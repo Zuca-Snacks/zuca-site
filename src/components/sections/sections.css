@@ -472,7 +472,14 @@
 
 .z-waitlist-slot__title { font-size: var(--z-step-3); }
 
-/* The visual frame the conversion agent's form mounts into. */
+/* The visual frame the conversion agent's form mounts into.
+   ⚠️ Deliberately a bare grid with only a gap: implicit rows, no
+   grid-template-rows, no :nth-child, no fixed heights. Step 2 renders a
+   VARIABLE number of fields — ZIP is hidden entirely for non-US visitors, and
+   the Art 9 motivation consent may or may not be shown — so any rule that
+   counts rows would break for some visitors and not others, which is the worst
+   kind of layout bug to catch. Verified with 8, 7 and 1 children: uniform 16px
+   gap, no overlap. Keep it that way. */
 .z-waitlist-mount {
   display: grid;
   gap: var(--z-space-4);

@@ -456,6 +456,74 @@ surface the phrase "pre-order" in the UI label for it.
 
 ---
 
+### ✅ Consent block: multi-line verification + the fold maths
+
+Tested against growth's **real** strings from
+`origin/growth/waitlist-conversion:src/content/copy.js`, not invented ones.
+
+**1. Checkbox alignment with a wrapping label — passes.**
+The box is centred on the label's **first line**, not on the block, so it does
+not drift as the text wraps. Measured drift at 360 / 390 / 430 across the US
+string, the EEA string, the projected longer EEA string and the Art 9 motivation
+string — **0px in every case**, up to 9 wrapped lines.
+
+The offset is derived from tokens, not hardcoded:
+`margin-top: calc(var(--z-space-3) + (1.4em - 24px) / 2)`, with `font-size`
+pinned on the input so `1.4em` resolves against the label's size. It was a magic
+`10px` before this check; it would have drifted if the type scale ever moved.
+
+**2. Cost of the new "plus a short series when we launch" clause:**
+
+| Width | EEA current | EEA + new clause | Delta | Lines |
+|---|---|---|---|---|
+| 360px | 271px | 293px | **+22px** | 8 → 9 |
+| 390px | 229px | 252px | **+23px** | 7 → 8 |
+| 430px | 230px | 230px | **+0px** | 7 → 7 (absorbed by an existing line) |
+
+**3. Does it break the fold? No — but the margin is now thin.**
+Growth measured the EEA variant with the CTA at **763px of 844** → 81px of
+headroom. Adding 23px puts it at **~786px, clearing the fold with ~58px spare**.
+360px is the tightest at +22px.
+
+⚠️ Caveat on that number: it assumes growth's step-2 container is the same width
+as this shell's (`max-width: 34rem` inside `--z-gutter`). If their form sits in a
+narrower container the string wraps to more lines and costs more. **Growth: re-run
+the measurement on your own layout once the string lands — my delta is measured
+in this shell.**
+
+**4. If it does break, here is what I would cut — in order. Never the consent text.**
+That text is a legal commitment and a promise about sending behaviour; trimming
+it for layout would mint a weaker consent record, which is exactly the failure
+mode the amendment exists to prevent.
+
+| # | Cut | Saves @390 | Why it is safe to lose |
+|---|---|---|---|
+| 1 | The section lede, *"130+ people are already on the list. It takes one field."* | **75px** | Pure duplication — the proof strip already states 130+, and the hero microcopy repeats it directly above the fold. |
+| 2 | The eyebrow, *"Waitlist"* | **32px** | The `<h2>` directly beneath it already says "Get first access when it ships." The eyebrow is decoration. |
+| 3 | The email field's hint, *"Only your email is required. No payment today."* | **20px** | The consent text now states the sending behaviour, and the CTA label says "Join the waitlist", not "Buy". |
+| 4 | Tighten `.z-waitlist-slot__inner` gap from `--z-space-5` to `--z-space-4` | **8px** | Purely visual rhythm; the section keeps its outer padding. |
+| | **Total available without touching consent** | **~135px** | Nearly 6× the 23px the new clause costs. |
+
+There is a fifth, much larger lever that is **growth's call, not mine**: the Art 9
+motivation consent is a second block costing **184px at 390px** (429px when
+stacked with the EEA marketing consent). Rendering it only *after* the user
+actually selects a motivation — progressive disclosure — removes it from the
+default view entirely. That is a consent-flow decision, so I have not touched it.
+
+### ✅ Step 2 tolerates a variable field count
+
+`.z-waitlist-mount` is a bare `display: grid` + `gap` — implicit rows, and there
+is **no `grid-template-rows`, no `grid-auto-rows`, no `:nth-child` and no fixed
+height** anywhere in the form layout (the only `:nth-child` in the codebase is
+on the four wordmark letters, which are fixed by definition).
+
+Verified by rendering 8 fields, removing ZIP to get 7, then reducing to 1:
+uniform 16px gap every time, zero overlap. Hiding ZIP for non-US visitors needs
+no layout change. A comment in `sections.css` records the constraint so it is not
+regressed by a later "tidy-up".
+
+---
+
 ### ⚠️ `zip` is US-only, but the outreach list is now international
 
 Not my field and not my call — flagging because it surfaced directly from the

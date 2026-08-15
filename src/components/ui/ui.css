@@ -299,8 +299,16 @@
   flex: none;
   width: 24px;
   height: 24px;
-  /* Optically centres the box on the label's first line. */
-  margin-top: 10px;
+
+  /* Centres the box on the label's FIRST line, not on the label as a whole —
+     the consent text runs to two or three lines in some locales, and
+     align-items:center would drift the box toward the middle of the block.
+     Derived from the tokens rather than hardcoded so it holds if the type
+     scale changes: label padding + half the first line box - half the box.
+     font-size is pinned here so 1.4em resolves against the label's size. */
+  font-size: var(--z-step-0);
+  align-self: flex-start;
+  margin-top: calc(var(--z-space-3) + (1.4em - 24px) / 2);
 
   display: grid;
   place-content: center;
