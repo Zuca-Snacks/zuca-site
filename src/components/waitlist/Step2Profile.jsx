@@ -94,6 +94,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     const payload = buildPayload({
       email,
       consentMarketing: true,
+      consentHealth: motivationOptIn,
       // The marketing consent is what `consent_marketing: true` refers to, so
       // its version is what this field must carry. The motivation opt-in has
       // its own wording and its own version, and the contract has nowhere to
@@ -175,32 +176,50 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
           }}
         />
 
-        {/* Health-motivation: its own opt-in, its own box, unchecked by default,
-            and the question itself stays disabled until it is ticked. */}
-        <Consent
-          id={motivationConsentId}
-          separate
-          checked={motivationOptIn}
-          onChange={(next) => {
-            setMotivationOptIn(next);
-            if (!next) setMotivation([]);
+        {/* The health question costs nothing to anyone who doesn't open it.
+            Note the order inside: the opt-in comes FIRST and the chips stay
+            disabled until it is ticked. Collecting first and asking after
+            would be cheaper on space and would not be consent. */}
+        <details
+          className="zw-disclosure"
+          onToggle={(e) => {
+            if (e.currentTarget.open) track(EVENTS.STEP2_MOTIVATION_OPEN);
+            else {
+              // Closing it retracts the opt-in and the answers with it, so the
+              // collapsed state can never hide data we are still holding.
+              setMotivationOptIn(false);
+              setMotivation([]);
+            }
           }}
         >
-          {motivationCopy.text}
-        </Consent>
+          <summary>{copy.motivationDisclosure}</summary>
+          <div className="zw-disclosure-body">
+            <Consent
+              id={motivationConsentId}
+              separate
+              checked={motivationOptIn}
+              onChange={(next) => {
+                setMotivationOptIn(next);
+                if (!next) setMotivation([]);
+              }}
+            >
+              {motivationCopy.text}
+            </Consent>
 
-        <ChipMultiGroup
-          legend={MOTIVATION.label}
-          options={MOTIVATION.options}
-          values={motivation}
-          max={MOTIVATION.max}
-          hint={copy.motivationHint}
-          disabled={!motivationOptIn}
-          onChange={(next) => {
-            setMotivation(next);
-            if (next.length) noteField(MOTIVATION.key);
-          }}
-        />
+            <ChipMultiGroup
+              legend={MOTIVATION.label}
+              options={MOTIVATION.options}
+              values={motivation}
+              max={MOTIVATION.max}
+              hint={copy.motivationHint}
+              disabled={!motivationOptIn}
+              onChange={(next) => {
+                setMotivation(next);
+                if (next.length) noteField(MOTIVATION.key);
+              }}
+            />
+          </div>
+        </details>
 
         {showZip ? (
           <Field

@@ -154,32 +154,60 @@ not evidence and a client-supplied country is not a fact — both are trivially
 forged and neither would survive being relied on. There is an explicit comment
 in `api.js` saying so, so nobody "helpfully" adds them.
 
-**`motivation_consent_text_version` — agreed, and wired behind a one-line
-switch.** You're adding the field; until it lands, `MOTIVATION_FIELD_LIVE` in
-`api.js` is `false` and both identifiers travel in `consent_text_version`,
-`+`-joined, marketing always first. **Ping me the moment the field ships and I
-flip the boolean** — I'm not flipping it early because an unknown key risks a
-400 from your validator, which would silently discard every step-2 answer.
-
-Both shapes, verified:
-
-```jsonc
-// MOTIVATION_FIELD_LIVE = false  (today)
-{ "consent_text_version": "mkt-eea-…-0dd5ad8b+mot-all-…-14d950d1" }
-
-// MOTIVATION_FIELD_LIVE = true   (after your field lands)
-{ "consent_text_version":            "mkt-eea-…-0dd5ad8b",
-  "motivation_consent_text_version": "mot-all-…-14d950d1" }
-```
-
-Interim records split on `+` — marketing first, always — so no evidence is lost
-either side of the cutover.
+**`motivation_consent_text_version` — live, and the `+` interim is deleted.**
+Both identifiers now travel in their own fields. The interim that joined them
+was not merely superseded — **it was invalid**: `consentVersionField()`
+constrains ids to `/^[A-Za-z0-9._-]+$/`, and `+` is not in that set. Every
+step-2 submit from someone who ticked the health box would have 400'd and lost
+the whole profile. It is removed rather than left behind a boolean.
 
 **You must store the wording, not just the version.** A version identifier is
 only evidence if the text it points at is retained immutably. The strings live
 in `src/content/copy.js` and are therefore in git history, but git history is
 not a compliance record — please snapshot `version → exact text` server-side at
 write time.
+
+### 3b. What I found verifying against your shipped code
+
+I ran my real version ids and real `buildPayload()` output through
+`origin/sec/hardening:src/lib/validation.js` rather than reading the handoff
+prose. Three things did not match, two of them silent data loss:
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | **`+`-joined ids fail `consentVersionField()`.** `/^[A-Za-z0-9._-]+$/` excludes `+`, so every health opt-in would have 400'd. | Fixed — dedicated field, join deleted. |
+| 2 | **I was never sending `consent_health`.** It is in your schema, it defaults to `false`, and your comment says `motivation` is *dropped entirely* without it. It is not in the contract in `AGENTS_BRIEF.md`, so I had no way to know it existed without reading your code. **Every health answer collected so far would have been silently discarded.** | Fixed — sent explicitly on every payload, including `false`. |
+| 3 | **My health id `mot-all-…` parsed as `unknown` regime.** Not currently a wrong flag (only `us` triggers), but it left `health_regime` unauditable on every record, and any future rule that treats `unknown` as suspect would have been blind. | Fixed — now `mot-eea-…`, which your parser reads as `eea`. |
+
+On the audience token: **your code is already right and your prose is stale.**
+`consentRegime()` accepts `['eu','eea','gdpr','uk']`, so my `mkt-eea-…` resolves
+correctly — but §1e-bis of your handoff asks for `mkt-eu-`. Worth fixing the
+prose so the next person doesn't standardise on the wrong one.
+
+Verified end-to-end against your actual `waitlistSchema` and
+`reconcileConsentRegime`:
+
+```
+regime      mkt-us-2026-08-15-7d912cf1   → us
+            mkt-eea-2026-08-15-0dd5ad8b  → eea
+            mot-eea-2026-08-15-14d950d1  → eea      (was: unknown)
+
+schema      step 1 only                  ✓ valid
+            step 2, health opted IN      ✓ valid   consent_health true,  motivation kept, mot version set
+            step 2, health opted OUT     ✓ valid   consent_health false, motivation null,  mot version null
+
+reconcile   DE + EEA copy → not flagged   mkt eea / health eea
+            DE + US  copy → FLAGGED       mkt us  / health eea
+            US + US  copy → not flagged   mkt us  / health eea
+```
+
+`motivation` is now also dropped client-side unless `consent_health` is true, so
+the data cannot outlive its opt-in on either side of the wire.
+
+**One thing for you.** `consent_health` is a required part of the record but is
+not in the frozen contract in `AGENTS_BRIEF.md`. Please add it there — I only
+found it by reading your source, and the next agent to code against the brief
+will hit the same silent drop.
 
 ### 4. Region-based consent wording
 
@@ -369,6 +397,25 @@ The change from the first draft moved the EEA version from `…-55babc95` to
 `…-0dd5ad8b` with no version number touched by hand. US and motivation versions
 are unchanged, which is the other half of the property: **only the wording that
 actually changed mints a new identifier.**
+
+### Motivation question is now behind a disclosure
+
+Per Emil: the health block sits behind **"Want to help shape what we make?"**,
+collapsed by default. **Consent order is preserved** — opening it reveals the
+opt-in checkbox *first*, with the chips disabled until it is ticked. Collecting
+first and asking after would have been cheaper on space and would not have been
+consent.
+
+Native `<details>`, so no JS, keyboard-complete, and the collapsed height is
+stable — opening it cannot shift anything above it. Closing it also clears the
+opt-in and the selections, so a collapsed panel can never hide data we are still
+holding.
+
+Measured at 390px: the step 2 card is **1506px collapsed, 2072px open — 566px
+saved** for everyone who doesn't open it.
+
+`step2_motivation_open` is instrumented, so the take-up rate is visible rather
+than assumed.
 
 ### Still open
 

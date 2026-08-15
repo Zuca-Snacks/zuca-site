@@ -281,6 +281,61 @@ fieldset.zw-field {
   margin-bottom: var(--z-space-3);
 }
 
+/* ─── Progressive disclosure ─────────────────────────────────────────────── */
+/* Native <details>: no JS, keyboard-complete, and collapsed height is stable so
+   opening it cannot shift anything above it. */
+
+.zw-disclosure {
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-sm);
+  margin-bottom: var(--z-space-5);
+  background: var(--z-surface);
+}
+
+.zw-disclosure > summary {
+  /* 44px minimum tap target. */
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-3);
+  padding: var(--z-space-3) var(--z-space-4);
+  font-size: max(var(--z-step-0), 1rem);
+  font-weight: 600;
+  color: var(--z-ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.zw-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.zw-disclosure > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--z-brand);
+}
+
+.zw-disclosure[open] > summary::after {
+  content: "\2212"; /* minus */
+}
+
+.zw-disclosure > summary:focus-visible {
+  outline: 2px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+.zw-disclosure-body {
+  padding: 0 var(--z-space-4) var(--z-space-4);
+}
+
+/* The group carries its own rhythm from fieldset.zw-field; inside the
+   disclosure the container already provides it. */
+.zw-disclosure-body fieldset.zw-field:last-child {
+  margin-bottom: 0;
+}
+
 /* ─── Errors ─────────────────────────────────────────────────────────────── */
 
 .zw-error {

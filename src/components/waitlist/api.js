@@ -36,10 +36,6 @@ export const RESULT = {
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
 
-// See buildPayload's note. Flip to true the moment the security agent's
-// `motivation_consent_text_version` field is live.
-const MOTIVATION_FIELD_LIVE = false;
-
 /**
  * Build a contract-shaped body. Only `email` and `consent_marketing` are ever
  * required; every other key is null until step 2 supplies it.
@@ -53,49 +49,49 @@ const MOTIVATION_FIELD_LIVE = false;
  * country is not a fact — both are trivially forged and neither would survive
  * being relied on. Do not add them to this payload.
  *
- * When the user also accepts the health-motivation opt-in, they have agreed to
- * two separate texts. `motivation_consent_text_version` is the agreed home for
- * the second one — the Art 9 consent is the one most likely to be challenged
- * and deserves its own column rather than a substring.
+ * The health opt-in has its own wording, its own identifier, and its own field:
+ * `motivation_consent_text_version`. The legal basis for holding `motivation`
+ * at all is that its consent was separate and unbundled, so packing both ids
+ * into one string would evidence a single combined act — the exact thing
+ * Art 9(2)(a) does not accept. The shape of the record matches the shape of
+ * the claim.
  *
- * ┌─ ONE-LINE SWITCH ──────────────────────────────────────────────────────┐
- * │ Security is adding the field. Flip MOTIVATION_FIELD_LIVE to true the   │
- * │ moment it ships and the payload moves to the dedicated key. It stays   │
- * │ false until then because an unknown key risks a 400 from the           │
- * │ validator, which would silently discard every step-2 answer.           │
- * └────────────────────────────────────────────────────────────────────────┘
+ * (The earlier interim that `+`-joined the two ids is gone. It was not just
+ * superseded: the server's validator constrains version ids to
+ * /^[A-Za-z0-9._-]+$/, so a joined id was a 400 — see HANDOFF-growth.md.)
  *
- * While false, both identifiers travel in `consent_text_version`, `+`-joined
- * and stably ordered (marketing first). Splitting on `+` yields the individual
- * versions, so no evidence is lost in the interim.
+ * `consent_health` is the affirmative record of the Art 9 opt-in itself. The
+ * server drops `motivation` entirely without it, so it is always sent
+ * explicitly — including as `false`, because "no" is a fact worth recording.
  */
 export function buildPayload({
   email,
   consentMarketing,
+  consentHealth = false,
   consentTextVersion = null,
   motivationConsentTextVersion = null,
   profile = {},
   formRenderTs,
   hpField = "",
 }) {
-  const consentVersions = MOTIVATION_FIELD_LIVE
-    ? [consentTextVersion].filter(Boolean)
-    : [consentTextVersion, motivationConsentTextVersion].filter(Boolean);
+  const healthGranted = consentHealth === true;
 
   return {
     email: String(email || "").trim().toLowerCase().slice(0, 254),
     zip: profile.zip || null,
-    motivation: profile.motivation && profile.motivation.length ? profile.motivation.slice(0, 3) : null,
+    motivation:
+      healthGranted && profile.motivation && profile.motivation.length
+        ? profile.motivation.slice(0, 3)
+        : null,
     intent: profile.intent ?? null,
     price_band: profile.price_band ?? null,
     flavor: profile.flavor ?? null,
     is_clinician: typeof profile.is_clinician === "boolean" ? profile.is_clinician : null,
     referral_source: profile.referral_source ?? null,
     consent_marketing: consentMarketing === true,
-    consent_text_version: consentVersions.length ? consentVersions.join("+") : null,
-    ...(MOTIVATION_FIELD_LIVE
-      ? { motivation_consent_text_version: motivationConsentTextVersion || null }
-      : {}),
+    consent_health: healthGranted,
+    consent_text_version: consentTextVersion || null,
+    motivation_consent_text_version: healthGranted ? motivationConsentTextVersion || null : null,
     // consent_timestamp — server-set. Never sent from here.
     // country          — server-derived from request IP. Never sent, never asked.
     utm: getUtm(),

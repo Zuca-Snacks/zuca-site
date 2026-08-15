@@ -265,6 +265,10 @@ export const step2 = {
   // consent. It is never bundled and never pre-checked.
   motivationConsent: consentTexts.motivation.text,
   motivationHint: "Pick up to 3.",
+  // The health question sits behind a disclosure so it costs nothing to anyone
+  // who doesn't want it. The consent box stays INSIDE and ABOVE the chips —
+  // consent before collection, never the reverse.
+  motivationDisclosure: "Want to help shape what we make?",
 };
 
 // ─── Confirmation ────────────────────────────────────────────────────────────

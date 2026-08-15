@@ -82,6 +82,11 @@ export function motivationConsent() {
   const entry = consentTexts.motivation;
   return {
     text: entry.text,
-    version: version("mot", "all", entry),
+    // Audience token is `eea`, not `all`: the server reads the regime off this
+    // identifier by token, and `all` parsed as `unknown` — leaving the Art 9
+    // consent unauditable by regime on every single record. `eea` is also the
+    // honest label: this wording is written to the strict bar and served
+    // everywhere, so it can never trigger a false re-consent flag.
+    version: version("mot", "eea", entry),
   };
 }
