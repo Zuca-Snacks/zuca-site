@@ -315,6 +315,35 @@ WebP + JPEG at every needed width. Add a job entry per new image.
   address twice.
 - **All copy on the page is placeholder** and yours to replace. Written to be
   guardrail-safe: nutrient content and taste only.
+
+- 🔴 **ACTION REQUIRED AT MERGE — one duplicated copy string.** The hero brand
+  entrance renders `introLines[0]` from your `src/content/copy.js`:
+  *"A Michelin-trained chef and a Stanford physician"* (trailing comma stripped,
+  since it is used standalone rather than as the first of three).
+
+  It is currently a `const INTRO_LINE` at the top of
+  `src/components/sections/Hero.jsx`. It is duplicated **only** because
+  `src/content/copy.js` does not exist on this branch, and creating it here
+  would collide with your own copy of the file — merge order is UX → Conversion
+  → Security, so this branch lands first. **On merge, delete the constant and
+  restore the single source of truth:**
+
+  ```jsx
+  import { introLines } from '../../content/copy.js';
+  // ...
+  <p className="z-hero__tagline">{introLines[0].replace(/,$/, '')}</p>
+  ```
+
+  Note for whoever edits `introLines`: line 1 is now rendered standalone in the
+  hero as well as being the first of the three-line sequence, so it needs to
+  read correctly on its own. Lines 2 and 3 are fragments and are not used here.
+
+- **The hero badges** ("Pre-order open", "10g fiber") are **hidden below 768px**.
+  The tagline took that slot, and the badges repeat what the lede states one line
+  later — not worth 40px of an 844px fold, which was the difference between the
+  CTA being above or below it. They render at tablet width and up. If you want
+  the pre-order urgency on phones, it needs to displace something else; tell me
+  what and I'll rebalance.
 - **`src/zuca-gate-v4.jsx` is now dead code** but I left it in place — it still
   contains the original form logic and the Google Sheets POST, which is yours to
   migrate or delete. Nothing imports it.

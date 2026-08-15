@@ -19,6 +19,25 @@ import Input from '../ui/Input.jsx';
 import Field from '../ui/Field.jsx';
 import Badge from '../ui/Badge.jsx';
 
+/**
+ * ⚠️ COPY OWNERSHIP — TEMPORARY DUPLICATE, DELETE ON MERGE.
+ *
+ * This is `introLines[0]` from the growth agent's `src/content/copy.js`,
+ * reproduced verbatim. It is duplicated here ONLY because that file does not
+ * exist on this branch, and creating it would collide with growth's own copy of
+ * it (merge order is UX -> Conversion -> Security, so this branch lands first).
+ *
+ * When growth merges, this constant must be deleted and replaced with:
+ *     import { introLines } from '../../content/copy.js';
+ *     ...
+ *     <p className="z-hero__tagline">{introLines[0].replace(/,$/, '')}</p>
+ * so there is exactly one source of truth for copy. Tracked in HANDOFF-ux.md.
+ *
+ * The trailing comma is stripped because the line is used standalone here,
+ * not as the first of three.
+ */
+const INTRO_LINE = 'A Michelin-trained chef and a Stanford physician,';
+
 export default function Hero() {
   const [email, setEmail] = useState('');
 
@@ -39,6 +58,9 @@ export default function Hero() {
     <section className="z-hero z-container" id="top">
       <div className="z-hero__inner">
         <div className="z-hero__copy">
+          {/* Part of the brand entrance: fades up with the wordmark. */}
+          <p className="z-hero__tagline">{INTRO_LINE.replace(/,$/, '')}</p>
+
           <div className="z-hero__eyebrow">
             <Badge variant="warm">Pre-order open</Badge>
             <Badge>10g fiber</Badge>

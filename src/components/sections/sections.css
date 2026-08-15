@@ -117,10 +117,34 @@
   gap: var(--z-space-3);
 }
 
+/* The tagline half of the brand entrance. Fades up just behind the wordmark's
+   last letter (300ms delay vs the wordmark's 210ms), so the two read as one
+   lockup rather than two separate animations. Decorative only — the text is in
+   the DOM and readable from frame one; only opacity/transform animate. */
+.z-hero__tagline {
+  font-size: var(--z-step-0);
+  font-weight: 500;
+  color: var(--z-ink-muted);
+  max-width: 38ch;
+  animation: z-word-in 480ms var(--z-ease) 300ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-hero__tagline { animation: none; }
+}
+
+/* Hidden on phones. The tagline now occupies this slot, and the badges repeat
+   what the lede states one line later ("10g of fiber") — not worth 40px of a
+   844px fold, which is the difference between the CTA being visible or not.
+   They return at tablet width where the space is free. */
 .z-hero__eyebrow {
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   gap: var(--z-space-2);
+}
+
+@media (min-width: 48em) {
+  .z-hero__eyebrow { display: flex; }
 }
 
 .z-hero__title {
