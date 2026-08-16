@@ -314,7 +314,7 @@ The footer is [src/zuca-gate-v4.jsx:1449-1452](src/zuca-gate-v4.jsx#L1449-L1452)
 <div className="sf-copy">
   © 2026 Zuca Snacks · <a href="/privacy" className="sf-mail">Privacy</a>
   {" · "}<a href="/terms" className="sf-mail">Terms</a>
-  {" · "}<a href="mailto:letschat@zucasnacks.com" className="sf-mail">letschat@zucasnacks.com</a>
+  {" · "}<a href="mailto:emil@zucasnacks.com" className="sf-mail">emil@zucasnacks.com</a>
   {" · "}Stanford, CA
 </div>
 ```
@@ -576,7 +576,7 @@ never arrived — check `SHEETS_WEBHOOK_URL` points at the *new* deployment.
 Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign blockers.
 
 1. **Publish a DMARC record.** There is none. `_dmarc.zucasnacks.com` TXT →
-   `v=DMARC1; p=none; rua=mailto:dmarc@zucasnacks.com; fo=1`. Start at `p=none`, move to
+   `v=DMARC1; p=none; rua=mailto:emil@zucasnacks.com; fo=1`. Start at `p=none`, move to
    `p=quarantine` after two clean weeks.
 2. **Turn on DKIM in Google Workspace.** `google._domainkey.zucasnacks.com` is empty, so it was
    never enabled. Admin → Apps → Gmail → Authenticate email → Generate → publish → Start.
@@ -589,7 +589,11 @@ Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign bl
 5. **Provision Upstash Redis** (free tier) and set `UPSTASH_REDIS_REST_URL` / `_TOKEN`. Without
    them the rate limiter falls back to per-instance memory, which does not hold across serverless
    instances, and server-side duplicate detection is disabled.
-6. **Create `privacy@zucasnacks.com`.** Both legal pages name it as the rights address.
+6. ~~Create a dedicated privacy mailbox.~~ **Closed (Emil, 16 Aug):** there is no
+   `privacy@` and no `letschat@`, and none will be created. Every address on the site is now
+   `emil@zucasnacks.com` — the legal pages, the footer and the DMARC `rua` target. Nothing to
+   provision. **What is still on you:** that inbox now receives GDPR rights requests, which carry a
+   one-month statutory deadline, so it needs watching rather than filtering.
 7. **Insert the real postal address** into `public/privacy.html` and `public/terms.html` — search
    for `[POSTAL ADDRESS TO BE INSERTED BEFORE LAUNCH]`. CAN-SPAM requires a valid physical address
    in every marketing email and the policy should match it. I left a placeholder rather than

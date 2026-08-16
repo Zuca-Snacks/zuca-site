@@ -429,7 +429,7 @@ retention policy, and an unjustified period is the same finding as no period at 
 requests with notice inside the first month. This is shorter than CCPA's 45 days, so it governs for
 everyone — running two clocks is how one gets missed.
 
-1. Request arrives at `privacy@zucasnacks.com` (owner action — this mailbox must exist).
+1. Request arrives at `emil@zucasnacks.com` (owner action — this mailbox must exist).
 2. Verify the requester controls the address: reply from the Zuca mailbox and require a reply.
    **Do not request an ID document, an account, or anything not already held.** Both CPRA and GDPR
    Art 12(2) prohibit collecting new personal data to service a rights request, and Art 11 bars
@@ -796,7 +796,7 @@ Ranked by urgency. **Items 1–3 must be settled before a single email is sent.*
    data. Commercial services cost roughly €200–500/year; several are Norway-based. Their name and
    address then go into `public/privacy.html` — there is a marked placeholder waiting for them.
 4. **Publish DMARC.** No record exists today. Add a TXT record at `_dmarc.zucasnacks.com`:
-   `v=DMARC1; p=none; rua=mailto:dmarc@zucasnacks.com; fo=1` — start at `p=none` to collect reports
+   `v=DMARC1; p=none; rua=mailto:emil@zucasnacks.com; fo=1` — start at `p=none` to collect reports
    without risking legitimate mail, then move to `p=quarantine` after ~2 weeks of clean reports, and
    `p=reject` after a month. Do this *before* the campaign, not after.
 5. **Enable DKIM in Google Workspace.** `google._domainkey.zucasnacks.com` is empty, which means
@@ -811,8 +811,11 @@ Ranked by urgency. **Items 1–3 must be settled before a single email is sent.*
 7. **Audit the existing rows for formula-injection payloads** before opening the sheet on a
    machine you care about. Safest method: File → Download → CSV, then inspect the CSV in a plain
    text editor for cells starting with `=`, `+`, `-`, or `@`. Do not open it in Excel either.
-8. **Create `privacy@zucasnacks.com`** — the privacy policy names it as the rights address and it
-   must actually receive mail.
+8. ~~Create a dedicated privacy mailbox.~~ **Closed (Emil, 16 Aug):** Zuca has no `privacy@` or
+   `letschat@` mailbox and will not be creating one. Every contact point — both legal pages, the
+   site footer, and the DMARC `rua` target — is now `emil@zucasnacks.com`, which already exists.
+   The residual obligation is operational, not technical: that inbox is now the GDPR rights
+   address, and those requests carry a one-month statutory response deadline.
 9. **Decide and record who has access to the sheet.** Check Share settings: it should be
    "Restricted", named individuals only, with **no** "anyone with the link" entry. Every person on
    that list can read every pre-order.

@@ -19,7 +19,7 @@ export default function Footer() {
         </p>
 
         <p className="z-footer__meta">
-          <a href="mailto:letschat@zucasnacks.com">letschat@zucasnacks.com</a>
+          <a href="mailto:emil@zucasnacks.com">emil@zucasnacks.com</a>
           {' · '}
           <a href="/privacy">Privacy</a>
           {' · '}
