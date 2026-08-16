@@ -25,6 +25,7 @@ import WaitlistForm from './components/waitlist/WaitlistForm.jsx';
 import Header from './components/sections/Header.jsx';
 import Hero from './components/sections/Hero.jsx';
 import ProofStrip from './components/sections/ProofStrip.jsx';
+import FiberGap from './components/sections/FiberGap.jsx';
 import Numbers from './components/sections/Numbers.jsx';
 import HowItsMade from './components/sections/HowItsMade.jsx';
 import Founders from './components/sections/Founders.jsx';
@@ -55,6 +56,7 @@ export default function App() {
       <main id="main">
         <Hero />
         <ProofStrip />
+        <FiberGap />
         <Numbers />
         <HowItsMade />
         <Founders />

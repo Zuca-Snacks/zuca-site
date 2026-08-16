@@ -29,7 +29,8 @@ const PILLS = ['10g fiber', '4g protein', '150 cal', 'No added sugar'];
 
 export default function Flavors() {
   return (
-    <section className="z-section z-container z-reveal" id="flavors" aria-labelledby="flavors-title">
+    <section className="z-section z-container z-reveal z-has-art" id="flavors" aria-labelledby="flavors-title">
+      <div className="z-art z-art--berries" aria-hidden="true" />
       <span className="z-section__eyebrow">Flavors</span>
       <h2 id="flavors-title">{sections.product.title}</h2>
       <p className="z-section__lede">{sections.product.body}</p>

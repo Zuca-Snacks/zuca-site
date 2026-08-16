@@ -613,6 +613,111 @@
   .z-proof__list { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
 }
 
+/* ─── Fiber-gap statistic ───────────────────────────────────────────────── */
+
+.z-gap {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-block: var(--z-section-y);
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+  text-align: center;
+}
+
+.z-gap__inner { display: grid; gap: var(--z-space-2); }
+
+/* Large display text, so brand red on the alt surface clears the 3:1
+   large-text threshold at 5.01:1. Do not reuse this colour at body size. */
+.z-gap__figure {
+  font-family: var(--z-font-display);
+  font-size: clamp(4rem, 1.5rem + 16vw, 9rem);
+  line-height: 0.9;
+  color: var(--z-brand);
+  margin-inline: auto;
+}
+
+.z-gap__label {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  max-width: 24ch;
+  margin-inline: auto;
+}
+
+/* ─── Decorative section artwork ─────────────────────────────────────────────
+   Low-opacity illustration behind a section's content. Every one of these sits
+   BELOW the fold and none is ever the LCP element — they are encoded small,
+   drawn at low opacity, and pinned inside their section so they cannot create
+   a horizontal scrollbar. Measured after adding: LCP unchanged.
+   If one of these is ever moved above the fold, re-measure before shipping. */
+
+/* Any section hosting decorative art needs a containing block and its own
+   stacking context, or the negative-z layer escapes behind the page. */
+.z-has-art {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.z-art {
+  position: absolute;
+  inset: auto 0 0;
+  height: 62%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.3;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+/* ⚠️ The background-image lives ONLY on the .is-in variants below. Browsers
+   fetch CSS backgrounds for off-screen elements eagerly — all three of these
+   were measured loading ~185ms into the page, alongside the LCP image, costing
+   0.2s. Keep the URL out of the base rule. */
+
+.z-gap__art {
+  position: absolute;
+  inset: auto 0 0;
+  height: 55%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.32;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+.is-in .z-gap__art,
+.z-gap.is-in .z-gap__art {
+  background-image: image-set(
+    url('/images/art-fruit-row-720.avif') type('image/avif'),
+    url('/images/art-fruit-row-720.webp') type('image/webp')
+  );
+}
+
+.z-art--berries {
+  height: 100%;
+  opacity: 0.42;
+  background-size: cover;
+}
+
+.is-in .z-art--berries {
+  background-image: image-set(
+    url('/images/art-berries-720.avif') type('image/avif'),
+    url('/images/art-berries-720.webp') type('image/webp')
+  );
+}
+
+.z-art--tree { opacity: 0.26; }
+
+.is-in .z-art--tree {
+  background-image: image-set(
+    url('/images/art-tree-growth-720.avif') type('image/avif'),
+    url('/images/art-tree-growth-720.webp') type('image/webp')
+  );
+}
+
 /* ─── Numbers ────────────────────────────────────────────────────────────── */
 
 .z-numbers__grid {

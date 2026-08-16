@@ -40,6 +40,26 @@ someone's kitchen", contradicting the 21 CFR 117 line in our own FAQ.
 raspberry only, no oats, dairy or nuts in frame. Cropped tight enough that the
 tray is out of frame; they are in the repo as `public/process-*.jpg`.
 
+## R3.1b 🚫 DO-NOT-IMPORT LIST — assets that exist but must never ship
+
+Every item here was sent in good faith and is fine in an investor deck. None of
+it may reach the consumer site. Reasons are recorded so nobody re-litigates them
+from the asset alone.
+
+| Asset | Why it can never ship |
+|---|---|
+| **Disease infographic** (heart disease, colon cancer, type 2 diabetes, diverticulitis, obesity, constipation) | Names diseases beside the product. This is the single most dangerous asset in the set — naming a condition is what turns a food into an unapproved drug claim. It *also* shows **Metamucil and Fiber One packaging**, adding third-party trademarks on top. No crop of it is safe. |
+| **Upcycled Certified™ mark** | **Zuca is pursuing this designation, not holding it.** Displaying a certification mark that has not been granted is a false certification claim — worse than the health-claim problems fixed on 16 Aug, because it is unambiguous and it is the certifier's mark to enforce. Do not place it anywhere until the designation is actually granted. |
+| **Stanford Demo Day photographs** | Identifiable faces need written permission for commercial use — but the sharper problem is that **photographs of physicians beside a fiber product imply clinical endorsement**, which is exactly the claim removed from the copy on 16 Aug. A picture makes that claim more effectively than a sentence does. Not usable *even with consent* unless Cooley says otherwise. |
+| **Vituity Health Symposium photographs** | Same. Physicians eating the product, with testimonial quotes. Endorsement framing by image. |
+| **Kitchen development photos** | Kirkland/Costco retail packaging (third-party trademarks) and a visible bag of **oats** — an allergen we have not confirmed. |
+| **Process strip, step 4 panel** | Stock photography, not Zuca's, and one quadrant shows a grain reading as oats. |
+| **Process strip, step 1 (foil pan)** | Disposable foil catering pan as the dominant object; contradicts the 21 CFR 117 sentence in the FAQ. Replaced with a genuine juice-bar collection shot. |
+
+**The general rule these share:** an image asserts a claim as effectively as a
+sentence, and is harder to notice doing it. Anything that would be edited out of
+the copy must be edited out of the photography too.
+
 ## R3.2 📸 Shot list — reshoot spec
 
 Send **uncropped originals at maximum resolution**. `scripts/gen-images.mjs` does
