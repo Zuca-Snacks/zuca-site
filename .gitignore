@@ -20,3 +20,7 @@ npm-debug.log*
 *.tsv
 *.sqlite
 secrets/
+
+# Decorative artwork masters. Derivatives in public/images/ are what ship;
+# the originals are hundreds of KB and must never be copied into the deploy.
+!art-src/

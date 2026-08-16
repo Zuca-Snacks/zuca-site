@@ -40,6 +40,27 @@ export default function Hero() {
 
   return (
     <section className="z-hero z-container" id="top">
+      {/* Decorative ingredient illustration layer. See sections.css — this is a
+          SLOT: there is no artwork asset in the repo yet, so it currently
+          renders a soft botanical wash built from gradients. It is aria-hidden
+          and purely decorative either way. */}
+      <div className="z-hero__backdrop" aria-hidden="true" />
+
+      {/* The wordmark at poster scale, as the mockup has it. The <header> one
+          is hidden while this is on screen — see .z-header__wordmark rules —
+          so the page still has exactly one visible ZUCA above the fold. */}
+      {/* role="img" + aria-label: aria-label is PROHIBITED on a bare <p>, which
+          failed the audit. role="img" gives it a role that permits a name and
+          collapses the four animated spans into one announcement, "Zuca",
+          instead of four separate letters. */}
+      <p className="z-hero__wordmark" role="img" aria-label="Zuca">
+        {['Z', 'U', 'C', 'A'].map((letter, i) => (
+          <span key={i} aria-hidden="true">
+            {letter}
+          </span>
+        ))}
+      </p>
+
       <div className="z-hero__inner">
         <div className="z-hero__copy">
           {/* Part of the brand entrance: fades up with the wordmark.
@@ -70,7 +91,13 @@ export default function Hero() {
               now tagline -> headline -> email + CTA -> detail. */}
           <form className="z-hero__capture" onSubmit={handleSubmit} noValidate>
             <div className="z-hero__capture-row">
-              <Field id="hero-email" label="Email" hint="No spam. Unsubscribe anytime.">
+              {/* No hint: it read "No spam. Unsubscribe anytime." directly
+                  above a microcopy line that already says "No payment, no spam,
+                  unsubscribe in one click." Two reassurances 60px apart saying
+                  the same thing, costing ~20px of fold. Growth's line is the
+                  one that survives — it is the stronger of the two and it is
+                  their copy to own. */}
+              <Field id="hero-email" label="Email">
                 {(props) => (
                   <Input
                     {...props}
@@ -97,18 +124,32 @@ export default function Hero() {
           </form>
 
           <p className="z-hero__lede">{copy.subhead}</p>
+
+          {/* The mockup's closing statement. aria-hidden: "10g fiber" is
+              already announced twice in the spec stacks above and once in the
+              subhead — a fourth reading is noise to a screen reader while being
+              the whole composition visually. It also sits BELOW the capture
+              form, so it never competes with the CTA for the fold. */}
+          <p className="z-hero__bigfig" aria-hidden="true">
+            10g fiber
+          </p>
         </div>
 
         {/*
           PRODUCT-FORWARD HERO: both flavours in frame, so there is no doubt what
-          this is. Each is a 1:1 crop with its own stat chips beneath, and the
-          10g figure is a stamp straddling the pair.
+          this is. Each is a 1:1 crop with its own name plate and spec stack
+          beneath, laid out on a subgrid so the two columns stay aligned even
+          though one caption wraps and the other does not.
 
-          The stamp and the count badge are both ABSOLUTELY POSITIONED over the
-          media. That is the single mechanism that satisfies both of Emil's
-          rules at once: out of flow entirely, so an absent count leaves no
-          reserved hole, AND an arriving count displaces nothing. Reserving a
-          fixed-height row would have met the second rule by breaking the first.
+          The circular 10g stamp that used to straddle the pair is gone —
+          Emil's mockup replaces it with the per-flavour fiber plates, and
+          keeping both put "10g fiber" on screen four times above the fold.
+
+          The count badge is ABSOLUTELY POSITIONED over the media. That single
+          mechanism satisfies both of Emil's rules at once: out of flow
+          entirely, so an absent count leaves no reserved hole, AND an arriving
+          count displaces nothing. Reserving a fixed-height row would have met
+          the second rule by breaking the first.
 
           The first image is the LCP element and is preloaded in index.html —
           this markup is rendered by React, so the preload scanner cannot see it.
@@ -120,16 +161,22 @@ export default function Hero() {
                 slug: 'flavor-chocolate-raspberry',
                 name: 'Chocolate Raspberry Sea Salt',
                 alt: 'Zuca chocolate raspberry sea salt bites, rolled in freeze-dried raspberry.',
+                tone: 'berry',
                 lcp: true,
               },
               {
                 slug: 'flavor-maple-pecan',
                 name: 'Maple Pecan',
                 alt: 'Zuca maple pecan bites, rolled in toasted pecan and maple.',
+                tone: 'maple',
                 lcp: false,
               },
             ].map((f) => (
-              <figure className="z-hero__product" key={f.slug}>
+              <figure
+                className="z-hero__product"
+                data-tone={f.tone}
+                key={f.slug}
+              >
                 <picture>
                   <source
                     type="image/avif"
@@ -162,28 +209,29 @@ export default function Hero() {
                   />
                 </picture>
                 <figcaption className="z-hero__product-name">{f.name}</figcaption>
+
+                {/* Per-flavour spec stack, as the mockup has it. The fiber
+                    figure gets the dark plate and the flavour's own accent;
+                    the other two are quiet pills. These ARE duplicated across
+                    the two flavours — the numbers are identical — but in this
+                    layout the duplication is the point: each product reads as
+                    its own labelled pack. */}
+                <ul className="z-hero__spec">
+                  <li className="z-hero__spec-hero">10g fiber</li>
+                  <li data-secondary="">150 kcal</li>
+                  <li data-secondary="">4g protein</li>
+                </ul>
               </figure>
             ))}
 
-            {/* The 10g stamp. aria-hidden because the figure is already stated
-                in each flavour's stat list — announcing it a third time is noise
-                for a screen reader while being the whole point visually. */}
-            <p className="z-hero__stamp" aria-hidden="true">
-              <span className="z-hero__stamp-num">10g</span>
-              <span className="z-hero__stamp-word">fiber</span>
-            </p>
           </div>
 
-          {/* ONE stats row, not one per flavour. The deck shows chips under each
-              product, but the three numbers are byte-identical for both — the
-              copy deck itself says "Two flavors. Same 10 grams." Printing them
-              twice doubled the row height to state the same three facts twice
-              and put the CTA 1px below the fold at 360px. One row, stated once,
-              reads as a spec rather than as decoration. */}
-          <ul className="z-hero__stats" aria-label="Per serving">
-            {['10g fiber', '150 kcal', '4g protein'].map((s) => (
-              <li key={s}>{s}</li>
-            ))}
+          {/* Phones only — see .z-hero__shared-spec. The per-flavour stacks
+              above carry the full spec from 48em up; below that the two
+              identical secondary figures collapse to one row here. */}
+          <ul className="z-hero__shared-spec" aria-label="Per serving">
+            <li>150 kcal</li>
+            <li>4g protein</li>
           </ul>
 
           {/* Count badge: rendered ONLY when the number exists. Absent, there is

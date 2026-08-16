@@ -104,17 +104,28 @@
 
 /* On a phone the product photo leads — this is a food brand, and appetite is
    the first job. Copy, then the email field, follow immediately beneath so all
-   four hero elements clear an 844px fold. */
+   four hero elements clear an 844px fold.
+
+   The gaps are deliberately tighter on phones than the section rhythm
+   elsewhere. The poster composition added a wordmark at display scale and a
+   per-flavour spec plate, and the ~28px recovered here is what keeps the CTA
+   above the fold at 360px without cutting any content from the mockup. They
+   relax to the normal rhythm at 48em, where there is room. */
 .z-hero__inner {
   display: grid;
-  gap: var(--z-space-4);
+  gap: var(--z-space-3);
 }
 
 .z-hero__media { order: -1; }
 
 .z-hero__copy {
   display: grid;
-  gap: var(--z-space-3);
+  gap: var(--z-space-2);
+}
+
+@media (min-width: 48em) {
+  .z-hero__inner { gap: var(--z-space-4); }
+  .z-hero__copy { gap: var(--z-space-3); }
 }
 
 /* The tagline half of the brand entrance. Fades up just behind the wordmark's
@@ -126,6 +137,7 @@
   font-weight: 500;
   color: var(--z-ink-muted);
   max-width: 38ch;
+  margin-inline: auto;
   animation: z-word-in 480ms var(--z-ease) 300ms both;
 }
 
@@ -143,6 +155,7 @@
 .z-hero__eyebrow {
   display: none;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--z-space-2);
 }
 
@@ -171,6 +184,7 @@
   font-size: var(--z-step-1);
   color: var(--z-ink);
   max-width: 34ch;
+  margin-inline: auto;
 }
 
 /* --- Hero media ---------------------------------------------------------- */
@@ -199,18 +213,33 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--z-space-3);
   position: relative;
-  /* start, not the default stretch: the two captions are different lengths
-     ("Chocolate Raspberry Sea Salt" wraps, "Maple Pecan" does not), and a
-     stretched figure made the shorter column's <picture> grow past its image,
-     showing a slab of empty surface under the maple photo. */
+  /* Three named rows — photo, name, spec — so both columns share them via
+     subgrid below. Without this the columns drift apart: "Chocolate Raspberry
+     Sea Salt" wraps to two lines and "Maple Pecan" does not, which dropped the
+     chocolate side's fiber plate a whole line below the maple one and made the
+     symmetric composition look broken. */
+  grid-template-rows: auto auto auto;
   align-items: start;
 }
 
 .z-hero__product {
   display: grid;
+  grid-row: span 3;
+  /* Inherit the parent's row track sizes, so the name box and the fiber plate
+     line up across both columns whatever the caption length. */
+  grid-template-rows: subgrid;
   gap: var(--z-space-2);
   margin: 0;
   min-width: 0;
+  align-content: start;
+}
+
+/* Fallback for engines without subgrid: reserve two lines for the caption so
+   the plates still align. Deterministic — these are two fixed strings, not a
+   late-arriving value, so the wrap count is known rather than guessed. */
+@supports not (grid-template-rows: subgrid) {
+  .z-hero__product { grid-row: auto; grid-template-rows: none; }
+  .z-hero__product-name { min-height: calc(2.4em + var(--z-space-2)); }
 }
 
 .z-hero__product picture {
@@ -230,15 +259,141 @@
 
 .z-hero__product-name {
   font-size: var(--z-step--1);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--z-ink);
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  /* red-dark, NOT brand red: the mockup's red on cream is 4.33:1 and this is
+     normal-size text, so it fails AA. red-dark is 6.17:1 and reads the same. */
+  color: var(--z-brand-dark);
+  background: var(--z-surface-alt);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-sm);
+  padding: var(--z-space-1) var(--z-space-2);
 }
 
-/* The shared per-serving stat row, under both products. Colour comes from the
-   photography above it, so these stay quiet: ink on the alt surface. No amber
-   or green as text — those are two of the seven AA pairings still open. */
-.z-hero__stats {
+[data-tone='maple'] .z-hero__product-name { color: var(--z-ink); }
+
+/* --- Poster composition (Emil's mockup) ---------------------------------- */
+
+.z-hero {
+  position: relative;
+  isolation: isolate;
+  text-align: center;
+  /* The backdrop multiplies, and `isolation: isolate` means it blends against
+     THIS element's own background rather than the page's. Without an explicit
+     cream here it multiplied against transparency and washed the whole hero out
+     to near-white. A negative z-index child paints above its parent's
+     background, so the artwork still lands on top of this fill. */
+  background: var(--z-bg);
+}
+
+/* Decorative ingredient wash — Emil's artwork.
+   The PNG is flattened onto WHITE with no alpha channel, so it cannot simply be
+   dropped on the cream ground. mix-blend-mode: multiply solves that without a
+   round trip to a design tool: multiplying by white is a no-op, so the white
+   field disappears and only the illustration darkens the cream beneath it.
+   Opacity is held low deliberately — the artwork is busier than a gradient, and
+   local contrast under a leaf is not the same as the token pair's contrast.
+   Re-run the audit if this is strengthened.
+   A transparent PNG or SVG would be better than the multiply trick; worth
+   asking for when the artwork is next exported. */
+.z-hero__backdrop {
+  position: absolute;
+  /* inset:0, not a negative inset. Two reasons, both found by measuring:
+     a negative left/right made the element wider than the viewport and gave the
+     document a 433px scrollWidth at 360px; and a negative TOP pushed it above
+     .z-hero's own cream fill, where — inside this isolated stacking context —
+     multiply had only transparency to blend with and painted a white band
+     across the header. */
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* image-set so AVIF is served where supported: the source PNG is 534KB, the
+     AVIF is 9KB at 900w. Referencing the raw PNG cost 4.9s of LCP. */
+  background-image: image-set(
+    url('/images/art-backdrop-900.avif') type('image/avif'),
+    url('/images/art-backdrop-900.webp') type('image/webp')
+  );
+  /* The artwork is a wide desktop frame with its ingredients along the left and
+     right edges and an empty middle. `cover` on a tall narrow phone therefore
+     crops to the blank centre and shows nothing at all. Full-width at the top
+     keeps the illustrated edges visible where the composition actually is. */
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: no-repeat;
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+
+@media (min-width: 48em) {
+  .z-hero__backdrop {
+    background-size: cover;
+    background-image: image-set(
+      url('/images/art-backdrop-1600.avif') type('image/avif'),
+      url('/images/art-backdrop-1600.webp') type('image/webp')
+    );
+  }
+}
+
+/* The wordmark at poster scale. */
+.z-hero__wordmark {
+  font-family: var(--z-font-display);
+  font-size: clamp(2.75rem, 1rem + 12vw, 8rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--z-brand);
+  margin-bottom: var(--z-space-2);
+}
+
+.z-hero__wordmark span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.18em);
+  animation: z-word-in 420ms var(--z-ease) forwards;
+}
+
+.z-hero__wordmark span:nth-child(1) { animation-delay: 0ms; }
+.z-hero__wordmark span:nth-child(2) { animation-delay: 70ms; }
+.z-hero__wordmark span:nth-child(3) { animation-delay: 140ms; }
+.z-hero__wordmark span:nth-child(4) { animation-delay: 210ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .z-hero__wordmark span { animation: none; opacity: 1; transform: none; }
+}
+
+/* The header wordmark would be a second ZUCA in the same viewport, which reads
+   as a mistake. It returns once the hero one has scrolled away — the header is
+   not sticky, so this is purely about the first screen. */
+.z-header__wordmark { visibility: hidden; }
+
+@media (min-width: 48em) {
+  .z-header__wordmark { visibility: visible; }
+}
+
+/* Per-flavour spec stack. Each flavour carries its own accent, taken from the
+   mockup: berry red for the chocolate side, amber for the maple side. */
+.z-hero__spec {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--z-space-1);
+  list-style: none;
+}
+
+.z-hero__spec li[data-secondary] { display: none; }
+
+@media (min-width: 48em) {
+  .z-hero__spec li[data-secondary] { display: block; }
+  .z-hero__shared-spec { display: none; }
+}
+
+/* Shared row, phones only: 150 kcal and 4g protein are identical across both
+   flavours, so per-flavour copies cost a second wrapped row in each column —
+   ~50px of fold to state the same two facts twice. The accented 10G FIBER
+   plate stays per-flavour, because that is the part the mockup makes
+   flavour-specific. Full per-flavour spec returns at 48em. */
+.z-hero__shared-spec {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -247,54 +402,67 @@
   list-style: none;
 }
 
-.z-hero__stats li {
-  font-size: var(--z-step--1);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+.z-hero__shared-spec li {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
   color: var(--z-ink);
-  background: var(--z-surface-alt);
+  background: var(--z-surface);
   border: 1px solid var(--z-border);
   border-radius: var(--z-radius-full);
-  padding: var(--z-space-1) var(--z-space-3);
-  white-space: nowrap;
+  padding: 3px var(--z-space-2);
 }
 
-/* --- The 10g stamp ------------------------------------------------------- */
-/* Straddles the seam between the two products. Absolutely positioned, so it
-   costs the fold nothing. Contrast is against its own fill, never the
-   photograph: white on brand-dark is 7.72:1. */
-.z-hero__stamp {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
-
-  display: grid;
-  place-items: center;
-  width: 5.25rem;
-  height: 5.25rem;
-  border-radius: var(--z-radius-full);
-
-  background: var(--z-brand-dark);
-  color: var(--z-accent-ink);
-  box-shadow: var(--z-shadow-md);
-  /* Lifts the disc off whichever photo sits behind it. */
-  outline: 3px solid var(--z-bg);
-}
-
-.z-hero__stamp-num {
-  font-family: var(--z-font-display);
-  font-size: 1.75rem;
-  line-height: 1;
-}
-
-.z-hero__stamp-word {
-  font-size: 0.625rem;
+.z-hero__spec li {
+  font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--z-ink);
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-full);
+  padding: 3px var(--z-space-2);
 }
+
+/* The fiber figure gets the dark plate, full width of the column.
+   ⚠️ CONTRAST — DO NOT SHRINK THIS BELOW 1.25rem.
+   Brand red on #111 is 3.43:1. That clears AA only under the LARGE-text
+   threshold, which is >=18.66px BOLD (or >=24px regular) — not merely "big
+   looking". An earlier version set this to 15px bold and failed the audit at
+   3.42:1, because 15px is below the threshold no matter how bold it is. 1.25rem
+   = 20px, comfortably over, so 3:1 applies and it passes.
+   Amber on #111 is 10.26:1 and carries no such constraint, but the size is
+   shared so the two flavours stay symmetrical. */
+.z-hero__spec-hero {
+  flex-basis: 100%;
+  font-size: 1.25rem !important;
+  font-weight: 700;
+  padding: var(--z-space-1) var(--z-space-2) !important;
+  background: #111111 !important;
+  border-color: #111111 !important;
+  color: var(--z-brand) !important;
+}
+
+[data-tone='maple'] .z-hero__spec-hero {
+  color: var(--z-warm) !important;
+}
+
+/* The closing figure. Large text, so brand red on cream at 4.33:1 clears the
+   3:1 large-text threshold. */
+.z-hero__bigfig {
+  font-family: var(--z-font-display);
+  font-size: clamp(2.25rem, 0.8rem + 9vw, 5rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--z-brand);
+  margin-top: var(--z-space-5);
+  max-width: none;
+}
+
 
 /* --- The live count badge ------------------------------------------------ */
 /* ONE mechanism: absolute positioning. It is out of flow, so when the count is
@@ -348,11 +516,6 @@
   max-width: 8ch;
 }
 
-@media (min-width: 48em) {
-  .z-hero__stamp { width: 6.5rem; height: 6.5rem; }
-  .z-hero__stamp-num { font-size: 2.25rem; }
-  .z-hero__product-name { font-size: var(--z-step-0); }
-}
 
 /* --- Hero email capture (SHELL ONLY — see WaitlistSlot) ------------------- */
 
@@ -580,6 +743,18 @@
   height: auto;
   aspect-ratio: 1 / 1;
   object-fit: cover;
+}
+
+/* Step 1 is a cut-out shot — the tray floats on a white field rather than
+   filling the frame. On the dark green band that would render as a white
+   square, so the tile gets a cream ground and the image multiplies onto it,
+   which drops the white and leaves the tray. */
+.z-process-step__media--cutout {
+  background: var(--z-surface-alt);
+}
+
+.z-process-step__media--cutout img {
+  mix-blend-mode: multiply;
 }
 
 /* Placeholder for a step with no photograph yet. Deliberately reads as an

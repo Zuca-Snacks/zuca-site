@@ -11,11 +11,18 @@
  * "cheap" rather than "clever" to a consumer.
  *
  * PHOTOGRAPHY STATUS — degrades gracefully, by design.
- * Steps carrying a real photograph today: milled pulp, raspberry powder, and
- * the finished bites. The remaining two have no usable source, so they render
- * as a numbered typographic tile. That is a deliberate placeholder: it reads as
- * "photo pending", not as a broken image, and it does not fake a step with
- * stock imagery of somebody else's process.
+ * ALL FIVE steps now carry a real Zuca photograph. Steps 1 and 2 came from the
+ * process strip Emil sent; they are extracted from a composite, so their
+ * sources are only ~240px and are served at that size without enlargement.
+ * Camera originals would let them match the density of the rest of the strip.
+ *
+ * Step 4 of Emil's strip was NOT used. Its panel is stock imagery rather than
+ * Zuca's own, and one quadrant shows a grain that reads as oats. The current
+ * step 4 uses Zuca's own freeze-dried raspberry instead.
+ *
+ * The placeholder plate is kept in the markup below for any future step that
+ * has no photograph — it reads as "photo pending" rather than as a broken
+ * image, and it never fakes a step with somebody else's process.
  *
  * Every photograph here was checked against the allergen TODO in copy.js before
  * being added. Only tree nuts are confirmed; gluten/oats, dairy and
@@ -28,13 +35,22 @@ const STEPS = [
     n: 1,
     title: 'Collect the pulp',
     body: 'Pressing apples for juice leaves the fiber behind. We take it before it spoils.',
-    img: null,
+    img: {
+      slug: 'process-pulp-wet',
+      widths: [240, 240],
+      cutout: true,
+      alt: 'Freshly collected apple pulp, a dense russet mash in a shallow tray.',
+    },
   },
   {
     n: 2,
     title: 'Dehydrate',
     body: 'Dried low and slow, so the fruit keeps its character instead of cooking off.',
-    img: null,
+    img: {
+      slug: 'process-pulp-dried',
+      widths: [240, 240],
+      alt: 'Apple pulp after drying — brittle golden flakes in a steel tray.',
+    },
   },
   {
     n: 3,
@@ -73,7 +89,9 @@ export default function ProcessStrip() {
     <ol className="z-process-strip">
       {STEPS.map((s) => (
         <li className="z-process-step" key={s.n}>
-          <div className="z-process-step__media">
+          <div
+            className={`z-process-step__media${s.img?.cutout ? ' z-process-step__media--cutout' : ''}`}
+          >
             {s.img ? (
               (() => {
                 const [wSm, wLg] = s.img.widths ?? [320, 560];
