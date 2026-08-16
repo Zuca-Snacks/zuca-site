@@ -358,6 +358,66 @@ enforcement actions quote.
 
 ---
 
+## 1f-bis. `zip` is US-only — only render it to US visitors · **Conversion, live bug**
+
+The contract's `zip` pattern is `/^[0-9]{5}$/`. That is a **US ZIP code**, not a universal postal
+code field, and `AGENTS_BRIEF.md` now says so explicitly.
+
+**This is not a documentation nicety — it currently loses signups.** A non-US postal code does not
+get quietly dropped; it fails validation and **rejects the entire submission with a 400, taking the
+email with it**. Measured:
+
+| Input | Result |
+|---|---|
+| `94305` (US) | accepted |
+| `0150` (Norway) | **whole submission rejected** |
+| `SW1A 1AA` (UK) | **whole submission rejected** |
+| `01000-000` (Brazil) | **whole submission rejected** |
+
+Given the list is predominantly Norwegian, this is the field most likely to silently cost us real
+people. **Render it only when you believe the visitor is in the US, and omit it otherwise.**
+
+Do not work around it by loosening the regex — a pattern that accepts anything is not validation,
+and this field feeds shipping-region planning. If you need postal codes from other countries, tell
+me and I will add a properly-scoped field with per-country rules rather than one permissive blob.
+
+If it helps: the server already derives `country` from the request IP for its own purposes, but the
+client cannot see that value. If you want a US/non-US signal to drive whether the field renders, say
+so and I will expose a minimal read-only endpoint for it — that is a small, contained change.
+
+## 3a → "Pre-order" is a claim we cannot support · **UX + Conversion**
+
+`AGENTS_BRIEF.md` now reads, on Emil's instruction: *"No payment has been taken — do not describe
+these as pre-orders anywhere."* I updated the brief; the site copy is yours.
+
+**Why it matters beyond wording.** No money has changed hands, no order exists, and no contract of
+sale has been formed. Calling these pre-orders does two separate things: it overstates traction to
+investors, and it misdescribes the transaction to consumers — which is an FTC problem in the US and
+an unfair-commercial-practices problem in the EEA. The `/terms` page I wrote already states
+plainly that joining is **not** a purchase, so the site currently contradicts its own terms.
+
+Every occurrence, all in files I do not own:
+
+| Location | Current | Suggested |
+|---|---|---|
+| [zuca-gate-v4.jsx:1200](src/zuca-gate-v4.jsx#L1200) nav | "Pre-order open" | "Waitlist open" |
+| [:1208](src/zuca-gate-v4.jsx#L1208) hero eyebrow | "Pre-order · Limited Release" | "Waitlist · Limited First Run" |
+| [:1296](src/zuca-gate-v4.jsx#L1296), [:1432](src/zuca-gate-v4.jsx#L1432) CTA buttons | "Pre-order now →" | "Join the waitlist →" |
+| [:1307](src/zuca-gate-v4.jsx#L1307) counter | "pre-orders and counting" | "on the waitlist" |
+| [:1077](src/zuca-gate-v4.jsx#L1077) modal eyebrow | "Pre-order" | "Join the waitlist" |
+| [:1078](src/zuca-gate-v4.jsx#L1078) modal headline | "Reserve your box before we sell out." | "Be first to know when we launch." |
+| [:1301](src/zuca-gate-v4.jsx#L1301), [:1440](src/zuca-gate-v4.jsx#L1440) confirmation | "✓ Reserved. We'll be in touch." | "✓ You're on the list. We'll be in touch." |
+
+"Reserve" and "Reserved" carry the same problem as "pre-order" — both assert that something has been
+held for the person, and nothing has.
+
+**Future tense is fine.** "We'll email you when pre-orders open" is accurate: pre-orders are a real
+future thing. The rule is about describing the *existing 127 people* as pre-orders. The consent
+wording in `CONSENT_TEXTS` uses exactly that future form and does not need changing.
+
+The `intent` enum value `preorder_now` also stays — it records what a person told us about their
+intent, not a transaction that occurred.
+
 ## 3b → Sheet migration runbook (Emil, by hand in the Google Sheets UI)
 
 The Conversion agent found a real bug and it is worth stating precisely, because the fix is not

@@ -8,7 +8,7 @@
 - Zuca upcycles apple pulp — a waste byproduct juiceries pay to dispose of ($25/ton) — into fiber-rich snack bites.
 - **Per serving: 10g fiber, 150 kcal, 4g protein, 6g natural sugar, no added sugar.** ~40–45% of daily recommended fiber. 2x the fiber of leading competitors.
 - Two flavors: **Chocolate Raspberry Sea Salt** and **Maple Pecan**.
-- Traction: **130+ pre-orders.** Samples ran out on Day 1 at the Vituity Health symposium (physician network: 6,000+ docs, 10M+ patients/yr). Ran out in 45 minutes at Stanford Founder's Demo Day (300+ investors, 1,500+ attendees).
+- Traction: **130+ waitlist signups** (~127 after removing test rows). **No payment has been taken — do not describe these as pre-orders anywhere.** They are people who gave an email address to be told when the product is available; no money changed hands, no order exists, no contract of sale was formed. Calling them pre-orders overstates traction to investors and misdescribes the transaction to consumers. "Waitlist signups", "people on the list", "signups" are all fine. Samples ran out on Day 1 at the Vituity Health symposium (physician network: 6,000+ docs, 10M+ patients/yr). Ran out in 45 minutes at Stanford Founder's Demo Day (300+ investors, 1,500+ attendees).
 - Founders: **Emil Nordin** — Norway's Most Promising Young Chef 2021, trained at Kontrast (2 Michelin stars + Green Star), Stanford Bioengineering '26. **Kelley Yuan, MD** — Stanford Medicine physician, leads Zuca's clinical network (10+ physicians across 7 specialties).
 - Supported by Stanford's NEXT Accelerator / Emergence program. Pro bono FDA regulatory counsel from Cooley LLP. Manufacturing via Step Change Innovations in 21 CFR 117-compliant facilities.
 - Context: 95% of American adults and kids are fiber deficient. Rotting food waste = 8% of US greenhouse gas emissions.
@@ -62,29 +62,115 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
 `POST /api/waitlist` · `Content-Type: application/json`
 
+> **Amended 2026-08-16 by the Security agent.** Still frozen — code against exactly this. The
+> amendment is additive: no existing field changed shape or meaning. What changed is that four
+> consent-evidence fields and `consent_health` are now written down, because they were load-bearing
+> and undocumented, and both other agents were bitten by that. `zip` gained a scope note.
+
+### Client sends
+
 ```jsonc
 {
   "email":            "string, required, RFC-lite validated, lowercased, trimmed, <=254 chars",
-  "zip":              "string|null, /^[0-9]{5}$/",
+  "consent_marketing":"boolean, required, must be literally true (not \"true\", not 1)",
+
+  "consent_health":   "boolean, default false — REQUIRED to store `motivation`, see below",
+
+  "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
   "motivation":       "array<enum>|null, max 3, one of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
   "intent":           "enum|null: preorder_now | very_interested | curious | just_browsing",
   "price_band":       "enum|null: lt_24 | 24_29 | 30_35 | 36_42 | gt_42   // for a 12-pack",
   "flavor":           "enum|null: choc_rasp_salt | maple_pecan | both | undecided",
   "is_clinician":     "boolean|null",
   "referral_source":  "enum|null: doctor, friend, instagram, tiktok, event, search, email, other",
-  "consent_marketing":"boolean, required, must be true",
   "utm":              "object|null: {source,medium,campaign,content,term} each <=64 chars",
   "page_path":        "string|null, <=200 chars",
+
+  // Consent evidence. Identifies the exact wording rendered; only the client knows this.
+  "consent_text_version":            "string|null, <=64 chars, [A-Za-z0-9._-] only",
+  "motivation_consent_text_version": "string|null, same format — the Art 9 line, SEPARATE field",
+
   "hp_field":         "string|null   // honeypot, must be empty",
   "form_render_ts":   "number|null   // ms epoch when form mounted; <2s to submit = bot"
 }
 ```
 
+### Server sets — **rejected with a 400 if the client sends them**
+
+```jsonc
+{
+  "consent_timestamp":     "ISO 8601, from the server clock",
+  "country":               "ISO 3166-1 alpha-2, derived from request IP; 'XX' if unavailable",
+  "consent_receipt":       "JSON string — self-contained consent record, see below",
+  "needs_reconsent":       "boolean",
+  "consent_regime_status": "enum: ok | mismatch | unverifiable",
+  "reconsent_reason":      "string|null"
+}
+```
+
+Consent evidence a submitter can supply is not evidence. The schema rejects unknown keys, so any
+attempt to set these client-side fails the whole request rather than being quietly trusted.
+
 Response: `200 {"ok":true}` · `400 {"ok":false,"error":"validation"}` · `409 {"ok":false,"error":"duplicate"}` (treat as success in the UI) · `429 {"ok":false,"error":"rate_limited"}` · `500 {"ok":false,"error":"server"}`.
 
-**Only `email` + `consent_marketing` are required.** Everything else is optional and collected *after* the email is already captured. The email must be persisted even if the user abandons step 2.
+**Only `email` + `consent_marketing` are required.** Everything else is optional and collected
+*after* the email is already captured. The email must be persisted even if the user abandons step 2.
 
-`motivation` is health-adjacent personal data. It is stored only with explicit, separate opt-in and is never sent to a third-party analytics tool. Analytics gets counts, never values tied to an email.
+### `consent_health` — load-bearing, and it was missing from this document
+
+`motivation` reveals information about health, which makes it **special category data under GDPR
+Art 9(1)**. Processing it is prohibited outright unless Art 9(2)(a) *explicit consent* applies — a
+higher bar than the ordinary consent covering the email address, requiring a separate, unbundled,
+affirmative act.
+
+So the server enforces it: **if `consent_health` is not `true`, `motivation` is discarded and never
+written, even when the user selected values.** That is correct behaviour, not a bug. But it was
+enforced in code and absent from this contract, which meant the only way to discover it was to read
+the source — and until someone did, every health answer would have been collected and silently
+thrown away. Hence this section.
+
+`motivation` is never sent to a third-party analytics tool. Analytics gets counts, never values tied
+to an email.
+
+### `zip` is US-only — scope note
+
+The `/^[0-9]{5}$/` pattern is a US ZIP code. It is **not** a universal postal code field, and this
+is deliberate rather than an oversight to be widened.
+
+⚠️ **The consequence, which is live today:** a Norwegian postcode (`0150`, four digits), a UK one
+(`SW1A 1AA`) or a Brazilian one (`01000-000`) does not merely get dropped — it **fails validation
+and rejects the entire submission with a 400**, losing the email too. Given the current list is
+predominantly Norwegian, this matters.
+
+**So only render this field to visitors you believe are in the US**, and leave it out entirely
+otherwise. If you need postal codes from other countries, say so and the contract gets a separate,
+properly-scoped field — do not loosen the regex, because a permissive pattern that accepts anything
+is not validation.
+
+### Audience token vocabulary for consent version ids
+
+The server reads which legal regime a consent wording was written for from the identifier itself,
+tokenised on `.`, `_` and `-`. This is how a record gets flagged when someone in Oslo is served the
+US consent copy — via VPN, travel, a CDN edge decision, or a stale cached bundle.
+
+| Token | Regime | Notes |
+|---|---|---|
+| **`eea`** | EEA / UK | **canonical** |
+| `eu`, `gdpr`, `uk` | EEA / UK | accepted synonyms |
+| **`us`** | United States | **canonical** |
+| `usa`, `canspam` | United States | accepted synonyms |
+| *(none present)* | `unknown` | **flags EEA records as `unverifiable`** |
+
+So `mkt-eea-2026-08.a` → EEA, `mkt-us-2026-08.a` → US, `mkt-2026-08.a` → unknown.
+
+Matching is on whole tokens, not substrings — `2026-08-15.august.a` is *not* US-targeted. An
+untagged id on an EEA visitor sets `consent_regime_status: unverifiable`, because Art 7(1) asks us
+to demonstrate consent and "we cannot tell what wording they saw" is not a demonstration. Tag every
+id and that state disappears.
+
+A wording written to satisfy the strictest regime and used everywhere should be registered in
+`CONSENT_TEXTS` (`src/lib/validation.js`) with `regime: 'global'`, which clears the flag without
+needing a token.
 
 ## Branch + file ownership (this is what makes "simultaneous" work)
 
