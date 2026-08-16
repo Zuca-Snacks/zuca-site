@@ -88,69 +88,103 @@ export default function Hero() {
                 {ACTIVE_CTA.step1}
               </Button>
             </div>
-            {/* The label is rendered unconditionally and only the NUMERAL
-                arrives late, so a slow or failed count cannot reflow the fold.
-                The size is never hardcoded — see useWaitlistCount. */}
-            <p className="z-hero__microcopy">
-              <span className="z-hero__count">
-                {count != null && count > 0 ? count.toLocaleString() : ''}
-              </span>{' '}
-              {proof.liveLabel}. {copy.reassurance}
-            </p>
+            {/* The count moved up into the badge over the photography, so it is
+                no longer repeated here — it was being stated twice within one
+                viewport. This line is now fixed-length reassurance only, which
+                also means nothing in the capture form depends on a late fetch.
+                Strings are still growth's; only their placement changed. */}
+            <p className="z-hero__microcopy">{copy.reassurance}</p>
           </form>
 
           <p className="z-hero__lede">{copy.subhead}</p>
         </div>
 
         {/*
-          Art-directed: phones get a dedicated 16:9 crop (~44KB AVIF), tablet and
-          up get the 4:5 portrait. Without the split, a phone downloaded the full
-          1024px-tall portrait and object-fit discarded two thirds of it.
-          The matching <link rel=preload> lives in index.html — this <img> is
-          rendered by React, so the browser's preload scanner cannot find it in
-          the initial document on its own.
+          PRODUCT-FORWARD HERO: both flavours in frame, so there is no doubt what
+          this is. Each is a 1:1 crop with its own stat chips beneath, and the
+          10g figure is a stamp straddling the pair.
+
+          The stamp and the count badge are both ABSOLUTELY POSITIONED over the
+          media. That is the single mechanism that satisfies both of Emil's
+          rules at once: out of flow entirely, so an absent count leaves no
+          reserved hole, AND an arriving count displaces nothing. Reserving a
+          fixed-height row would have met the second rule by breaking the first.
+
+          The first image is the LCP element and is preloaded in index.html —
+          this markup is rendered by React, so the preload scanner cannot see it.
         */}
         <div className="z-hero__media">
-          <picture>
-            <source
-              media="(max-width: 47.99em)"
-              type="image/avif"
-              srcSet="/images/hero-bites-wide-400.avif 400w, /images/hero-bites-wide-600.avif 600w, /images/hero-bites-wide-800.avif 800w"
-              sizes="100vw"
-            />
-            <source
-              media="(max-width: 47.99em)"
-              type="image/webp"
-              srcSet="/images/hero-bites-wide-400.webp 400w, /images/hero-bites-wide-600.webp 600w, /images/hero-bites-wide-800.webp 800w"
-              sizes="100vw"
-            />
-            <source
-              media="(max-width: 47.99em)"
-              srcSet="/images/hero-bites-wide-400.jpg 400w, /images/hero-bites-wide-600.jpg 600w, /images/hero-bites-wide-800.jpg 800w"
-              sizes="100vw"
-            />
-            <source
-              type="image/avif"
-              srcSet="/images/hero-bites-420.avif 420w, /images/hero-bites-640.avif 640w, /images/hero-bites-900.avif 820w"
-              sizes="44vw"
-            />
-            <source
-              type="image/webp"
-              srcSet="/images/hero-bites-420.webp 420w, /images/hero-bites-640.webp 640w, /images/hero-bites-900.webp 820w"
-              sizes="44vw"
-            />
-            {/* decoding="sync": this is the LCP element and it is already
-                preloaded by the time React mounts, so deferring the decode only
-                pushes the paint into a later frame. */}
-            <img
-              src="/images/hero-bites-640.jpg"
-              width="820"
-              height="1024"
-              alt="A close crop of Zuca chocolate raspberry sea salt bites, dusted in freeze-dried raspberry."
-              fetchPriority="high"
-              decoding="sync"
-            />
-          </picture>
+          <div className="z-hero__products">
+            {[
+              {
+                slug: 'flavor-chocolate-raspberry',
+                name: 'Chocolate Raspberry Sea Salt',
+                alt: 'Zuca chocolate raspberry sea salt bites, rolled in freeze-dried raspberry.',
+                lcp: true,
+              },
+              {
+                slug: 'flavor-maple-pecan',
+                name: 'Maple Pecan',
+                alt: 'Zuca maple pecan bites, rolled in toasted pecan and maple.',
+                lcp: false,
+              },
+            ].map((f) => (
+              <figure className="z-hero__product" key={f.slug}>
+                <picture>
+                  <source
+                    type="image/avif"
+                    srcSet={`/images/${f.slug}-360.avif 360w, /images/${f.slug}-640.avif 640w`}
+                    sizes="(min-width: 48em) 22vw, 46vw"
+                  />
+                  <source
+                    type="image/webp"
+                    srcSet={`/images/${f.slug}-360.webp 360w, /images/${f.slug}-640.webp 640w`}
+                    sizes="(min-width: 48em) 22vw, 46vw"
+                  />
+                  <img
+                    src={`/images/${f.slug}-360.jpg`}
+                    width="640"
+                    height="640"
+                    alt={f.alt}
+                    fetchPriority={f.lcp ? 'high' : undefined}
+                    loading={f.lcp ? undefined : 'lazy'}
+                    decoding={f.lcp ? 'sync' : 'async'}
+                  />
+                </picture>
+                <figcaption className="z-hero__product-name">{f.name}</figcaption>
+              </figure>
+            ))}
+
+            {/* The 10g stamp. aria-hidden because the figure is already stated
+                in each flavour's stat list — announcing it a third time is noise
+                for a screen reader while being the whole point visually. */}
+            <p className="z-hero__stamp" aria-hidden="true">
+              <span className="z-hero__stamp-num">10g</span>
+              <span className="z-hero__stamp-word">fiber</span>
+            </p>
+          </div>
+
+          {/* ONE stats row, not one per flavour. The deck shows chips under each
+              product, but the three numbers are byte-identical for both — the
+              copy deck itself says "Two flavors. Same 10 grams." Printing them
+              twice doubled the row height to state the same three facts twice
+              and put the CTA 1px below the fold at 360px. One row, stated once,
+              reads as a spec rather than as decoration. */}
+          <ul className="z-hero__stats" aria-label="Per serving">
+            {['10g fiber', '150 kcal', '4g protein'].map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+
+          {/* Count badge: rendered ONLY when the number exists. Absent, there is
+              nothing here and the hero reads as complete. Present, it lands on
+              top of the photography and pushes nothing. */}
+          {count != null && count > 0 && (
+            <p className="z-hero__count-badge">
+              <span className="z-hero__count-num">{count.toLocaleString()}</span>
+              <span className="z-hero__count-word">{proof.liveLabel}</span>
+            </p>
+          )}
         </div>
       </div>
     </section>
