@@ -811,11 +811,19 @@ Ranked by urgency. **Items 1–3 must be settled before a single email is sent.*
 7. **Audit the existing rows for formula-injection payloads** before opening the sheet on a
    machine you care about. Safest method: File → Download → CSV, then inspect the CSV in a plain
    text editor for cells starting with `=`, `+`, `-`, or `@`. Do not open it in Excel either.
-8. ~~Create a dedicated privacy mailbox.~~ **Closed (Emil, 16 Aug):** Zuca has no `privacy@` or
-   `letschat@` mailbox and will not be creating one. Every contact point — both legal pages, the
-   site footer, and the DMARC `rua` target — is now `emil@zucasnacks.com`, which already exists.
-   The residual obligation is operational, not technical: that inbox is now the GDPR rights
-   address, and those requests carry a one-month statutory response deadline.
+8. **No longer a launch blocker (Emil, 16 Aug).** `letschat@` is retired. Every contact point in
+   the code — both legal pages, the site footer, and the DMARC `rua` target — is now
+   `emil@zucasnacks.com`, a mailbox that already exists, so nothing has to be provisioned before
+   launch.
+
+   `privacy@zucasnacks.com` is being added as a **Workspace alias forwarding to `emil@`**. The
+   reasoning is operational rather than technical: a GDPR rights request carries a one-month
+   statutory deadline, and a personal inbox with no routing is where one gets missed.
+
+   ⚠️ Note the gap: an alias only helps if mail is *addressed* to it. With the site printing
+   `emil@` everywhere, inbound requests will not match a `To: privacy@` filter. Printing `privacy@`
+   on the two legal pages — while the footer keeps the warmer `emil@` — is what would actually
+   deliver the routing the alias is for.
 9. **Decide and record who has access to the sheet.** Check Share settings: it should be
    "Restricted", named individuals only, with **no** "anyone with the link" entry. Every person on
    that list can read every pre-order.

@@ -589,11 +589,20 @@ Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign bl
 5. **Provision Upstash Redis** (free tier) and set `UPSTASH_REDIS_REST_URL` / `_TOKEN`. Without
    them the rate limiter falls back to per-instance memory, which does not hold across serverless
    instances, and server-side duplicate detection is disabled.
-6. ~~Create a dedicated privacy mailbox.~~ **Closed (Emil, 16 Aug):** there is no
-   `privacy@` and no `letschat@`, and none will be created. Every address on the site is now
-   `emil@zucasnacks.com` — the legal pages, the footer and the DMARC `rua` target. Nothing to
-   provision. **What is still on you:** that inbox now receives GDPR rights requests, which carry a
-   one-month statutory deadline, so it needs watching rather than filtering.
+6. **Downgraded from blocker to a two-minute task (Emil, 16 Aug).** `letschat@` is retired and
+   nothing will be created for it. Every address in the code — legal pages, footer, DMARC `rua` —
+   is now `emil@zucasnacks.com`, a mailbox that already exists, so no launch step depends on
+   provisioning anything.
+
+   Emil is adding `privacy@zucasnacks.com` as a **Workspace alias forwarding to `emil@`**, so that
+   statutory requests can be routed and filed rather than landing loose in a personal inbox. GDPR
+   rights requests carry a one-month response deadline and losing one in a general inbox is the
+   realistic failure mode.
+
+   ⚠️ **The alias only does its job if something addresses mail to it.** The site currently prints
+   `emil@` everywhere, so requests will arrive addressed to `emil@` and will not match a
+   `To: privacy@` filter. If the intent is filterable routing, the *legal pages* should print
+   `privacy@` while the footer keeps `emil@` — see the note at the end of this item's commit.
 7. **Insert the real postal address** into `public/privacy.html` and `public/terms.html` — search
    for `[POSTAL ADDRESS TO BE INSERTED BEFORE LAUNCH]`. CAN-SPAM requires a valid physical address
    in every marketing email and the policy should match it. I left a placeholder rather than
