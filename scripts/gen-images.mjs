@@ -87,7 +87,7 @@ const JOBS = [
    The first version of this referenced the raw 534KB PNG straight from public/
    and dropped Lighthouse performance from 98 to 81 with a 4.9s LCP. */
 const ART = [
-  { name: 'art-backdrop', src: 'art-src/art-ingredients-backdrop.png', widths: [900, 1600] },
+  { name: 'art-backdrop', src: 'art-src/art-ingredients-backdrop.png', widths: [600, 1600] },
 ];
 
 const FORMATS = [
@@ -119,9 +119,17 @@ for (const job of JOBS) {
 for (const job of ART) {
   for (const w of job.widths) {
     for (const { ext, fn } of FORMATS) {
-      if (ext === 'jpg') continue; // artwork ships AVIF/WebP only
+      if (ext === 'jpg') continue; // artwork ships AVIF/WebP only (needs alpha)
       const file = join(OUT, `${job.name}-${w}.${ext}`);
-      const info = await fn(sharp(job.src).resize({ width: w })).toFile(file);
+      // Lower quality than photography on purpose: this layer renders at low
+      // opacity behind the hero, so detail is invisible but bytes are not.
+      // The transparent master costs far more than the flattened one did —
+      // a uniform white field compressed almost to nothing.
+      const pipe = sharp(job.src).resize({ width: w });
+      const enc = ext === 'avif'
+        ? pipe.avif({ quality: 34, effort: 6 })
+        : pipe.webp({ quality: 55, effort: 6, alphaQuality: 60 });
+      const info = await enc.toFile(file);
       report.push({
         file: file.replace('public/', '/'),
         w: info.width,

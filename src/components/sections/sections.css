@@ -283,24 +283,16 @@
   position: relative;
   isolation: isolate;
   text-align: center;
-  /* The backdrop multiplies, and `isolation: isolate` means it blends against
-     THIS element's own background rather than the page's. Without an explicit
-     cream here it multiplied against transparency and washed the whole hero out
-     to near-white. A negative z-index child paints above its parent's
-     background, so the artwork still lands on top of this fill. */
   background: var(--z-bg);
 }
 
-/* Decorative ingredient wash — Emil's artwork.
-   The PNG is flattened onto WHITE with no alpha channel, so it cannot simply be
-   dropped on the cream ground. mix-blend-mode: multiply solves that without a
-   round trip to a design tool: multiplying by white is a no-op, so the white
-   field disappears and only the illustration darkens the cream beneath it.
-   Opacity is held low deliberately — the artwork is busier than a gradient, and
+/* Decorative ingredient wash — Emil's artwork, now supplied with a real alpha
+   channel, so it composites directly. The earlier mix-blend-mode: multiply
+   workaround is gone, along with the two bugs it caused (a washed-out hero when
+   it blended against transparency, and a white band over the header).
+   Opacity stays low deliberately: the artwork is busier than a flat tint, and
    local contrast under a leaf is not the same as the token pair's contrast.
-   Re-run the audit if this is strengthened.
-   A transparent PNG or SVG would be better than the multiply trick; worth
-   asking for when the artwork is next exported. */
+   Re-run the accessibility audit if this is ever strengthened. */
 .z-hero__backdrop {
   position: absolute;
   /* inset:0, not a negative inset. Two reasons, both found by measuring:
@@ -312,11 +304,14 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* image-set so AVIF is served where supported: the source PNG is 534KB, the
-     AVIF is 9KB at 900w. Referencing the raw PNG cost 4.9s of LCP. */
+  /* image-set so AVIF is served where supported. Phones get a 600w variant:
+     the layer renders at viewport width behind content at 0.55 opacity, so the
+     upscale is imperceptible while the bytes are not — the transparent master
+     costs roughly 2.5x what the flattened one did, because a uniform white
+     field compressed almost to nothing. Referencing the raw PNG cost 4.9s LCP. */
   background-image: image-set(
-    url('/images/art-backdrop-900.avif') type('image/avif'),
-    url('/images/art-backdrop-900.webp') type('image/webp')
+    url('/images/art-backdrop-600.avif') type('image/avif'),
+    url('/images/art-backdrop-600.webp') type('image/webp')
   );
   /* The artwork is a wide desktop frame with its ingredients along the left and
      right edges and an empty middle. `cover` on a tall narrow phone therefore
@@ -325,8 +320,7 @@
   background-size: 100% auto;
   background-position: center top;
   background-repeat: no-repeat;
-  mix-blend-mode: multiply;
-  opacity: 0.9;
+  opacity: 0.55;
 }
 
 @media (min-width: 48em) {
@@ -729,8 +723,13 @@
 @media (min-width: 22em) {
   .z-process-strip { grid-template-columns: repeat(2, 1fr); }
   .z-process-step:last-child { grid-column: 1 / -1; }
+  /* Matches the width of the four tiles above it rather than being arbitrarily
+     larger. Two reasons: the strip reads as one set instead of one odd tile,
+     and it lets the browser reuse the hero's already-downloaded 360px variant
+     of this same crop. At 60% it rendered wide enough to select the 640px
+     variant instead, costing 53KB for a below-the-fold decorative tile. */
   .z-process-step:last-child .z-process-step__media {
-    max-width: 60%;
+    max-width: calc(50% - var(--z-space-3) / 2);
   }
 }
 
@@ -767,17 +766,6 @@
   object-fit: cover;
 }
 
-/* Step 1 is a cut-out shot — the tray floats on a white field rather than
-   filling the frame. On the dark green band that would render as a white
-   square, so the tile gets a cream ground and the image multiplies onto it,
-   which drops the white and leaves the tray. */
-.z-process-step__media--cutout {
-  background: var(--z-surface-alt);
-}
-
-.z-process-step__media--cutout img {
-  mix-blend-mode: multiply;
-}
 
 /* Placeholder for a step with no photograph yet. Deliberately reads as an
    empty numbered plate rather than a broken image or a fake photo. */
