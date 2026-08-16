@@ -38,16 +38,17 @@ const STEPS = [
     n: 1,
     title: 'Collect the pulp',
     body: 'Pressing apples for juice leaves the fiber behind. We take it before it spoils.',
-    /* ⚠️ WITHDRAWN, DO NOT RESTORE THIS PHOTOGRAPH.
-       The extracted shot is wet pulp in a crimped DISPOSABLE FOIL CATERING PAN,
-       and the pan is the dominant object in frame. That is the exact thing the
-       reshoot rules forbid — "no foil catering trays" — because the FAQ asserts
-       21 CFR 117 manufacturing four sections below it, and the picture must not
-       contradict the sentence. It was extracted at 240px and reviewed at 162px
-       in the strip, where the pan reads as a dark rim; it is unmistakable at
-       source. Cropping to the pulp alone leaves ~150px, far too small.
-       A numbered placeholder is the honest state until the reshoot lands. */
-    img: null,
+    /* ⚠️ The FOIL CATERING PAN shot that was here is withdrawn permanently —
+       "no foil catering trays", because the FAQ asserts 21 CFR 117
+       manufacturing four sections below. Do not restore it from the strip.
+       This replacement is a working juice bar: commercial press, apples
+       waiting, pulp collecting in a lined bin. It shows the supply chain,
+       which is what the rule was protecting. */
+    img: {
+      slug: 'process-pulp-collect',
+      widths: [296, 296],
+      alt: 'A commercial juice press at a juice bar, apples waiting in a basket and pressed pulp collecting in a lined bin.',
+    },
   },
   {
     n: 2,
@@ -79,7 +80,6 @@ const STEPS = [
   },
   {
     n: 5,
-    wide: true,
     title: 'Roll into bites',
     body: 'Shaped, finished and rolled. Two flavors, same 10 grams of fiber.',
     img: {
@@ -97,19 +97,13 @@ export default function ProcessStrip() {
     <ol className="z-process-strip">
       {STEPS.map((s) => (
         <li className="z-process-step" key={s.n}>
-          <div
-            className={`z-process-step__media${s.img?.cutout ? ' z-process-step__media--cutout' : ''}`}
-          >
+          <div className="z-process-step__media">
             {s.img ? (
               (() => {
                 const [wSm, wLg] = s.img.widths ?? [320, 560];
-                // Step 5 spans the whole last row on phones (see the
-                // :last-child rules), so it renders ~55vw while the others
-                // render ~44vw. Declaring one `sizes` for both made the browser
-                // pick a source too small for the wide slot and upscale it.
-                const sizes = s.wide
-                  ? '(min-width: 60em) 18vw, 56vw'
-                  : '(min-width: 60em) 18vw, 44vw';
+                // Every tile now renders at the same width, including the
+                // full-row final step, so one `sizes` is correct for all five.
+                const sizes = '(min-width: 60em) 18vw, 44vw';
                 const set = (ext) =>
                   `/images/${s.img.slug}-${wSm}.${ext} ${wSm}w, /images/${s.img.slug}-${wLg}.${ext} ${wLg}w`;
                 return (

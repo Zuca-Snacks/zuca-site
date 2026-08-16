@@ -52,6 +52,16 @@ const JOBS = [
      catering pan, which the reshoot rules forbid because the FAQ asserts
      21 CFR 117 manufacturing. Do not re-add it from the strip. */
   {
+    /* Step 1, replacing the withdrawn foil-tray shot. This one is a working
+       juice bar — commercial press, apples waiting, pulp collecting in a lined
+       bin — so it shows the supply chain rather than a domestic kitchen, which
+       is what the reshoot rule was protecting. */
+    name: 'process-pulp-collect',
+    src: 'process-pulp-collect.png',
+    extract: { left: 0, top: 0, width: 296, height: 296 },
+    widths: [296],
+  },
+  {
     name: 'process-pulp-dried',
     src: 'process-pulp-dried.jpg',
     extract: { left: 0, top: 0, width: 240, height: 240 },
@@ -73,6 +83,21 @@ const JOBS = [
     extract: { left: 320, top: 430, width: 1020, height: 1020 },
     widths: [320, 560],
   },
+  /* Founder portraits, extracted from the credentials artwork Emil sent. These
+     replace the monogram placeholders — real faces are the highest-trust
+     element the founders section can carry. */
+  {
+    name: 'founder-emil',
+    src: 'founder-emil.png',
+    extract: { left: 0, top: 0, width: 244, height: 244 },
+    widths: [128, 244],
+  },
+  {
+    name: 'founder-kelley',
+    src: 'founder-kelley.png',
+    extract: { left: 0, top: 0, width: 244, height: 244 },
+    widths: [128, 244],
+  },
   {
     name: 'flavor-maple-pecan',
     src: 'maple-pecan.jpg',
@@ -87,7 +112,7 @@ const JOBS = [
    The first version of this referenced the raw 534KB PNG straight from public/
    and dropped Lighthouse performance from 98 to 81 with a 4.9s LCP. */
 const ART = [
-  { name: 'art-backdrop', src: 'art-src/art-ingredients-backdrop.png', widths: [900, 1600] },
+  { name: 'art-backdrop', src: 'art-src/art-ingredients-backdrop.png', widths: [600, 1600] },
 ];
 
 const FORMATS = [
@@ -119,9 +144,17 @@ for (const job of JOBS) {
 for (const job of ART) {
   for (const w of job.widths) {
     for (const { ext, fn } of FORMATS) {
-      if (ext === 'jpg') continue; // artwork ships AVIF/WebP only
+      if (ext === 'jpg') continue; // artwork ships AVIF/WebP only (needs alpha)
       const file = join(OUT, `${job.name}-${w}.${ext}`);
-      const info = await fn(sharp(job.src).resize({ width: w })).toFile(file);
+      // Lower quality than photography on purpose: this layer renders at low
+      // opacity behind the hero, so detail is invisible but bytes are not.
+      // The transparent master costs far more than the flattened one did —
+      // a uniform white field compressed almost to nothing.
+      const pipe = sharp(job.src).resize({ width: w });
+      const enc = ext === 'avif'
+        ? pipe.avif({ quality: 34, effort: 6 })
+        : pipe.webp({ quality: 55, effort: 6, alphaQuality: 60 });
+      const info = await enc.toFile(file);
       report.push({
         file: file.replace('public/', '/'),
         w: info.width,
