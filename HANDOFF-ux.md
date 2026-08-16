@@ -1,4 +1,163 @@
-# HANDOFF — UI/UX agent (`ux/mobile-redesign`)
+# HANDOFF — UI/UX agent
+
+> **Round 3 (`ux/visual-round-3`, off main `02e5649`) is at the top.**
+> Rounds 1–2 (`ux/mobile-redesign`, now merged) follow below and are still
+> current except where round 3 supersedes them.
+
+---
+
+# ROUND 3 — "make it visual"
+
+## R3.1 🔴 Photography audit — three blockers, one of them a claim problem
+
+I went through `~/Desktop/Zuca Photos` before speccing anything. Findings:
+
+**`Website Development/` (21 PNGs) is not photography.** They are screenshots of
+*earlier website mockups* — CSS gradient spheres, and text reading `$28`,
+`PRE-ORDER NOW` and "physician-formulated". Nothing there is usable, and nothing
+should be mined from it.
+
+**The ingredients shot (`IMG_2053`) cannot ship in any crop.** Two independent
+problems: it shows Kirkland/Costco retail packaging — third-party trademarks on
+a commercial page — and it visibly shows **rolled oats**.
+
+> ⚠️ **The allergen blocker is not only a copy problem.** `copy.js` has a
+> blocking TODO because only tree nuts are confirmed; gluten/oats, dairy in the
+> Chocolate Raspberry, and shared-facility cross-contact are not. **A photograph
+> showing an unconfirmed allergen asserts it in pixels exactly as copy would in
+> words.** Ingredient photography is therefore gated on the *same* confirmation
+> as the allergen panel. This was not obvious to anyone, including me, until the
+> photo turned up with oats in it.
+
+**Every process photo is a domestic-kitchen snapshot** — disposable foil catering
+trays on a coffee table or a patterned rug. A tight crop fixes one photo in
+isolation (that is how the shipped maple pecan crop works). It does **not** fix a
+five-up strip: a shared foil-tray background across the whole row reads "made in
+someone's kitchen", contradicting the 21 CFR 117 line in our own FAQ.
+
+**Usable, and now shipping:** `IMG_2059` (milled apple pulp) and `IMG_2057`
+(freeze-dried raspberry). Both checked against the allergen TODO — apple and
+raspberry only, no oats, dairy or nuts in frame. Cropped tight enough that the
+tray is out of frame; they are in the repo as `public/process-*.jpg`.
+
+## R3.2 📸 Shot list — reshoot spec
+
+Send **uncropped originals at maximum resolution**. `scripts/gen-images.mjs` does
+the cropping and emits AVIF/WebP/JPEG at every width; pre-cropping throws away
+information that cannot be recovered.
+
+| # | Shot | Aspect | Min export | Note |
+|---|---|---|---|---|
+| 1 | **Both flavours together** | 3:2 | 3000px | Does not exist. Currently faked by placing two 1:1 crops side by side. |
+| 2 | Chocolate raspberry alone | 1:1 | 2000px | Reshoot — current has a tray edge top-right |
+| 3 | Maple pecan alone | 1:1 | 2000px | Reshoot — current is in a foil catering pan |
+| 4–8 | Process ×5 | **1:1** | 1600px ea. | collect pulp · dehydrate · mill · add flavor · roll |
+| 9 | Apple pulp macro | 3:2 | 2400px | `IMG_2059` works; cleaner surface would be better |
+| 10 | Founder portraits ×2 | 1:1 | 2000px | Still outstanding since round 1 |
+
+**Rules that apply to every frame** — each one falls out of a real defect found
+above, not a preference:
+
+1. **No unconfirmed allergen visible.** Tree nuts only. No oats, no grain, no
+   dairy. Same gate as the allergen copy.
+2. **No third-party trademarks or retail packaging.**
+3. **No domestic-kitchen context** — no foil catering trays, coffee tables or
+   patterned rugs. The picture must not contradict the manufacturing sentence.
+4. **Square, or generous headroom.** Every existing frame is 1536×2048 3:4, and
+   a square crop costs 25% vertically off frames already shot tight.
+5. **One consistent surface and light across the five process shots.** Five
+   frames sharing a surface read as a process; five sharing a rug read as a
+   weekend.
+
+## R3.3 The live count badge — one mechanism, and why
+
+**Requirement (Emil):** an absent count must not leave a hole, and an arriving
+count must not reflow the hero.
+
+Those look contradictory — reserving space prevents the reflow but *creates* the
+hole. They are only contradictory for an in-flow element. The badge is therefore
+**absolutely positioned inside `.z-hero__media`**, and that single mechanism
+satisfies both: it is out of flow, so when the count is `null` the element is not
+rendered and there is no reserved gap; and when it arrives it paints on top of
+the photography, displacing nothing.
+
+An earlier draft of this description carried *two* mechanisms (`display:none`
+**and** a fixed-height row). That was redundant — caught by the merge session.
+Only the absolute positioning survives.
+
+**Measured, empty vs populated, CTA bottom:**
+
+| Width | Count absent | Count present | Delta |
+|---|---|---|---|
+| 360px | 744 | 744 | **0** |
+| 390px | 740 | 740 | **0** |
+| 430px | 719 | 719 | **0** |
+
+The count is no longer repeated in the capture microcopy — it was being stated
+twice inside one viewport. It still appears in the proof strip, the waitlist lede
+and the sticky bar, all unchanged.
+
+## R3.4 Deviations from the deck, and why
+
+- **One shared stat row, not per-flavour chips.** The deck shows chips under each
+  product. The three numbers are identical for both flavours — `copy.js` says
+  "Two flavors. Same 10 grams" — and printing them twice doubled the row height
+  to state the same three facts twice, putting the CTA 1px below the fold at
+  360px. Stated once, it reads as a spec rather than decoration.
+- **Headline drops one type step on phones** (`--z-step-2`, full size from 48em).
+  The product block now carries the visual weight, and at `--z-step-3` growth's
+  headline ran to five lines of display caps restating "10g of fiber" and "150
+  calories", both already shown in the stamp and the chips directly above it.
+  → **Growth: the hero headline now duplicates the stat chips.** A shorter
+  headline would let the type step go back up. Emil is briefing you on
+  compression separately; this is the specific line that would benefit.
+- **`$25/ton` is absent**, as required. It was already cut on merge.
+- **No price figures**, no pre-order language, no new allergen assertions.
+
+## R3.5 "More colours" without spending contrast
+
+Seven AA pairings are still open (amber and green as text). **None were spent.**
+All added colour is photographic: the crimson raspberry powder and the tan milled
+pulp are more saturated than anything in the token palette, and a photograph
+carries no contrast obligation. Amber appears only as a numeral plate on the dark
+green band (6.86:1) and as a badge fill under dark ink. No amber or green text on
+cream anywhere.
+
+## R3.6 ⚠️ Performance — the budget was already spent before this round
+
+Emil's stated budget (Lighthouse 99 / LCP 2.0s / 66KB JS) was **my round-2
+branch's numbers, measured before growth and security merged**. I measured main
+itself to separate the merge's cost from this round's:
+
+| | main `02e5649` (before) | `ux/visual-round-3` (after) | Delta |
+|---|---|---|---|
+| Performance | 98 | **98** | — |
+| Accessibility | 100 | **100** | — |
+| Best practices | 100 | **100** | — |
+| SEO | 100 | **100** | — |
+| LCP | 2.3 s | **2.2 s** | **−0.1 s** |
+| CLS | 0 | **0** | — |
+| TBT | 80 ms | **10 ms** | **−70 ms** |
+| JS transferred | 72.3 KB | **72.6 KB** | +0.3 KB |
+| Images | 44.7 KB | 75.6 KB | +30.9 KB |
+
+**"More visual" did not make it slower** — LCP and TBT both improved. The
+JS/LCP budget was breached by the three-way merge, not by this round.
+
+**A bug this round caught and fixed:** `index.html` still preloaded the old
+single-photo hero (`hero-bites-*`) after the hero became a pair. That downloaded
+an image nobody rendered *and* left the real LCP undiscoverable — worth 0.2s and
+45KB. The `hero-bites` jobs and derivatives are deleted; nothing referenced them.
+
+**Why LCP is still above 2.0s, and the real fix.** The LCP element is now **text**
+(the headline), not an image, so it cannot paint until React mounts — the same
+constraint main has. Preloading cannot help a text node. The structural fix is
+pre-rendering the landing route (SSG), worth roughly half a second. That changes
+the build setup, so it needs Emil's sign-off rather than being slipped in.
+
+---
+
+# ROUNDS 1–2 — `ux/mobile-redesign` (merged)
 
 Everything below is from the UI/UX branch. I own `src/styles/**`,
 `src/components/ui/**`, the layout/section components, `public/images/**` and the
