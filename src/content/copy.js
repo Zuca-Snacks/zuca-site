@@ -35,13 +35,31 @@
 
 // ─── Headline variants ───────────────────────────────────────────────────────
 // Three tested-ready variants. See HANDOFF-growth.md for the reasoning.
+//
+// ⚠️ CREDENTIAL LINE — DO NOT REINTRODUCE INTO THESE SUBHEADS.
+// All three subheads originally ended with "by a Michelin-trained chef and a
+// Stanford physician". They were written against a page that had no separate
+// credential line. The merged hero renders `introLines[0]` — the same claim,
+// verbatim — directly above the headline, so every variant stated it twice
+// inside the first viewport. That reads as an editing mistake and it dilutes a
+// line doing real trust work, which is why it was cut here rather than trimmed
+// for space (Emil, 16 Aug — the tagline itself is protected and stays).
+// The credential appears exactly once in the hero, in the tagline.
 export const HEADLINES = {
-  // A — specificity first. Two evaluable numbers, then the one strange fact.
+  // A — taste first, origin second. Deliberately carries NO figures: the
+  // redesigned hero renders the 10g stamp and the 10g/150kcal/4g spec row
+  // directly above this line, so "10g of fiber. 150 calories." was the picture
+  // and the sentence saying the same thing twice.
+  //
+  // Taste leads on purpose. With appetising product photography immediately
+  // above, opening on a discard word ("landfill", "thrown away") puts a
+  // negative directly under the food. Leading with the taste lets the photo and
+  // the first sentence agree, and the origin then lands as the surprise it is.
   a: {
     id: "a",
-    headline: "10g of fiber. 150 calories. Made from apple pulp that was headed for the landfill.",
+    headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Zuca is a snack bite from a Michelin-trained chef and a Stanford physician. Two flavors, no added sugar, and about 40% of your daily fiber in one bite.",
+      "Two flavors, no added sugar, and about 40% of your daily fiber in one bite.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -49,7 +67,7 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "10g of fiber, 150 calories, no added sugar. Chocolate Raspberry Sea Salt or Maple Pecan, built by a Michelin-trained chef and a Stanford physician.",
+      "10g of fiber, 150 calories, no added sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
@@ -57,7 +75,7 @@ export const HEADLINES = {
     id: "c",
     headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories. No added sugar. Made from apple pulp a juicery was about to throw away, by a Michelin-trained chef and a Stanford physician.",
+      "150 calories. No added sugar. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
