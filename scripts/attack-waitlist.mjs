@@ -209,10 +209,52 @@ await check('motivation with invalid enum rejected', '400 validation', async () 
   const r = await post(goodPayload({ consent_health: true, motivation: ['cancer'] }));
   return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
 });
-await check('zip "9430" (4 digits) rejected', '400 validation', async () => {
-  const r = await post(goodPayload({ zip: '9430' }));
-  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
-});
+// zip is the one deliberately lenient field: an unrecognised value is dropped
+// rather than costing the whole submission. Everything else stays strict.
+{
+  const { validateWaitlist } = await import('../src/lib/validation.js');
+  for (const [zip, label] of [
+    ['0150', 'Norway, 4 digits'],
+    ['SW1A 1AA', 'UK, alphanumeric'],
+    ['01000-000', 'Brazil, hyphenated'],
+    ['9430', 'truncated US'],
+    ['=cmd|calc', 'formula payload'],
+    ['not a zip at all', 'free text'],
+  ]) {
+    await check(`zip "${zip}" (${label}) dropped, submission survives`, '200, zip null', async () => {
+      const r = await post(goodPayload({ zip }));
+      const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, zip });
+      return {
+        pass: r.status === 200 && v.ok && v.data.zip === null,
+        actual: `${r.status}, stored ${JSON.stringify(v.data?.zip)}`,
+      };
+    });
+  }
+
+  await check('Valid US zip still stored', '200, zip kept', async () => {
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, zip: ' 94305 ' });
+    return { pass: v.ok && v.data.zip === '94305', actual: JSON.stringify(v.data?.zip) };
+  });
+
+  await check('Non-string zip still rejected (malformed client, not a postcode)', '400 validation', async () => {
+    const r = await post(goodPayload({ zip: { evil: 1 } }));
+    return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+  });
+
+  await check('Leniency does NOT leak to other fields', '400 validation', async () => {
+    // The scoping check: if this ever starts returning 200 the exemption has
+    // spread beyond zip, which is the thing to catch.
+    const bad = await Promise.all([
+      post(goodPayload({ flavor: 'not_a_flavor' })),
+      post(goodPayload({ intent: 'maybe' })),
+      post(goodPayload({ referral_source: 'billboard' })),
+      post(goodPayload({ price_band: 'cheap' })),
+      post(goodPayload({ motivation: ['not_an_option'], consent_health: true })),
+    ]);
+    const codes = bad.map((r) => r.status);
+    return { pass: codes.every((c) => c === 400), actual: codes.join(',') };
+  });
+}
 await check('page_path over 200 chars rejected', '400 validation', async () => {
   const r = await post(goodPayload({ page_path: '/' + 'a'.repeat(300) }));
   return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };

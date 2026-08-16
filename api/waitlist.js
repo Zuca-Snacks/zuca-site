@@ -242,6 +242,14 @@ export default async function handler(req, res) {
     audit('consent.regime_mismatch', { handle, reason: reconciliation.reason });
   }
 
+  // A dropped zip means the client rendered a US-only field to someone who is
+  // not in the US — i.e. the region guess missed. Harmless now, but worth
+  // counting: paired with `country` this is the feedback loop for tuning that
+  // guess, and the value itself is never logged.
+  if (typeof parsed.zip === 'string' && parsed.zip.trim() !== '' && data.zip === null) {
+    audit('zip.dropped_not_us_format', { country, len: parsed.zip.trim().length });
+  }
+
   if (!consent.registry_match) {
     // Not fatal — see resolveConsentText. But it means this record's wording
     // cannot be reconstructed from the registry, which weakens it as evidence,

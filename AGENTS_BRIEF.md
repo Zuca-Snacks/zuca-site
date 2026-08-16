@@ -137,15 +137,25 @@ to an email.
 The `/^[0-9]{5}$/` pattern is a US ZIP code. It is **not** a universal postal code field, and this
 is deliberate rather than an oversight to be widened.
 
-⚠️ **The consequence, which is live today:** a Norwegian postcode (`0150`, four digits), a UK one
-(`SW1A 1AA`) or a Brazilian one (`01000-000`) does not merely get dropped — it **fails validation
-and rejects the entire submission with a 400**, losing the email too. Given the current list is
-predominantly Norwegian, this matters.
-
-**So only render this field to visitors you believe are in the US**, and leave it out entirely
+**Only render this field to visitors you believe are in the US**, and leave it out entirely
 otherwise. If you need postal codes from other countries, say so and the contract gets a separate,
 properly-scoped field — do not loosen the regex, because a permissive pattern that accepts anything
 is not validation.
+
+**`zip` is the one lenient field in this contract.** An unrecognised value — a Norwegian `0150`, a
+UK `SW1A 1AA`, a Brazilian `01000-000` — is **dropped to `null` and the submission succeeds**. It
+does not fail validation.
+
+This is deliberate and narrowly scoped. Deciding whether to show the field is a client-side region
+guess, and guesses are wrong sometimes; under strict validation a wrong guess in the
+US-but-actually-not direction rejected the *entire submission* and took the email with it. A postal
+code is worth far less than the address it was attached to, so it yields. Defence in depth behind
+the client's guard, not a replacement for it — still only render the field to US visitors.
+
+**Every other field stays strict.** Unknown keys, bad enums, malformed emails and missing consent
+all still return `400`. A non-string `zip` also still returns `400`: that is a malformed client or a
+probe, not somebody's postcode. Dropped values are logged as `zip.dropped_not_us_format` with the
+derived country, which is the feedback loop for tuning the region guess.
 
 ### Audience token vocabulary for consent version ids
 

@@ -358,32 +358,43 @@ enforcement actions quote.
 
 ---
 
-## 1f-bis. `zip` is US-only — only render it to US visitors · **Conversion, live bug**
+## 1f-bis. `zip` is US-only, and now fails soft · **Conversion**
 
-The contract's `zip` pattern is `/^[0-9]{5}$/`. That is a **US ZIP code**, not a universal postal
-code field, and `AGENTS_BRIEF.md` now says so explicitly.
+The contract's `zip` pattern is `/^[0-9]{5}$/` — a **US ZIP code**, not a universal postal code
+field. **Render it only when you believe the visitor is in the US, and omit it otherwise.** That
+guidance has not changed.
 
-**This is not a documentation nicety — it currently loses signups.** A non-US postal code does not
-get quietly dropped; it fails validation and **rejects the entire submission with a 400, taking the
-email with it**. Measured:
+**What changed: an unrecognised value no longer costs the submission.** It is dropped to `null` and
+the signup succeeds.
 
-| Input | Result |
-|---|---|
-| `94305` (US) | accepted |
-| `0150` (Norway) | **whole submission rejected** |
-| `SW1A 1AA` (UK) | **whole submission rejected** |
-| `01000-000` (Brazil) | **whole submission rejected** |
+| Input | Before | Now |
+|---|---|---|
+| `94305` (US) | stored | stored |
+| `0150` (Norway) | **whole submission rejected, email lost** | dropped to `null`, signup succeeds |
+| `SW1A 1AA` (UK) | **whole submission rejected, email lost** | dropped to `null`, signup succeeds |
+| `01000-000` (Brazil) | **whole submission rejected, email lost** | dropped to `null`, signup succeeds |
 
-Given the list is predominantly Norwegian, this is the field most likely to silently cost us real
-people. **Render it only when you believe the visitor is in the US, and omit it otherwise.**
+**This is intentional leniency, scoped to `zip` and nothing else.** Your timezone-based region guess
+is the right call — no round-trip, biases correctly — but it is a guess, and it only has to be wrong
+in one direction to lose an email. Wrong toward non-US just means no zip, which is harmless; wrong
+toward US used to mean a Norwegian typed four digits and lost their signup. Losing an email is the
+failure mode this endpoint exists to prevent, and a postal code is worth far less than the address
+attached to it, so the postal code yields.
 
-Do not work around it by loosening the regex — a pattern that accepts anything is not validation,
-and this field feeds shipping-region planning. If you need postal codes from other countries, tell
-me and I will add a properly-scoped field with per-country rules rather than one permissive blob.
+It is defence in depth *behind* your guard, not a replacement for it. Keep gating the field on the
+guess — this just means the guess no longer has to be perfect.
 
-If it helps: the server already derives `country` from the request IP for its own purposes, but the
-client cannot see that value. If you want a US/non-US signal to drive whether the field renders, say
-so and I will expose a minimal read-only endpoint for it — that is a small, contained change.
+**Everything else stays strict.** Unknown keys, bad enums, malformed emails, missing consent: all
+still `400`. A non-string `zip` is still `400` — that is a malformed client or a probe, not
+somebody's postcode. There is a test asserting the exemption has not spread: it fires five bad
+enums at the endpoint and requires all five to be rejected, so if leniency ever leaks beyond this
+field, the suite says so.
+
+**You get a feedback loop.** Every dropped value logs `zip.dropped_not_us_format` with the
+server-derived country and the input length — never the value. Watch it for a week after launch:
+a low count means your timezone heuristic is working, a high count with EEA countries attached means
+it needs tuning. That is a better signal than the country endpoint I offered and you declined, and
+it costs the visitor nothing.
 
 ## 3a → "Pre-order" is a claim we cannot support · **UX + Conversion**
 

@@ -395,10 +395,30 @@ export const waitlistSchema = z
     // to produce if the opt-in is ever challenged.
     consent_marketing: z.literal(true, { message: 'consent_required' }),
 
+    // The ONLY lenient field in this schema. Everything else stays strict.
+    //
+    // `zip` is a US ZIP code, and the field should only be rendered to US
+    // visitors — but that decision is a client-side region guess, and a guess
+    // is wrong sometimes. When it is wrong in the US-but-actually-not direction
+    // a Norwegian types `0150`, and under strict validation that rejected the
+    // *entire submission*: the email went with it.
+    //
+    // Losing an email is the failure mode this whole endpoint exists to
+    // prevent, and a postal code is worth far less than the address it was
+    // attached to. So an unrecognised value is dropped to null and the signup
+    // proceeds. Deliberate leniency, scoped to this one field, as defence in
+    // depth behind the client's guard rather than a replacement for it.
+    //
+    // A non-string type still fails: that is a malformed client or a probe, not
+    // somebody's postcode. Length is bounded by the 8 KB body cap.
     zip: z
-      .union([z.string().regex(/^[0-9]{5}$/, { message: 'invalid_zip' }), z.literal(''), z.null()])
+      .union([z.string(), z.null()])
       .optional()
-      .transform((v) => (v === '' || v === undefined ? null : v)),
+      .transform((v) => {
+        if (typeof v !== 'string') return null;
+        const trimmed = v.trim();
+        return /^[0-9]{5}$/.test(trimmed) ? trimmed : null;
+      }),
 
     // Health-adjacent. See `consent_health` below — this array is dropped
     // entirely unless that separate opt-in is present.
