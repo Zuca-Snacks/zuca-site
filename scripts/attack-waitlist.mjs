@@ -7,8 +7,16 @@
  * have not attacked is a hypothesis, so every control in api/waitlist.js has a
  * case here that fails loudly if the control is removed.
  *
- * This never touches production. It deliberately leaves SHEETS_WEBHOOK_URL
- * unset, so the handler accepts and logs rather than forwarding anywhere.
+ * This never touches production. It points SHEETS_WEBHOOK_URL at a local stub
+ * sheet booted below, so the success path is genuinely exercised — the handler
+ * really forwards, and the stub records what it received.
+ *
+ * It used to leave SHEETS_WEBHOOK_URL unset, relying on the handler returning
+ * 200 when unconfigured. That behaviour is gone (an unconfigured webhook is now
+ * a 500 — see api/waitlist.js step 12), because "accepted but written nowhere"
+ * is the silent-failure bug this endpoint exists to remove. Asserting 200
+ * against an unconfigured handler was testing the bug, so the stub replaces it
+ * and `unconfiguredCases()` covers the 500 explicitly.
  */
 
 import http from 'node:http';
@@ -16,9 +24,36 @@ import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 
 process.env.NODE_ENV = 'test';
-delete process.env.SHEETS_WEBHOOK_URL;
 delete process.env.UPSTASH_REDIS_REST_URL;
 
+// ─── Stub sheet ──────────────────────────────────────────────────────────────
+// Stands in for the Apps Script. Records every forwarded record so cases can
+// assert on what would actually reach the sheet.
+
+export const forwarded = [];
+
+const stubSheet = http.createServer((req, res) => {
+  if (req.method === 'GET') {
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ count: 142 }));
+  }
+  const chunks = [];
+  req.on('data', (c) => chunks.push(c));
+  req.on('end', () => {
+    try {
+      forwarded.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+    } catch {
+      forwarded.push({ _unparsable: true });
+    }
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ok: true }));
+  });
+});
+await new Promise((r) => stubSheet.listen(0, '127.0.0.1', r));
+process.env.SHEETS_WEBHOOK_URL = `http://127.0.0.1:${stubSheet.address().port}/exec`;
+process.env.SHEETS_WEBHOOK_TOKEN = 'test-token-0123456789abcdef0123456789abcdef';
+
+// Imported AFTER the env is set — the handler reads both at module load.
 const { default: handler } = await import('../api/waitlist.js');
 
 // ─── Server ──────────────────────────────────────────────────────────────────
@@ -683,9 +718,46 @@ await check('Error response never echoes submitted input', 'no email in body', a
   return { pass: !body.includes('canary-string'), actual: body };
 });
 
+// ─── Unconfigured-webhook case ───────────────────────────────────────────────
+// The one behaviour that cannot be tested against the stub, because it is
+// defined by the stub's absence. A handler with no SHEETS_WEBHOOK_URL must fail
+// loudly: nothing is written, so nothing may report success.
+
+{
+  const priorUrl = process.env.SHEETS_WEBHOOK_URL;
+  delete process.env.SHEETS_WEBHOOK_URL;
+  // Fresh module instance so the deleted env var is the one it reads.
+  const { default: unconfigured } = await import(`../api/waitlist.js?unconfigured=${Date.now()}`);
+  const bare = http.createServer((req, res) => {
+    unconfigured(req, res).catch(() => {
+      res.statusCode = 500;
+      res.end('{"ok":false,"error":"server"}');
+    });
+  });
+  await new Promise((r) => bare.listen(0, '127.0.0.1', r));
+  const url = `http://127.0.0.1:${bare.address().port}/api/waitlist`;
+
+  await check('Unconfigured webhook fails loudly, never 200', '500 server', async () => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-real-ip': '198.51.100.251' },
+      body: JSON.stringify(goodPayload()),
+    });
+    const body = await res.json().catch(() => null);
+    return {
+      pass: res.status === 500 && body?.ok === false,
+      actual: `${res.status} ${JSON.stringify(body)}`,
+    };
+  });
+
+  bare.close();
+  process.env.SHEETS_WEBHOOK_URL = priorUrl;
+}
+
 // ─── Report ──────────────────────────────────────────────────────────────────
 
 server.close();
+stubSheet.close();
 
 const pad = (s, n) => String(s).padEnd(n).slice(0, n);
 console.log('\n' + '═'.repeat(112));

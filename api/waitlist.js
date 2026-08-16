@@ -355,13 +355,25 @@ export default async function handler(req, res) {
 
   // 12. Forward to the sheet, server-to-server, with a shared secret.
   //
-  //     If the webhook is not configured we still return 200. The endpoint is
-  //     being deployed ahead of the Apps Script rotation (SECURITY.md §8 item
-  //     3), and failing signups during that window would cost real leads. The
-  //     log line is the alarm.
+  //     An unconfigured webhook is a 500, NOT a 200 (Emil, 16 Aug).
+  //
+  //     This previously returned 200 {ok:true} so that signups would not fail
+  //     during the window between deploying this endpoint and rotating the
+  //     Apps Script (SECURITY.md §8 item 3). The intent was right and the
+  //     behaviour was wrong: it recreated S7 — the exact bug this endpoint
+  //     exists to kill — in a new form. Nothing is written, the visitor is told
+  //     "you're on the list", and the only trace is a log line nobody is
+  //     watching. A misconfigured Preview or Production environment would
+  //     discard every signup while looking perfectly healthy.
+  //
+  //     Now it fails loudly. The client renders "our end broke, not yours",
+  //     keeps the typed address and lets them retry, so a signup during that
+  //     window is recoverable instead of silently gone. To run locally without
+  //     a real sheet, point SHEETS_WEBHOOK_URL at a stub that returns 200 —
+  //     an explicit stub, never an implicit success.
   if (!SHEETS_WEBHOOK_URL) {
-    audit('forward.skipped_unconfigured', { handle });
-    return send(res, 200, { ok: true });
+    audit('forward.unconfigured', { handle });
+    return send(res, 500, { ok: false, error: 'server' });
   }
 
   try {
