@@ -41,7 +41,7 @@ export const HEADLINES = {
     id: "a",
     headline: "10g of fiber. 150 calories. Made from apple pulp that was headed for the landfill.",
     subhead:
-      "Zuca is a snack bite from a Michelin-trained chef and a Stanford physician. Two flavors, no added sugar, and 130+ people already in line.",
+      "Zuca is a snack bite from a Michelin-trained chef and a Stanford physician. Two flavors, no added sugar, and about 40% of your daily fiber in one bite.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -87,11 +87,29 @@ export const hero = {
 
 // ─── Proof strip ─────────────────────────────────────────────────────────────
 // Specificity is the trust mechanism. Every line is a verifiable event.
-export const proof = [
-  { value: "130+", label: "pre-orders before launch" },
-  { value: "45 min", label: "to run out at Stanford Demo Day" },
-  { value: "Day 1", label: "sold out at a physician symposium" },
-];
+//
+// ── NO PRE-ORDER LANGUAGE ────────────────────────────────────────────────────
+// No payment has been taken, no order exists, and no contract of sale has been
+// formed, so nobody here may be described as having pre-ordered or reserved
+// anything. Past and present tense about the existing signups: they joined a
+// waitlist. Future tense ("when pre-orders open") is accurate and fine.
+// `/terms` already says joining is not a purchase — the site must not
+// contradict its own terms.
+//
+// The same rule caught "sold out at a physician symposium": the samples ran
+// out, they were not sold. It asserts a transaction that did not happen,
+// exactly like "reserved" does.
+//
+// The waitlist size is NOT hardcoded here. It reads live from the sheet, so it
+// self-corrects when test rows are removed rather than baking a number into
+// copy that then becomes a claim we have to defend.
+export const proof = {
+  liveLabel: "already on the waitlist",
+  items: [
+    { value: "45 min", label: "for samples to run out at Stanford Demo Day" },
+    { value: "Day 1", label: "samples gone at a physician symposium" },
+  ],
+};
 
 // ─── Three-number block ──────────────────────────────────────────────────────
 export const numbers = {

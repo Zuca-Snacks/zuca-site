@@ -9,10 +9,19 @@ import { faq as faqCopy, numbers, proof, sections } from "../../content/copy.js"
 import { EVENTS, track } from "../../lib/analytics.js";
 import "./sections.css";
 
-export function ProofStrip() {
+/**
+ * @param {number|null} count live waitlist size, read from the sheet. The row
+ *   is always rendered so a late-arriving number cannot shift the page; only
+ *   the numeral appears when it lands.
+ */
+export function ProofStrip({ count = null }) {
   return (
     <ul className="zc-proof">
-      {proof.map((item) => (
+      <li>
+        <span className="zc-proof-value">{count != null && count > 0 ? count.toLocaleString() : ""}</span>
+        <span className="zc-proof-label">{proof.liveLabel}</span>
+      </li>
+      {proof.items.map((item) => (
         <li key={item.label}>
           <span className="zc-proof-value">{item.value}</span>
           <span className="zc-proof-label">{item.label}</span>

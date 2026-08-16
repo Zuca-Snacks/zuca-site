@@ -417,6 +417,79 @@ saved** for everyone who doesn't open it.
 `step2_motivation_open` is instrumented, so the take-up rate is visible rather
 than assumed.
 
+## Pre-order sweep (security §3a)
+
+No payment has been taken, no order exists, no contract of sale has been formed
+— so nobody may be described as having pre-ordered or reserved anything.
+
+Eight of security's ten occurrences were already gone on this branch: the modal
+that held three of them was deleted, both CTAs became "Get first access", the
+nav became "Waitlist open", the hero eyebrow became "Waitlist open · First run
+is limited", and the counter became "already in line". Two remained, both in
+`src/content/copy.js`:
+
+| Was | Now | Why |
+|---|---|---|
+| `130+` · "pre-orders before launch" | live count · "already on the waitlist" | Past-tense pre-order claim, and a hardcoded number that goes stale. |
+| `Day 1` · "**sold out** at a physician symposium" | `Day 1` · "**samples gone** at a physician symposium" | **Not on security's list.** Same defect: the samples ran out, they were not sold. It asserts a transaction that did not happen, exactly like "reserved" does. |
+
+Also: headline variant A's subhead hardcoded "130+ people already in line".
+Replaced with "about 40% of your daily fiber in one bite" — a fact that cannot
+go stale.
+
+**The count is no longer hardcoded anywhere.** `ProofStrip` takes the live sheet
+count as a prop, so deleting the ten test rows self-corrects the site instead of
+leaving a number in copy that we would then have to defend. The row is always
+rendered and only the numeral appears when the fetch lands, so there is no
+layout shift.
+
+Left alone, per the rule that future tense is accurate:
+- `preorder_now` intent enum — records stated intent, not a transaction.
+- The `CONSENT_TEXTS` marketing wording — already future tense.
+- `fields.js` comment describing "the old pre-order modal" — historically
+  accurate description of a thing that existed.
+
+One piece of dead code I did not touch: the `PRE-ORDER MODAL` CSS block in the
+`css` template string in `zuca-gate-v4.jsx` (~130 lines) is orphaned now that
+the modal is gone. Invisible to users. I left it because UX is actively
+rewriting that string and removing it would only create a conflict — worth
+deleting on the UX branch.
+
+## ZIP — confirmed fixed, and the residual path is safe too
+
+Security is right that it was a live bug, and it was worse than a rejected
+field: the schema is `.strict()`, so an invalid `zip` **400s the entire
+submission** and loses the email with it.
+
+Confirmed against their real `waitlistSchema`:
+
+```
+zip "0150"        ✗ 400 invalid_zip     ← Norwegian postcode
+zip "0150 Oslo"   ✗ 400 invalid_zip
+zip "SW1A 1AA"    ✗ 400 invalid_zip
+zip ""            ✓ accepted → stored as null
+zip null          ✓ accepted → stored as null
+```
+
+Confirmed from real browser POST bodies, not from reading the code:
+
+| Visitor | Field rendered | Sends | Schema |
+|---|---|---|---|
+| `Europe/Oslo` | no | `zip: null` | ✓ |
+| `Asia/Tokyo` | no | `zip: null` | ✓ |
+| US, left blank | yes | `zip: null` (**not `""`**) | ✓ |
+| US, filled | yes | `zip: "94305"` | ✓ |
+
+**`null`, not empty string** — `buildPayload` coerces via `zip || null`, so an
+untouched field and a hidden field produce the identical record.
+
+**The residual path is covered as well.** A Norwegian on a VPN whose browser
+reports a US time zone *does* see the field. Tested: typing `0150 Oslo` leaves
+`0150` in the input (numeric-only, capped at 5), and submitting fires **zero**
+requests — the client-side check catches it first and shows "A US ZIP is five
+digits — or leave it blank." So even when the region guess is wrong, the 400 is
+unreachable and nothing is lost. The email was banked at step 1 regardless.
+
 ### Still open
 
 - **Analytics tool.** Nothing is installed. Events buffer and auto-forward the

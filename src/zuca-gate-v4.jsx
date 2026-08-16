@@ -1057,7 +1057,7 @@ export default function ZucaGate() {
             </section>
 
             <div className="zc zc-invert zc-hero si3" style={{ marginBottom: "2.5rem" }}>
-              <ProofStrip/>
+              <ProofStrip count={clicks}/>
             </div>
 
             <div className="data-row si4">
@@ -1219,7 +1219,7 @@ export default function ZucaGate() {
             <div className="footer-left zc zc-invert zc-hero">
               <h2 className="zc-hero-headline">{sections.waitlist.title}</h2>
               <p className="zc-hero-subhead">{sections.waitlist.body}</p>
-              <ProofStrip/>
+              <ProofStrip count={clicks}/>
             </div>
             <div className="footer-right" style={{width:"100%"}}>
               <WaitlistForm location="footer"/>
