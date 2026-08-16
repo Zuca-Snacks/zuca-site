@@ -46,10 +46,18 @@
 // for space (Emil, 16 Aug — the tagline itself is protected and stays).
 // The credential appears exactly once in the hero, in the tagline.
 export const HEADLINES = {
-  // A — specificity first. Two evaluable numbers, then the one strange fact.
+  // A — taste first, origin second. Deliberately carries NO figures: the
+  // redesigned hero renders the 10g stamp and the 10g/150kcal/4g spec row
+  // directly above this line, so "10g of fiber. 150 calories." was the picture
+  // and the sentence saying the same thing twice.
+  //
+  // Taste leads on purpose. With appetising product photography immediately
+  // above, opening on a discard word ("landfill", "thrown away") puts a
+  // negative directly under the food. Leading with the taste lets the photo and
+  // the first sentence agree, and the origin then lands as the surprise it is.
   a: {
     id: "a",
-    headline: "10g of fiber. 150 calories. Made from apple pulp that was headed for the landfill.",
+    headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
       "Two flavors, no added sugar, and about 40% of your daily fiber in one bite.",
   },
