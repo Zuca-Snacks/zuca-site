@@ -1,0 +1,584 @@
+/* ============================================================================
+   ZUCA — SECTION LAYOUT
+   Mobile-first. Every rule below is written for 390px and then widened.
+   Vertical rhythm comes exclusively from --z-space-* / --z-section-y.
+   ========================================================================== */
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+
+.z-header {
+  position: relative;
+  z-index: var(--z-layer-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--z-space-4);
+  min-height: 60px;
+  padding-block: var(--z-space-3);
+}
+
+.z-header__wordmark {
+  display: inline-flex;
+  align-items: center;
+  /* A nav target, so it earns a full 44px tap height even though the glyphs
+     themselves are shorter. */
+  min-height: 44px;
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  line-height: 1;
+  color: var(--z-brand);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+/* The brand entrance: 4 letters, 210ms of stagger + 420ms each = 630ms total,
+   comfortably inside the 800ms budget. Decorative only — nothing waits on it. */
+.z-header__wordmark span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.22em);
+  animation: z-word-in 420ms var(--z-ease) forwards;
+}
+
+.z-header__wordmark span:nth-child(1) { animation-delay: 0ms; }
+.z-header__wordmark span:nth-child(2) { animation-delay: 70ms; }
+.z-header__wordmark span:nth-child(3) { animation-delay: 140ms; }
+.z-header__wordmark span:nth-child(4) { animation-delay: 210ms; }
+
+@keyframes z-word-in {
+  to { opacity: 1; transform: none; }
+}
+
+/* Snapped — the user scrolled, tapped or typed, so finish immediately. */
+.z-header__wordmark[data-snap='true'] span {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-header__wordmark span {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The header CTA is redundant on a phone — the hero's own email field sits
+   directly beneath it, and the sticky bar covers the rest of the page. */
+.z-header__cta { display: none; }
+
+@media (min-width: 48em) {
+  .z-header__cta { display: inline-flex; }
+}
+
+.z-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-4);
+}
+
+/* Secondary nav links are hidden on phones — the page has one job there. */
+.z-header__link {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--z-step-0);
+  color: var(--z-ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.z-header__link:hover { color: var(--z-brand-dark); }
+
+@media (min-width: 48em) {
+  .z-header__link { display: inline-flex; }
+}
+
+/* ─── Hero ───────────────────────────────────────────────────────────────── */
+
+.z-hero {
+  padding-top: var(--z-space-3);
+  padding-bottom: var(--z-section-y);
+}
+
+/* On a phone the product photo leads — this is a food brand, and appetite is
+   the first job. Copy, then the email field, follow immediately beneath so all
+   four hero elements clear an 844px fold. */
+.z-hero__inner {
+  display: grid;
+  gap: var(--z-space-4);
+}
+
+.z-hero__media { order: -1; }
+
+.z-hero__copy {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+/* The tagline half of the brand entrance. Fades up just behind the wordmark's
+   last letter (300ms delay vs the wordmark's 210ms), so the two read as one
+   lockup rather than two separate animations. Decorative only — the text is in
+   the DOM and readable from frame one; only opacity/transform animate. */
+.z-hero__tagline {
+  font-size: var(--z-step-0);
+  font-weight: 500;
+  color: var(--z-ink-muted);
+  max-width: 38ch;
+  animation: z-word-in 480ms var(--z-ease) 300ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-hero__tagline { animation: none; }
+}
+
+/* Hidden on phones — Emil's call: if the badge and the credential tagline can't
+   both fit above the fold, the tagline wins, because it is the more
+   differentiating of the two for cold traffic who have never heard of Zuca.
+   Measured: the badge row costs ~40px whether it holds one badge or two (it is
+   one wrapped row either way), which put the CTA at 857px against an 844px
+   fold. "10g fiber" is also restated in the lede one line below.
+   Returns at tablet width where the space is free. */
+.z-hero__eyebrow {
+  display: none;
+  flex-wrap: wrap;
+  gap: var(--z-space-2);
+}
+
+@media (min-width: 48em) {
+  .z-hero__eyebrow { display: flex; }
+}
+
+.z-hero__title {
+  font-size: var(--z-step-3);
+  color: var(--z-ink);
+  margin-block: var(--z-space-1);
+}
+
+/* The promise line carries the product's one factual hook. */
+.z-hero__lede {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  max-width: 34ch;
+}
+
+/* --- Hero media ---------------------------------------------------------- */
+
+.z-hero__media {
+  position: relative;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  background: var(--z-surface-alt);
+  box-shadow: var(--z-shadow-md);
+}
+
+.z-hero__media img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 820 / 1024;
+  object-fit: cover;
+}
+
+/* On a phone the hero photo is cropped shorter so the email field and its CTA
+   stay above an 844px fold; the full 4:5 crop returns once there is a column
+   to put it in. Measured: 16/9 keeps the CTA at ~821px at 390px wide. */
+@media (max-width: 47.99em) {
+  .z-hero__media img { aspect-ratio: 16 / 9; }
+}
+
+/* --- Hero email capture (SHELL ONLY — see WaitlistSlot) ------------------- */
+
+.z-hero__capture {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+.z-hero__capture-row {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+@media (min-width: 30em) {
+  .z-hero__capture-row {
+    grid-template-columns: 1fr auto;
+    /* end, not start: the Field stacks label + hint above its input, so a
+       top-aligned button would sit level with the label instead of the input. */
+    align-items: end;
+  }
+}
+
+.z-hero__microcopy {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+/* Side-by-side from tablet up. Below this the photo would otherwise grow to
+   ~390px tall and push the CTA far off the fold. */
+@media (min-width: 48em) {
+  .z-hero__inner {
+    grid-template-columns: 1.05fr 0.95fr;
+    align-items: center;
+    gap: var(--z-space-6);
+  }
+  /* Copy leads again once there is room for a side-by-side. */
+  .z-hero__copy { grid-column: 1; }
+  .z-hero__media { grid-column: 2; order: 0; }
+}
+
+@media (min-width: 60em) {
+  .z-hero__inner { gap: var(--z-space-8); }
+}
+
+/* ─── Proof strip ────────────────────────────────────────────────────────── */
+
+.z-proof {
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+  padding-block: var(--z-space-5);
+}
+
+.z-proof__list {
+  display: grid;
+  gap: var(--z-space-4);
+  list-style: none;
+}
+
+.z-proof__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--z-space-3);
+}
+
+.z-proof__figure {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  color: var(--z-brand-dark);
+  line-height: 1;
+  flex: none;
+}
+
+.z-proof__label {
+  font-size: var(--z-step-0);
+  color: var(--z-ink);
+}
+
+@media (min-width: 48em) {
+  .z-proof__list { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
+}
+
+/* ─── Numbers ────────────────────────────────────────────────────────────── */
+
+.z-numbers__grid {
+  display: grid;
+  gap: var(--z-space-4);
+  list-style: none;
+  margin-top: var(--z-space-6);
+}
+
+.z-number {
+  display: grid;
+  gap: var(--z-space-1);
+  text-align: center;
+  padding: var(--z-space-5) var(--z-space-4);
+}
+
+.z-number__value {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-3);
+  line-height: 1;
+  color: var(--z-brand-dark);
+}
+
+.z-number__label {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink);
+}
+
+.z-number__note {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+@media (min-width: 40em) {
+  .z-numbers__grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ─── How it's made (inverted band) ──────────────────────────────────────── */
+
+.z-process {
+  background: var(--z-ink-surface);
+  color: var(--z-on-ink);
+}
+
+.z-process h2 { color: var(--z-on-ink); }
+
+.z-process__lede {
+  color: var(--z-on-ink-muted);
+  font-size: var(--z-step-1);
+  margin-top: var(--z-space-4);
+}
+
+.z-process__steps {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-7);
+  list-style: none;
+  counter-reset: step;
+}
+
+.z-process__step {
+  counter-increment: step;
+  display: grid;
+  gap: var(--z-space-2);
+  padding-top: var(--z-space-4);
+  border-top: 1px solid rgb(253 224 180 / 0.25);
+}
+
+.z-process__step::before {
+  content: counter(step, decimal-leading-zero);
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-1);
+  color: var(--z-warm);
+  line-height: 1;
+}
+
+.z-process__step h3 {
+  font-size: var(--z-step-2);
+  color: var(--z-on-ink);
+}
+
+.z-process__step p { color: var(--z-on-ink-muted); }
+
+@media (min-width: 48em) {
+  .z-process__steps { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
+}
+
+/* ─── Founders ───────────────────────────────────────────────────────────── */
+
+.z-founders__grid {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-6);
+  list-style: none;
+}
+
+.z-founder { display: grid; gap: var(--z-space-3); }
+
+.z-founder__head {
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-4);
+}
+
+/* Placeholder portrait: no founder photography exists in the repo yet.
+   A monogram is honest — it does not pretend to be a face. Swap for the real
+   portraits when they land (see HANDOFF-ux.md). */
+.z-founder__monogram {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--z-radius-full);
+  background: var(--z-brand-dark);
+  color: var(--z-accent-ink);
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-1);
+  line-height: 1;
+}
+
+.z-founder__name { font-size: var(--z-step-2); }
+
+.z-founder__role {
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  color: var(--z-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.z-founder__creds {
+  display: grid;
+  gap: var(--z-space-2);
+  list-style: none;
+}
+
+.z-founder__creds li {
+  position: relative;
+  padding-left: var(--z-space-5);
+  color: var(--z-ink);
+}
+
+.z-founder__creds li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--z-warm);
+}
+
+@media (min-width: 48em) {
+  .z-founders__grid { grid-template-columns: repeat(2, 1fr); gap: var(--z-space-7); }
+}
+
+/* ─── Flavors ────────────────────────────────────────────────────────────── */
+
+.z-flavors__grid {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-6);
+  list-style: none;
+}
+
+.z-flavor__media { background: var(--z-surface-alt); }
+
+.z-flavor__media img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.z-flavor__body { padding: var(--z-space-5); display: grid; gap: var(--z-space-3); }
+
+.z-flavor__name { font-size: var(--z-step-2); }
+
+.z-flavor__pills { display: flex; flex-wrap: wrap; gap: var(--z-space-2); list-style: none; }
+
+@media (min-width: 40em) {
+  .z-flavors__grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── FAQ ────────────────────────────────────────────────────────────────── */
+
+.z-faq__list { margin-top: var(--z-space-5); }
+
+/* ─── Waitlist slot ──────────────────────────────────────────────────────── */
+
+.z-waitlist-slot {
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+}
+
+.z-waitlist-slot__inner {
+  display: grid;
+  gap: var(--z-space-5);
+  max-width: 34rem;
+}
+
+.z-waitlist-slot__title { font-size: var(--z-step-3); }
+
+/* The visual frame the conversion agent's form mounts into.
+   ⚠️ Deliberately a bare grid with only a gap: implicit rows, no
+   grid-template-rows, no :nth-child, no fixed heights. Step 2 renders a
+   VARIABLE number of fields — ZIP is hidden entirely for non-US visitors, and
+   the Art 9 motivation consent may or may not be shown — so any rule that
+   counts rows would break for some visitors and not others, which is the worst
+   kind of layout bug to catch. Verified with 8, 7 and 1 children: uniform 16px
+   gap, no overlap. Keep it that way. */
+.z-waitlist-mount {
+  display: grid;
+  gap: var(--z-space-4);
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────── */
+
+.z-footer {
+  background: var(--z-ink-surface);
+  color: var(--z-on-ink);
+  padding-block: var(--z-space-7);
+  /* Clear the sticky CTA so the last line is never hidden behind it. */
+  padding-bottom: calc(var(--z-space-8) + env(safe-area-inset-bottom, 0px));
+}
+
+.z-footer__inner { display: grid; gap: var(--z-space-4); }
+
+.z-footer__wordmark {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  color: var(--z-warm);
+  line-height: 1;
+}
+
+.z-footer__meta { color: var(--z-on-ink-muted); font-size: var(--z-step--1); }
+
+.z-footer a { color: var(--z-on-ink); }
+
+@media (min-width: 48em) {
+  .z-footer { padding-bottom: var(--z-space-7); }
+}
+
+/* ─── Sticky mobile CTA ──────────────────────────────────────────────────── */
+
+.z-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-layer-sticky);
+
+  padding: var(--z-space-3) var(--z-gutter);
+  /* Sit above the iOS home indicator. */
+  padding-bottom: calc(var(--z-space-3) + env(safe-area-inset-bottom, 0px));
+
+  background: var(--z-surface);
+  border-top: 1px solid var(--z-border);
+  box-shadow: 0 -4px 16px rgb(82 65 40 / 0.10);
+
+  transform: translateY(110%);
+  transition: transform var(--z-dur) var(--z-ease);
+}
+
+.z-sticky-cta[data-visible='true'] { transform: none; }
+
+/* Desktop has the CTA in view constantly; the bar is phone-only. */
+@media (min-width: 48em) {
+  .z-sticky-cta { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-sticky-cta { transition: none; }
+}
+
+.z-sticky-cta__row {
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-4);
+}
+
+.z-sticky-cta__text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--z-step--1);
+  color: var(--z-ink);
+  line-height: 1.3;
+}
+
+.z-sticky-cta__text strong { display: block; font-size: var(--z-step-0); }
+
+/* ─── Shared section furniture ───────────────────────────────────────────── */
+
+.z-section__eyebrow {
+  display: block;
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--z-brand-dark);
+  margin-bottom: var(--z-space-3);
+}
+
+.z-section__lede {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  margin-top: var(--z-space-4);
+}
+
+.z-fineprint {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
