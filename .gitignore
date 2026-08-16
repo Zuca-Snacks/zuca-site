@@ -1,6 +1,22 @@
 node_modules
 dist
 .DS_Store
+
+# Environment files.
+# Deny-all-then-allow, rather than listing variants: the previous list covered
+# .env, .env.local and .env.*.local but would have happily committed
+# .env.production, .env.backup or env.txt.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Hosting / tooling
+.vercel
+*.log
+npm-debug.log*
+
+# Anything a security or data export drops here
+*.csv
+*.tsv
+*.sqlite
+secrets/
