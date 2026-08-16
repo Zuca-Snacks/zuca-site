@@ -56,6 +56,10 @@ export const HEADLINES = {
   // negative directly under the food. Leading with the taste lets the photo and
   // the first sentence agree, and the origin then lands as the surprise it is.
   //
+  // DECIDED — Emil, 16 Aug 2026: taste-first is final. The origin-first
+  // inversion ("Made from what juicing throws away. Tastes like dessert.") was
+  // considered and rejected. Not an open question; do not reopen it as one.
+  //
   // ── RESERVED ALTERNATIVE — NOT APPROVED. DO NOT SHIP WITHOUT EMIL. ────────
   // Kept here because the next person to hit the fold constraint will
   // otherwise redo this work, or ship the short version without knowing it
