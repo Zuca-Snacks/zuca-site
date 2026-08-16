@@ -72,6 +72,7 @@ const STEPS = [
   },
   {
     n: 5,
+    wide: true,
     title: 'Roll into bites',
     body: 'Shaped, finished and rolled. Two flavors, same 10 grams of fiber.',
     img: {
@@ -95,6 +96,13 @@ export default function ProcessStrip() {
             {s.img ? (
               (() => {
                 const [wSm, wLg] = s.img.widths ?? [320, 560];
+                // Step 5 spans the whole last row on phones (see the
+                // :last-child rules), so it renders ~55vw while the others
+                // render ~44vw. Declaring one `sizes` for both made the browser
+                // pick a source too small for the wide slot and upscale it.
+                const sizes = s.wide
+                  ? '(min-width: 60em) 18vw, 56vw'
+                  : '(min-width: 60em) 18vw, 44vw';
                 const set = (ext) =>
                   `/images/${s.img.slug}-${wSm}.${ext} ${wSm}w, /images/${s.img.slug}-${wLg}.${ext} ${wLg}w`;
                 return (
@@ -102,12 +110,12 @@ export default function ProcessStrip() {
                     <source
                       type="image/avif"
                       srcSet={set('avif')}
-                      sizes="(min-width: 60em) 18vw, 44vw"
+                      sizes={sizes}
                     />
                     <source
                       type="image/webp"
                       srcSet={set('webp')}
-                      sizes="(min-width: 60em) 18vw, 44vw"
+                      sizes={sizes}
                     />
                     <img
                       src={`/images/${s.img.slug}-${wSm}.jpg`}
