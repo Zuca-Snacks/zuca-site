@@ -6,8 +6,9 @@
    Out:  public/images/<name>-<width>.<fmt>
 
    Art-direction notes baked in below:
-   - chocolate-raspberry.jpg is edge-to-edge product and crops well as-is.
-     A 4:5 portrait crop is used for the hero (best fit for a phone fold).
+   - The hero shows BOTH flavours as 1:1 crops, so the flavour crops double as
+     the hero images. The old single-photo hero-bites 4:5 and 16:9 jobs were
+     removed when the hero became product-forward; nothing referenced them.
    - maple-pecan.jpg was shot in a foil catering tray. The crop deliberately
      cuts the tray rim out of frame so the bites read as product, not catering.
    ========================================================================== */
@@ -22,27 +23,37 @@ mkdirSync(OUT, { recursive: true });
 
 const JOBS = [
   {
-    // Desktop / tablet: 4:5 portrait pulled from the centre of the square frame.
-    name: 'hero-bites',
-    src: 'chocolate-raspberry.jpg',
-    extract: { left: 102, top: 0, width: 820, height: 1024 },
-    widths: [420, 640, 900],
-  },
-  {
-    // Phone: a dedicated 16:9 crop. Without this the phone downloads the full
-    // 4:5 file (1024px tall) and object-fit throws away two thirds of it —
-    // Lighthouse measured 83KB of that as pure waste.
-    name: 'hero-bites-wide',
-    src: 'chocolate-raspberry.jpg',
-    extract: { left: 0, top: 224, width: 1024, height: 576 },
-    widths: [400, 600, 800],
-  },
-  {
     name: 'flavor-chocolate-raspberry',
     src: 'chocolate-raspberry.jpg',
     // Inset from the right and bottom edges, where the tray/wrapper is visible.
     extract: { left: 30, top: 30, width: 900, height: 900 },
     widths: [360, 640],
+  },
+
+  /* ── Process strip ────────────────────────────────────────────────────────
+     Two real photographs from Emil's library. Both were checked against the
+     allergen TODO before being brought into the repo: they show apple pulp and
+     freeze-dried raspberry only — no oats, no dairy, no nuts in frame — so
+     neither asserts an unconfirmed allergen in pixels. Both were shot in a
+     disposable foil tray; the crops below are deliberately tight enough that
+     the tray rim is outside the frame and only the material texture remains.
+     The three remaining steps have no photograph and render as typographic
+     placeholders — see ProcessStrip.jsx. ---------------------------------- */
+  {
+    name: 'process-pulp-milled',
+    src: 'process-pulp-milled.jpg',
+    // 1:1 from the centre; the foil rim runs around all four edges.
+    extract: { left: 180, top: 520, width: 1180, height: 1180 },
+    widths: [320, 560],
+  },
+  {
+    name: 'process-raspberry-powder',
+    src: 'process-raspberry-powder.jpg',
+    // Pushed right and down: the tray's ridged wall runs down the left edge and
+    // across the top, and the bare tray floor is exposed in the lower right.
+    // This window is the largest square of pure powder in the frame.
+    extract: { left: 320, top: 430, width: 1020, height: 1020 },
+    widths: [320, 560],
   },
   {
     name: 'flavor-maple-pecan',
@@ -80,5 +91,7 @@ for (const job of JOBS) {
 }
 
 console.table(report);
-const heroLcp = report.filter((r) => r.file.includes('hero-bites-900'));
-console.log('LCP candidates (900w):', JSON.stringify(heroLcp));
+// The LCP element is the left-hand hero product. Keep the preload in
+// index.html pointed at this exact slug and sizes.
+const lcp = report.filter((r) => r.file.includes('flavor-chocolate-raspberry'));
+console.log('LCP candidates:', JSON.stringify(lcp));

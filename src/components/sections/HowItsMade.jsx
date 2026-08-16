@@ -11,23 +11,7 @@
  * negotiation and competitor-intelligence information, and to a consumer it
  * reads "cheap" rather than "clever". Keep the upcycling story, no number on it.
  */
-const STEPS = [
-  {
-    title: 'Juiceries throw the pulp away',
-    body:
-      'Pressing apples for juice leaves a mountain of pulp behind. It gets hauled off as waste — and rotting food waste accounts for 8% of US greenhouse gas emissions.',
-  },
-  {
-    title: 'We take the fiber, not the waste',
-    body:
-      'That pulp is the fiber. We collect it, dry it and mill it before it can spoil, in facilities that meet 21 CFR 117 food-safety rules.',
-  },
-  {
-    title: 'A chef turns it into something you crave',
-    body:
-      'Blended, rolled and finished into bites in two flavors. The test was never “is it healthy” — it was whether you reach for a second one.',
-  },
-];
+import ProcessStrip from './ProcessStrip.jsx';
 
 export default function HowItsMade() {
   return (
@@ -42,14 +26,9 @@ export default function HowItsMade() {
           anything.
         </p>
 
-        <ol className="z-process__steps">
-          {STEPS.map((s) => (
-            <li className="z-process__step" key={s.title}>
-              <h3>{s.title}</h3>
-              <p>{s.body}</p>
-            </li>
-          ))}
-        </ol>
+        {/* The typographic step list was replaced by a photographic strip.
+            Steps, copy and photo-status live in ProcessStrip.jsx. */}
+        <ProcessStrip />
       </div>
     </section>
   );

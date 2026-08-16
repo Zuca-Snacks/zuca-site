@@ -150,10 +150,20 @@
   .z-hero__eyebrow { display: flex; }
 }
 
+/* One step down on phones. The product block above now carries the visual
+   weight, and at --z-step-3 growth's headline ran to five lines of display caps
+   that restated "10g of fiber" and "150 calories" — both already shown in the
+   stamp and the stat chips directly above it. Dropping a step keeps the
+   headline as the sentence that explains the pictures rather than competing
+   with them, and returns ~90px to the fold. Full size from tablet up. */
 .z-hero__title {
-  font-size: var(--z-step-3);
+  font-size: var(--z-step-2);
   color: var(--z-ink);
   margin-block: var(--z-space-1);
+}
+
+@media (min-width: 48em) {
+  .z-hero__title { font-size: var(--z-step-3); }
 }
 
 /* The promise line carries the product's one factual hook. */
@@ -173,18 +183,175 @@
   box-shadow: var(--z-shadow-md);
 }
 
-.z-hero__media img {
+/* The media frame is now a container for two products, not a single photo, so
+   it carries no background or shadow of its own — each product card does. */
+.z-hero__media {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* --- The two products --------------------------------------------------- */
+
+.z-hero__products {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--z-space-3);
+  position: relative;
+  /* start, not the default stretch: the two captions are different lengths
+     ("Chocolate Raspberry Sea Salt" wraps, "Maple Pecan" does not), and a
+     stretched figure made the shorter column's <picture> grow past its image,
+     showing a slab of empty surface under the maple photo. */
+  align-items: start;
+}
+
+.z-hero__product {
+  display: grid;
+  gap: var(--z-space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.z-hero__product picture {
+  display: block;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  background: var(--z-surface-alt);
+  box-shadow: var(--z-shadow-md);
+}
+
+.z-hero__product img {
   width: 100%;
   height: auto;
-  aspect-ratio: 820 / 1024;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
 }
 
-/* On a phone the hero photo is cropped shorter so the email field and its CTA
-   stay above an 844px fold; the full 4:5 crop returns once there is a column
-   to put it in. Measured: 16/9 keeps the CTA at ~821px at 390px wide. */
-@media (max-width: 47.99em) {
-  .z-hero__media img { aspect-ratio: 16 / 9; }
+.z-hero__product-name {
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--z-ink);
+}
+
+/* The shared per-serving stat row, under both products. Colour comes from the
+   photography above it, so these stay quiet: ink on the alt surface. No amber
+   or green as text — those are two of the seven AA pairings still open. */
+.z-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--z-space-2);
+  margin-top: var(--z-space-3);
+  list-style: none;
+}
+
+.z-hero__stats li {
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--z-ink);
+  background: var(--z-surface-alt);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-full);
+  padding: var(--z-space-1) var(--z-space-3);
+  white-space: nowrap;
+}
+
+/* --- The 10g stamp ------------------------------------------------------- */
+/* Straddles the seam between the two products. Absolutely positioned, so it
+   costs the fold nothing. Contrast is against its own fill, never the
+   photograph: white on brand-dark is 7.72:1. */
+.z-hero__stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+
+  display: grid;
+  place-items: center;
+  width: 5.25rem;
+  height: 5.25rem;
+  border-radius: var(--z-radius-full);
+
+  background: var(--z-brand-dark);
+  color: var(--z-accent-ink);
+  box-shadow: var(--z-shadow-md);
+  /* Lifts the disc off whichever photo sits behind it. */
+  outline: 3px solid var(--z-bg);
+}
+
+.z-hero__stamp-num {
+  font-family: var(--z-font-display);
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.z-hero__stamp-word {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* --- The live count badge ------------------------------------------------ */
+/* ONE mechanism: absolute positioning. It is out of flow, so when the count is
+   null and this element is not rendered at all there is no reserved gap to
+   leave a hole — the hero is complete without it. And when the number does
+   arrive it lands on top of the photography, displacing nothing. Reserving a
+   fixed-height row would have prevented the reflow but created the hole. */
+.z-hero__count-badge {
+  position: absolute;
+  top: calc(-1 * var(--z-space-2));
+  right: calc(-1 * var(--z-space-1));
+  z-index: 3;
+
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-1);
+  padding: var(--z-space-1) var(--z-space-2);
+
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-full);
+  box-shadow: var(--z-shadow-md);
+
+  animation: z-badge-in 380ms var(--z-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-hero__count-badge { animation: none; }
+}
+
+@keyframes z-badge-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Sized down deliberately: at --z-step-1 with the full label the badge covered
+   roughly 40% of the maple photograph. It has to read as a stamp ON the
+   product, not as a banner across it. */
+.z-hero__count-num {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-0);
+  line-height: 1;
+  color: var(--z-brand-dark);
+}
+
+.z-hero__count-word {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--z-ink);
+  max-width: 8ch;
+}
+
+@media (min-width: 48em) {
+  .z-hero__stamp { width: 6.5rem; height: 6.5rem; }
+  .z-hero__stamp-num { font-size: 2.25rem; }
+  .z-hero__product-name { font-size: var(--z-step-0); }
 }
 
 /* --- Hero email capture (SHELL ONLY — see WaitlistSlot) ------------------- */
@@ -353,6 +520,120 @@
 
 @media (min-width: 48em) {
   .z-process__steps { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
+}
+
+/* ─── Process strip (five photographic steps) ────────────────────────────── */
+/* Sits on the dark green band. All colour here comes from the photographs —
+   the tan of the milled pulp and the crimson of the raspberry are more
+   saturated than anything in the token palette, and a photograph carries no
+   contrast obligation. Amber is used only as a numeral on the dark band, where
+   it measures 6.86:1; it is never text on cream. */
+
+.z-process-strip {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-7);
+  list-style: none;
+  counter-reset: none;
+}
+
+/* Two per row from 352px up, so every phone in the test matrix gets the strip
+   rather than five stacked full-width squares. The fifth step takes the full
+   width of the last row, which reads as the finished article rather than an
+   orphan. */
+@media (min-width: 22em) {
+  .z-process-strip { grid-template-columns: repeat(2, 1fr); }
+  .z-process-step:last-child { grid-column: 1 / -1; }
+  .z-process-step:last-child .z-process-step__media {
+    max-width: 60%;
+  }
+}
+
+@media (min-width: 60em) {
+  .z-process-step:last-child { grid-column: auto; }
+  .z-process-step:last-child .z-process-step__media { max-width: none; }
+}
+
+@media (min-width: 60em) {
+  .z-process-strip {
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--z-space-4);
+  }
+}
+
+.z-process-step {
+  display: grid;
+  gap: var(--z-space-2);
+  align-content: start;
+  min-width: 0;
+}
+
+.z-process-step__media {
+  position: relative;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  background: rgb(253 224 180 / 0.08);
+}
+
+.z-process-step__media img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+/* Placeholder for a step with no photograph yet. Deliberately reads as an
+   empty numbered plate rather than a broken image or a fake photo. */
+.z-process-step__placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgb(253 224 180 / 0.06) 0 6px,
+      transparent 6px 12px
+    );
+  border: 1px dashed rgb(253 224 180 / 0.3);
+  border-radius: var(--z-radius-md);
+}
+
+.z-process-step__placeholder span {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  color: rgb(253 224 180 / 0.45);
+}
+
+/* The step number, stamped on the corner of the plate. */
+.z-process-step__num {
+  position: absolute;
+  top: var(--z-space-2);
+  left: var(--z-space-2);
+
+  display: grid;
+  place-items: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding-inline: var(--z-space-1);
+
+  font-family: var(--z-font-display);
+  font-size: var(--z-step--1);
+  line-height: 1;
+
+  color: var(--z-ink);
+  background: var(--z-warm);
+  border-radius: var(--z-radius-full);
+}
+
+.z-process-step__title {
+  font-size: var(--z-step-1);
+  color: var(--z-on-ink);
+}
+
+.z-process-step__body {
+  font-size: var(--z-step--1);
+  line-height: 1.5;
+  color: var(--z-on-ink-muted);
 }
 
 /* ─── Founders ───────────────────────────────────────────────────────────── */
