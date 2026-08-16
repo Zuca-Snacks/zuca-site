@@ -52,6 +52,16 @@ const JOBS = [
      catering pan, which the reshoot rules forbid because the FAQ asserts
      21 CFR 117 manufacturing. Do not re-add it from the strip. */
   {
+    /* Step 1, replacing the withdrawn foil-tray shot. This one is a working
+       juice bar — commercial press, apples waiting, pulp collecting in a lined
+       bin — so it shows the supply chain rather than a domestic kitchen, which
+       is what the reshoot rule was protecting. */
+    name: 'process-pulp-collect',
+    src: 'process-pulp-collect.png',
+    extract: { left: 0, top: 0, width: 296, height: 296 },
+    widths: [296],
+  },
+  {
     name: 'process-pulp-dried',
     src: 'process-pulp-dried.jpg',
     extract: { left: 0, top: 0, width: 240, height: 240 },
@@ -72,6 +82,21 @@ const JOBS = [
     // This window is the largest square of pure powder in the frame.
     extract: { left: 320, top: 430, width: 1020, height: 1020 },
     widths: [320, 560],
+  },
+  /* Founder portraits, extracted from the credentials artwork Emil sent. These
+     replace the monogram placeholders — real faces are the highest-trust
+     element the founders section can carry. */
+  {
+    name: 'founder-emil',
+    src: 'founder-emil.png',
+    extract: { left: 0, top: 0, width: 244, height: 244 },
+    widths: [128, 244],
+  },
+  {
+    name: 'founder-kelley',
+    src: 'founder-kelley.png',
+    extract: { left: 0, top: 0, width: 244, height: 244 },
+    widths: [128, 244],
   },
   {
     name: 'flavor-maple-pecan',

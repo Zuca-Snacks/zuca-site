@@ -838,9 +838,26 @@
   gap: var(--z-space-4);
 }
 
-/* Placeholder portrait: no founder photography exists in the repo yet.
-   A monogram is honest — it does not pretend to be a face. Swap for the real
-   portraits when they land (see HANDOFF-ux.md). */
+/* Real portraits. The source has a drawn rounded border which the crop insets
+   past; the radius here is ours, so the two founders match whatever the
+   original artwork did. */
+.z-founder__portrait {
+  display: block;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--z-radius-full);
+  overflow: hidden;
+  background: var(--z-surface-alt);
+  box-shadow: var(--z-shadow-sm);
+}
+
+.z-founder__portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .z-founder__monogram {
   flex: none;
   display: grid;

@@ -38,16 +38,17 @@ const STEPS = [
     n: 1,
     title: 'Collect the pulp',
     body: 'Pressing apples for juice leaves the fiber behind. We take it before it spoils.',
-    /* ⚠️ WITHDRAWN, DO NOT RESTORE THIS PHOTOGRAPH.
-       The extracted shot is wet pulp in a crimped DISPOSABLE FOIL CATERING PAN,
-       and the pan is the dominant object in frame. That is the exact thing the
-       reshoot rules forbid — "no foil catering trays" — because the FAQ asserts
-       21 CFR 117 manufacturing four sections below it, and the picture must not
-       contradict the sentence. It was extracted at 240px and reviewed at 162px
-       in the strip, where the pan reads as a dark rim; it is unmistakable at
-       source. Cropping to the pulp alone leaves ~150px, far too small.
-       A numbered placeholder is the honest state until the reshoot lands. */
-    img: null,
+    /* ⚠️ The FOIL CATERING PAN shot that was here is withdrawn permanently —
+       "no foil catering trays", because the FAQ asserts 21 CFR 117
+       manufacturing four sections below. Do not restore it from the strip.
+       This replacement is a working juice bar: commercial press, apples
+       waiting, pulp collecting in a lined bin. It shows the supply chain,
+       which is what the rule was protecting. */
+    img: {
+      slug: 'process-pulp-collect',
+      widths: [296, 296],
+      alt: 'A commercial juice press at a juice bar, apples waiting in a basket and pressed pulp collecting in a lined bin.',
+    },
   },
   {
     n: 2,

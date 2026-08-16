@@ -3,8 +3,7 @@
  *
  * PHOTOGRAPHY GAP: there are no founder portraits in the repo. Real faces are
  * the single highest-trust element this section can have, so they are requested
- * in HANDOFF-ux.md. Until they arrive, a monogram stands in — it reads as a
- * deliberate placeholder rather than pretending to be a photo of someone.
+ * Real portraits shipped 16 Aug, replacing the monogram placeholders.
  *
  * ⚠️ GUARDRAIL — DO NOT REINSTATE.
  * The previous site listed "Reversed autoimmune disease through plant-based
@@ -24,15 +23,21 @@
  * added there, not a second copy of the list.
  */
 import { founders, sections } from '../../content/copy.js';
-/** Initials for the standing monogram, derived rather than duplicated. */
-function monogram(name) {
-  return name
-    .replace(/,.*$/, '')
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
+
+/* Portraits are keyed off the name in copy.js rather than stored there, so
+   growth owns the words and this file owns the pictures. A founder with no
+   entry here simply renders without a portrait — it degrades, it does not
+   break. */
+const PORTRAITS = {
+  'Emil Nordin': {
+    slug: 'founder-emil',
+    alt: 'Emil Nordin, co-founder, photographed outdoors at golden hour.',
+  },
+  'Kelley Yuan, MD': {
+    slug: 'founder-kelley',
+    alt: 'Kelley Yuan, MD, co-founder, photographed outdoors in front of foliage.',
+  },
+};
 
 export default function Founders() {
   return (
@@ -45,9 +50,28 @@ export default function Founders() {
         {founders.map((f) => (
           <li className="z-founder" key={f.name}>
             <div className="z-founder__head">
-              <span className="z-founder__monogram" aria-hidden="true">
-                {monogram(f.name)}
-              </span>
+              {PORTRAITS[f.name] ? (
+                <picture className="z-founder__portrait">
+                  <source
+                    type="image/avif"
+                    srcSet={`/images/${PORTRAITS[f.name].slug}-128.avif 128w, /images/${PORTRAITS[f.name].slug}-244.avif 244w`}
+                    sizes="72px"
+                  />
+                  <source
+                    type="image/webp"
+                    srcSet={`/images/${PORTRAITS[f.name].slug}-128.webp 128w, /images/${PORTRAITS[f.name].slug}-244.webp 244w`}
+                    sizes="72px"
+                  />
+                  <img
+                    src={`/images/${PORTRAITS[f.name].slug}-128.jpg`}
+                    width="244"
+                    height="244"
+                    alt={PORTRAITS[f.name].alt}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
+              ) : null}
               <span>
                 <h3 className="z-founder__name">{f.name}</h3>
                 <span className="z-founder__role">{f.role}</span>
