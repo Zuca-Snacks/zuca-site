@@ -39,6 +39,27 @@ const JOBS = [
      the tray rim is outside the frame and only the material texture remains.
      The three remaining steps have no photograph and render as typographic
      placeholders — see ProcessStrip.jsx. ---------------------------------- */
+  /* Steps 1 and 2, extracted from the process strip Emil sent. They are his
+     own photographs and show apple pulp only — no unconfirmed allergen, no
+     retail packaging. NOTE: these came out of a 1931px-wide composite, so the
+     source tiles are ~240px and CANNOT be enlarged. They are generated at 240
+     only and displayed small. Ask Emil for the camera originals to serve these
+     at the same density as the rest of the strip.
+     Step 4 of that strip was deliberately NOT imported: it is stock imagery,
+     not Zuca's, and one panel shows a grain that reads as oats — an allergen we
+     have not confirmed. */
+  {
+    name: 'process-pulp-wet',
+    src: 'process-pulp-wet.png',
+    extract: { left: 0, top: 0, width: 244, height: 244 },
+    widths: [240],
+  },
+  {
+    name: 'process-pulp-dried',
+    src: 'process-pulp-dried.jpg',
+    extract: { left: 0, top: 0, width: 240, height: 240 },
+    widths: [240],
+  },
   {
     name: 'process-pulp-milled',
     src: 'process-pulp-milled.jpg',
@@ -64,6 +85,14 @@ const JOBS = [
   },
 ];
 
+/* Decorative artwork lives in art-src/, NOT public/, so the multi-hundred-KB
+   originals are never copied into the deploy. Only the derivatives below ship.
+   The first version of this referenced the raw 534KB PNG straight from public/
+   and dropped Lighthouse performance from 98 to 81 with a 4.9s LCP. */
+const ART = [
+  { name: 'art-backdrop', src: 'art-src/art-ingredients-backdrop.png', widths: [900, 1600] },
+];
+
 const FORMATS = [
   { ext: 'avif', fn: (p) => p.avif({ quality: 52, effort: 6 }) },
   { ext: 'webp', fn: (p) => p.webp({ quality: 74, effort: 5 }) },
@@ -80,6 +109,22 @@ for (const job of JOBS) {
         .extract(job.extract)
         .resize({ width: w, withoutEnlargement: true });
       const info = await fn(pipeline).toFile(file);
+      report.push({
+        file: file.replace('public/', '/'),
+        w: info.width,
+        h: info.height,
+        kb: +(info.size / 1024).toFixed(1),
+      });
+    }
+  }
+}
+
+for (const job of ART) {
+  for (const w of job.widths) {
+    for (const { ext, fn } of FORMATS) {
+      if (ext === 'jpg') continue; // artwork ships AVIF/WebP only
+      const file = join(OUT, `${job.name}-${w}.${ext}`);
+      const info = await fn(sharp(job.src).resize({ width: w })).toFile(file);
       report.push({
         file: file.replace('public/', '/'),
         w: info.width,

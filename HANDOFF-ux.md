@@ -114,6 +114,25 @@ and the sticky bar, all unchanged.
 - **`$25/ton` is absent**, as required. It was already cut on merge.
 - **No price figures**, no pre-order language, no new allergen assertions.
 
+## R3.0 STANDING RULES (Emil, 16 Aug) — do not re-ask
+
+**Contrast.** Never alter a brand colour to pass AA. Route around it, as with
+amber-as-fill-only and red-dark-for-text. Where routing is impossible *and* the
+role is body text, use the AA-safe variant of the same hue (as `#666666` for the
+brand grey). **Escalate only if a brand-identity element — wordmark or primary
+CTA — cannot be made accessible without changing its colour.** Everything else
+is a design decision to take, not a question to ask.
+
+**Ownership of the visual layer.** The UX session owns it and is the only one
+editing those files. The merge session merges and does not edit them.
+
+**Pre-rendering the landing route: PENDING, not rejected.** The LCP element is
+about to change — the hero photography is being reshot — so measuring the
+benefit now would tell us little. Revisit once the real photos are in.
+
+**Deploy.** Preview deployments only. Nothing goes to production until Emil has
+confirmed the Vercel auto-deploy setting. Do not push `main`.
+
 ## R3.5 "More colours" without spending contrast
 
 Seven AA pairings are still open (amber and green as text). **None were spent.**
