@@ -18,11 +18,14 @@
  */
 import { useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
+import { ACTIVE_CTA, proof } from '../../content/copy.js';
+import useWaitlistCount from '../../hooks/useWaitlistCount.js';
 
 export default function StickyCta() {
   const [pastHero, setPastHero] = useState(false);
   const [waitlistInView, setWaitlistInView] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const count = useWaitlistCount();
 
   useEffect(() => {
     const hero = document.getElementById('top');
@@ -75,16 +78,21 @@ export default function StickyCta() {
       aria-hidden={visible ? undefined : 'true'}
     >
       <div className="z-sticky-cta__row">
+        {/* The second line renders whether or not the count lands — only the
+            numeral is late, so the bar cannot resize under the user's thumb. */}
         <p className="z-sticky-cta__text">
           <strong>10g fiber per bite</strong>
-          130+ already on the list
+          <span>
+            {count != null && count > 0 ? `${count.toLocaleString()} ` : ''}
+            {proof.liveLabel}
+          </span>
         </p>
         <Button
           as="a"
           href="#waitlist"
           tabIndex={visible ? undefined : -1}
         >
-          Join
+          {ACTIVE_CTA.step1}
         </Button>
       </div>
     </div>

@@ -5,6 +5,10 @@
  *   items     Array<{ id: string, question: node, answer: node }>  required
  *   allowMultiple  boolean   default false (single-open behaviour)
  *   defaultOpenId  string    optionally open one item on mount
+ *   onOpen    (id, index) => void   optional; fired only when an item opens,
+ *             never on close. Added so the conversion agent's faq_open event
+ *             survived the move off its own <details> markup — the accordion
+ *             owns the interaction, growth owns what is measured.
  *
  * Accessibility
  *   - Each trigger is a <button> with aria-expanded + aria-controls.
@@ -19,24 +23,27 @@ export default function Accordion({
   items = [],
   allowMultiple = false,
   defaultOpenId = null,
+  onOpen,
   className = '',
 }) {
   const [open, setOpen] = useState(() =>
     defaultOpenId ? new Set([defaultOpenId]) : new Set()
   );
 
-  const toggle = (id) => {
+  const toggle = (id, index) => {
     setOpen((prev) => {
       const next = allowMultiple ? new Set(prev) : new Set();
       if (prev.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    // Fired outside the updater so it runs once, not twice under StrictMode.
+    if (!open.has(id)) onOpen?.(id, index);
   };
 
   return (
     <div className={`z-accordion ${className}`.trim()}>
-      {items.map(({ id, question, answer }) => {
+      {items.map(({ id, question, answer }, index) => {
         const isOpen = open.has(id);
         return (
           <div className="z-accordion__item" key={id}>
@@ -47,7 +54,7 @@ export default function Accordion({
                 aria-expanded={isOpen}
                 aria-controls={`${id}-panel`}
                 id={`${id}-trigger`}
-                onClick={() => toggle(id)}
+                onClick={() => toggle(id, index)}
               >
                 {question}
                 <svg

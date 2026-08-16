@@ -5,8 +5,11 @@
  *   hero -> proof -> what it is -> how it's made -> founders -> flavors -> FAQ
  *   -> waitlist -> footer, with the sticky CTA overlaid on mobile.
  *
- * The waitlist form itself is NOT here. <WaitlistSlot> renders the #waitlist
- * section and a placeholder; the conversion agent passes its form as children.
+ * The waitlist form is growth's and mounts EXACTLY ONCE, inside <WaitlistSlot>.
+ * The hero's email field is a presentational shell that POSTs nowhere — it
+ * dispatches `zuca:hero-email` and scrolls here, and Step1Email prefills from
+ * it. Two live forms on one page would mean two consent checkboxes and two
+ * submit paths for one signup.
  */
 import './styles/tokens.css';
 import './styles/fonts.css';
@@ -14,7 +17,10 @@ import './styles/base.css';
 import './components/ui/ui.css';
 import './components/sections/sections.css';
 
+import { useEffect } from 'react';
 import useReveal from './hooks/useReveal.js';
+import { captureUtm, trackPageView } from './lib/analytics.js';
+import WaitlistForm from './components/waitlist/WaitlistForm.jsx';
 
 import Header from './components/sections/Header.jsx';
 import Hero from './components/sections/Hero.jsx';
@@ -30,6 +36,13 @@ import StickyCta from './components/sections/StickyCta.jsx';
 
 export default function App() {
   useReveal();
+
+  // UTM capture has to happen before the first event fires, so the campaign
+  // that produced the visit is attached to page_view and to every signup.
+  useEffect(() => {
+    captureUtm();
+    trackPageView();
+  }, []);
 
   return (
     <>
@@ -47,8 +60,10 @@ export default function App() {
         <Founders />
         <Flavors />
         <Faq />
-        {/* Conversion agent: pass your form as children here. */}
-        <WaitlistSlot />
+        {/* The one and only waitlist form on the page. */}
+        <WaitlistSlot>
+          <WaitlistForm location="waitlist" />
+        </WaitlistSlot>
       </main>
 
       <Footer />

@@ -2,9 +2,18 @@
 // Lazy-loaded. Everything here is optional: the email is already saved by the
 // time this renders, and the skip is always visible. Chips over dropdowns, zero
 // free text, one scrollable card.
+//
+// MERGE NOTE: renders on the UX agent's primitives. The chip *behaviours*
+// (single-select, capped multi-select) live in ./chipGroups.jsx and compose
+// UX's <Chip>. All field logic, consent handling and analytics is growth's,
+// unchanged.
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Button, ChipMultiGroup, ChipRadioGroup, Consent, Field, Input } from "./primitives.jsx";
+import Button from "../ui/Button.jsx";
+import Input from "../ui/Input.jsx";
+import Field from "../ui/Field.jsx";
+import Checkbox from "../ui/Checkbox.jsx";
+import { ChipMultiGroup, ChipRadioGroup } from "./chipGroups.jsx";
 import { FLAVOR, INTENT, IS_CLINICIAN, MOTIVATION, PRICE_BAND, REFERRAL_SOURCE, ZIP } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist } from "./api.js";
@@ -35,10 +44,8 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  // Unique per instance — this component can be mounted twice on one page.
   const uid = useId();
   const zipId = `zw-zip-${uid}`;
-  const zipErrorId = `zw-zip-error-${uid}`;
   const motivationConsentId = `zw-consent-motivation-${uid}`;
 
   const inFlight = useRef(false);
@@ -142,7 +149,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
       <h2 className="zw-title">{copy.title}</h2>
       <p className="zw-body">{copy.body}</p>
 
-      <form onSubmit={handleSubmit} noValidate>
+      <form className="z-waitlist-mount" onSubmit={handleSubmit} noValidate>
         <ChipRadioGroup
           legend={FLAVOR.label}
           name="flavor"
@@ -194,17 +201,18 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
         >
           <summary>{copy.motivationDisclosure}</summary>
           <div className="zw-disclosure-body">
-            <Consent
+            <Checkbox
               id={motivationConsentId}
-              separate
+              consentVersion={motivationCopy.version}
+              className="zw-consent--separate"
               checked={motivationOptIn}
-              onChange={(next) => {
+              label={motivationCopy.text}
+              onChange={(e) => {
+                const next = e.target.checked;
                 setMotivationOptIn(next);
                 if (!next) setMotivation([]);
               }}
-            >
-              {motivationCopy.text}
-            </Consent>
+            />
 
             <ChipMultiGroup
               legend={MOTIVATION.label}
@@ -223,24 +231,25 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
 
         {showZip ? (
           <Field
-            error={zipError}
-            errorId={zipErrorId}
+            id={zipId}
+            label={ZIP.label}
+            optional
             hint={postalRegion === "unknown" ? ZIP.hint : undefined}
+            error={zipError}
           >
-            <Input
-              id={zipId}
-              label={ZIP.label}
-              error={zipError}
-              errorId={zipErrorId}
-              type="text"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              enterKeyHint="next"
-              maxLength={5}
-              placeholder={ZIP.placeholder}
-              value={zip}
-              onChange={(e) => handleZip(e.target.value)}
-            />
+            {(props) => (
+              <Input
+                {...props}
+                type="text"
+                inputMode="numeric"
+                autoComplete="postal-code"
+                enterKeyHint="next"
+                maxLength={5}
+                placeholder={ZIP.placeholder}
+                value={zip}
+                onChange={(e) => handleZip(e.target.value)}
+              />
+            )}
           </Field>
         ) : null}
 
@@ -271,10 +280,10 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
         </span>
 
         <div className="zw-actions">
-          <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.ctaBusy}>
+          <Button type="submit" disabled={busy} loading={busy}>
             {copy.cta}
           </Button>
-          <Button variant="ghost" onClick={handleSkip} disabled={busy}>
+          <Button type="button" variant="ghost" onClick={handleSkip} disabled={busy}>
             {copy.skip}
           </Button>
         </div>

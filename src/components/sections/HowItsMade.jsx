@@ -5,12 +5,17 @@
  * Rather than fake it with stock imagery of somebody else's product, the
  * numbered steps carry the story typographically. The exact shots needed are
  * listed in HANDOFF-ux.md.
+ *
+ * ⚠️ NO INPUT-COST FIGURES. The pulp disposal price was cut on merge (growth's
+ * rule, see the pricing block in src/content/copy.js): it is supplier-
+ * negotiation and competitor-intelligence information, and to a consumer it
+ * reads "cheap" rather than "clever". Keep the upcycling story, no number on it.
  */
 const STEPS = [
   {
     title: 'Juiceries throw the pulp away',
     body:
-      'Pressing apples for juice leaves a mountain of pulp behind. Juiceries pay about $25 a ton to have it hauled off — and rotting food waste accounts for 8% of US greenhouse gas emissions.',
+      'Pressing apples for juice leaves a mountain of pulp behind. It gets hauled off as waste — and rotting food waste accounts for 8% of US greenhouse gas emissions.',
   },
   {
     title: 'We take the fiber, not the waste',

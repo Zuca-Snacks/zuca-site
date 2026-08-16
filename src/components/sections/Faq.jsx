@@ -1,78 +1,38 @@
 /**
- * Faq — accordion of the questions a cold visitor actually has.
+ * Faq — the objection-handling questions, ordered by what actually stops a
+ * signup rather than by what is easiest to answer.
  *
- * GUARDRAIL NOTE: the fiber answer is deliberately written as a nutrient-content
- * statement plus an allowed structure/function line. It names no condition. If
- * the conversion agent wants a stronger health answer here, it still cannot
- * name a disease — see the brief.
+ * Copy is growth's (src/content/copy.js) and is claim-checked there:
+ *   - No price figure anywhere. The waitlist measures willingness to pay via
+ *     price_band in step 2, and a number on this page anchors that answer.
+ *   - The allergen answer states tree nuts only. Gluten, dairy and shared-
+ *     facility cross-contact are NOT confirmed in writing yet and must not be
+ *     added here — see the blocking TODO at the top of copy.js.
+ *
+ * The <details> markup growth shipped is replaced by the UX Accordion, which
+ * this page already uses; `onOpen` preserves growth's faq_open event.
  */
 import Accordion from '../ui/Accordion.jsx';
+import { faq, sections } from '../../content/copy.js';
+import { EVENTS, track } from '../../lib/analytics.js';
 
-const ITEMS = [
-  {
-    id: 'faq-fiber',
-    question: 'How much fiber is in one serving?',
-    answer: (
-      <p>
-        10 grams — about 40% of the daily fiber most adults are told to aim for,
-        and roughly twice what leading snack bars carry. Fiber supports
-        digestive health.
-      </p>
-    ),
-  },
-  {
-    id: 'faq-pulp',
-    question: 'Apple pulp? Is that just waste?',
-    answer: (
-      <p>
-        It&rsquo;s the fiber-rich part of the apple left after juicing, and
-        juiceries currently pay to dispose of it. We collect it before it
-        spoils, and dry and mill it in facilities that meet 21 CFR 117
-        food-safety rules.
-      </p>
-    ),
-  },
-  {
-    id: 'faq-taste',
-    question: 'Does it taste like a health food?',
-    answer: (
-      <p>
-        That was the whole problem we set out to solve. It was developed by a
-        Michelin-trained chef, and at Stanford&rsquo;s Founder&rsquo;s Demo Day
-        the samples were gone in 45 minutes.
-      </p>
-    ),
-  },
-  {
-    id: 'faq-price',
-    question: 'What will it cost?',
-    answer: (
-      <p>
-        We&rsquo;re targeting $2.99 a bite. Joining the waitlist costs nothing
-        and commits you to nothing — you&rsquo;ll get first access and the
-        launch pricing before anyone else.
-      </p>
-    ),
-  },
-  {
-    id: 'faq-when',
-    question: 'When does it ship?',
-    answer: (
-      <p>
-        We&rsquo;re manufacturing with Step Change Innovations now. Waitlist
-        members hear the ship date first — no payment is taken today.
-      </p>
-    ),
-  },
-];
+const ITEMS = faq.map((item, i) => ({
+  id: `faq-${i}`,
+  question: item.q,
+  answer: <p>{item.a}</p>,
+}));
 
 export default function Faq() {
   return (
     <section className="z-section z-container z-reveal" aria-labelledby="faq-title">
       <span className="z-section__eyebrow">Questions</span>
-      <h2 id="faq-title">Before you sign up.</h2>
+      <h2 id="faq-title">{sections.faq.title}</h2>
       <div className="z-faq__list">
-        <Accordion items={ITEMS} defaultOpenId="faq-fiber" />
+        <Accordion
+          items={ITEMS}
+          defaultOpenId="faq-0"
+          onOpen={(_id, index) => track(EVENTS.FAQ_OPEN, { index })}
+        />
       </div>
     </section>
   );

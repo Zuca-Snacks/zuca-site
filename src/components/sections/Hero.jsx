@@ -18,28 +18,12 @@ import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
 import Field from '../ui/Field.jsx';
 import Badge from '../ui/Badge.jsx';
-
-/**
- * ⚠️ COPY OWNERSHIP — TEMPORARY DUPLICATE, DELETE ON MERGE.
- *
- * This is `introLines[0]` from the growth agent's `src/content/copy.js`,
- * reproduced verbatim. It is duplicated here ONLY because that file does not
- * exist on this branch, and creating it would collide with growth's own copy of
- * it (merge order is UX -> Conversion -> Security, so this branch lands first).
- *
- * When growth merges, this constant must be deleted and replaced with:
- *     import { introLines } from '../../content/copy.js';
- *     ...
- *     <p className="z-hero__tagline">{introLines[0].replace(/,$/, '')}</p>
- * so there is exactly one source of truth for copy. Tracked in HANDOFF-ux.md.
- *
- * The trailing comma is stripped because the line is used standalone here,
- * not as the first of three.
- */
-const INTRO_LINE = 'A Michelin-trained chef and a Stanford physician,';
+import { ACTIVE_CTA, hero as copy, introLines, proof } from '../../content/copy.js';
+import useWaitlistCount from '../../hooks/useWaitlistCount.js';
 
 export default function Hero() {
   const [email, setEmail] = useState('');
+  const count = useWaitlistCount();
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -58,25 +42,32 @@ export default function Hero() {
     <section className="z-hero z-container" id="top">
       <div className="z-hero__inner">
         <div className="z-hero__copy">
-          {/* Part of the brand entrance: fades up with the wordmark. */}
-          <p className="z-hero__tagline">{INTRO_LINE.replace(/,$/, '')}</p>
+          {/* Part of the brand entrance: fades up with the wordmark.
+              The trailing comma is stripped — the line is used standalone here,
+              not as the first of three.
+              ⚠️ DO NOT CUT THIS LINE TO BUY FOLD SPACE (Emil, 16 Aug). It is
+              the highest-trust element on the page for a cold visitor, and it
+              is one of the few credential statements the claim guardrails
+              explicitly permit. */}
+          <p className="z-hero__tagline">{introLines[0].replace(/,$/, '')}</p>
 
           {/* "Pre-order open" was removed at every breakpoint: nobody has paid,
               these are waitlist signups, and a badge implying an open
               transaction is a claim we cannot support. */}
           <div className="z-hero__eyebrow">
-            <Badge>10g fiber</Badge>
+            <Badge>{copy.eyebrow}</Badge>
           </div>
 
-          <h1 className="z-hero__title">
-            Fiber you&rsquo;ll actually look forward to.
-          </h1>
+          {/* Headline and subhead are A/B-switchable from one place — flip
+              ACTIVE_HEADLINE in src/content/copy.js. Nothing is hardcoded here. */}
+          <h1 className="z-hero__title">{copy.headline}</h1>
 
-          <p className="z-hero__lede">
-            Snack bites made from upcycled apple pulp. 10g of fiber, 150
-            calories, no added sugar.
-          </p>
-
+          {/* ORDER: the subhead sits BELOW the capture form, not above it
+              (Emil, 16 Aug). Growth's headline and subhead are ~2.5x the length
+              of the placeholder copy this hero was measured against, and with
+              the subhead above the form the CTA landed 128px below the 844px
+              fold on a 390px phone. Moving it costs no words. Reading order is
+              now tagline -> headline -> email + CTA -> detail. */}
           <form className="z-hero__capture" onSubmit={handleSubmit} noValidate>
             <div className="z-hero__capture-row">
               <Field id="hero-email" label="Email" hint="No spam. Unsubscribe anytime.">
@@ -94,13 +85,21 @@ export default function Hero() {
                 )}
               </Field>
               <Button type="submit" size="lg">
-                Join the waitlist
+                {ACTIVE_CTA.step1}
               </Button>
             </div>
+            {/* The label is rendered unconditionally and only the NUMERAL
+                arrives late, so a slow or failed count cannot reflow the fold.
+                The size is never hardcoded — see useWaitlistCount. */}
             <p className="z-hero__microcopy">
-              130+ people are already on the list. No payment today.
+              <span className="z-hero__count">
+                {count != null && count > 0 ? count.toLocaleString() : ''}
+              </span>{' '}
+              {proof.liveLabel}. {copy.reassurance}
             </p>
           </form>
+
+          <p className="z-hero__lede">{copy.subhead}</p>
         </div>
 
         {/*

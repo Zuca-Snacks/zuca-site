@@ -18,45 +18,35 @@
  * Stanford Medicine physician, and leading Zuca's clinical network of 10+
  * physicians across 7 specialties. Logged in HANDOFF-ux.md for Cooley to
  * confirm.
+ *
+ * Copy (names, roles, credential lists, section heading) is growth's and lives
+ * in src/content/copy.js. The guardrail above is a constraint on what may be
+ * added there, not a second copy of the list.
  */
-const FOUNDERS = [
-  {
-    monogram: 'EN',
-    name: 'Emil Nordin',
-    role: 'Chef & co-founder',
-    creds: [
-      'Norway’s Most Promising Young Chef, 2021',
-      'Trained at Kontrast — two Michelin stars and a Green Star',
-      'Stanford Bioengineering ’26',
-    ],
-  },
-  {
-    monogram: 'KY',
-    name: 'Kelley Yuan, MD',
-    role: 'Physician & co-founder',
-    creds: [
-      'Stanford Medicine physician',
-      'Leads Zuca’s clinical network — 10+ physicians across 7 specialties',
-      'Sustainability Fellow',
-    ],
-  },
-];
+import { founders, sections } from '../../content/copy.js';
+/** Initials for the standing monogram, derived rather than duplicated. */
+function monogram(name) {
+  return name
+    .replace(/,.*$/, '')
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
 
 export default function Founders() {
   return (
     <section className="z-section z-container z-reveal" aria-labelledby="founders-title">
       <span className="z-section__eyebrow">Who made it</span>
-      <h2 id="founders-title">A Michelin-trained chef and a Stanford physician.</h2>
-      <p className="z-section__lede">
-        One of us cares whether it tastes good. The other cares what&rsquo;s in it.
-      </p>
+      <h2 id="founders-title">{sections.founders.title}</h2>
+      <p className="z-section__lede">{sections.founders.body}</p>
 
       <ul className="z-founders__grid">
-        {FOUNDERS.map((f) => (
+        {founders.map((f) => (
           <li className="z-founder" key={f.name}>
             <div className="z-founder__head">
               <span className="z-founder__monogram" aria-hidden="true">
-                {f.monogram}
+                {monogram(f.name)}
               </span>
               <span>
                 <h3 className="z-founder__name">{f.name}</h3>

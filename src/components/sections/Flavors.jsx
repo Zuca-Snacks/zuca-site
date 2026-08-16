@@ -6,6 +6,7 @@
  */
 import Card from '../ui/Card.jsx';
 import Badge from '../ui/Badge.jsx';
+import { sections } from '../../content/copy.js';
 
 const FLAVORS = [
   {
@@ -30,7 +31,8 @@ export default function Flavors() {
   return (
     <section className="z-section z-container z-reveal" id="flavors" aria-labelledby="flavors-title">
       <span className="z-section__eyebrow">Flavors</span>
-      <h2 id="flavors-title">Two of them. Both worth finishing.</h2>
+      <h2 id="flavors-title">{sections.product.title}</h2>
+      <p className="z-section__lede">{sections.product.body}</p>
 
       <ul className="z-flavors__grid">
         {FLAVORS.map((f) => (

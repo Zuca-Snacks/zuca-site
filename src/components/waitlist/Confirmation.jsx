@@ -3,7 +3,7 @@
 // a dated expectation, and one thing to do next.
 
 import { useEffect, useState } from "react";
-import { Button } from "./primitives.jsx";
+import Button from "../ui/Button.jsx";
 import { confirmation as copy } from "../../content/copy.js";
 import { fetchCount } from "./api.js";
 import { EVENTS, track } from "../../lib/analytics.js";
@@ -86,7 +86,7 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
       <div className="zw-share">
         <h3 className="zw-legend">{copy.shareTitle}</h3>
         <p className="zw-body">{copy.shareBody}</p>
-        <Button variant="secondary" onClick={handleShare}>
+        <Button type="button" variant="secondary" onClick={handleShare}>
           {shared ? copy.shareCopied : copy.shareCta}
         </Button>
       </div>
