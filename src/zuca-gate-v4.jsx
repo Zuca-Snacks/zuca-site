@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-
-const SUBS_KEY = "zuca_submissions_v1";
-// Paste your Google Apps Script webhook URL here:
-const SHEETS_URL  = "https://script.google.com/macros/s/AKfycbzbC2iN4t6HdqvIj5SqYCuMv6iogDO03BskH4H1cNjGmUCL6rJDKchfYpdcNUqiTHFh/exec";
+import WaitlistForm from "./components/waitlist/WaitlistForm.jsx";
+import { Faq, NumberBlock, ProofStrip } from "./components/content/sections.jsx";
+import { fetchCount } from "./components/waitlist/api.js";
+import { EVENTS, track, trackPageView } from "./lib/analytics.js";
+import { founders, hero, introLines, sections, step1 } from "./content/copy.js";
 
 // ─── Grain canvas ───────────────────────────────────────────────────────────
 function useGrain(canvasRef) {
@@ -910,11 +911,7 @@ body { font-family:'Nunito',sans-serif; background:#1C1209; }
 
 `;
 
-const LINES = [
-  "A Michelin-trained chef and a Stanford physician,",
-  "building the snack brand that clinicians recommend",
-  "and patients love.",
-];
+const LINES = introLines;
 
 const MONO = "'IBM Plex Mono', monospace";
 
@@ -927,22 +924,8 @@ export default function ZucaGate() {
   const [logoClick, setLogoClick] = useState(false);
   const [hov, setHov]             = useState(false);
   const [clicks, setClicks]       = useState(null);
-  const [pop, setPop]             = useState(false);
-  const [conf, setConf]           = useState(false);
-  const [conf2, setConf2]         = useState(false);
   const [veil, setVeil]           = useState("idle"); // idle | darken | lighten | gone
   const [productIn, setProductIn] = useState(false);
-  // Modal state
-  const [modal, setModal]         = useState(false);
-  const [name, setName]           = useState("");
-  const [email, setEmail]         = useState("");
-  const [phone, setPhone]         = useState("+1 ");
-  const [hearAbout, setHearAbout] = useState("");
-  const [reason, setReason]       = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [isDup, setIsDup]         = useState(false);
-  const [formErr, setFormErr]     = useState("");
 
   const noiseRef = useRef();
   const dotRef   = useRef();
@@ -950,6 +933,10 @@ export default function ZucaGate() {
 
   useGrain(noiseRef);
   useCursor(dotRef, ringRef);
+
+  useEffect(() => {
+    trackPageView();
+  }, []);
 
   useEffect(() => {
     const t1 = setTimeout(() => setLine1(true),  900);
@@ -960,76 +947,17 @@ export default function ZucaGate() {
   }, []);
 
   useEffect(() => {
-    fetch(SHEETS_URL)
-      .then(r => r.json())
-      .then(d => setClicks(typeof d.count === "number" ? d.count : 0))
-      .catch(() => setClicks(0));
+    fetchCount().then(count => setClicks(typeof count === "number" ? count : 0));
   }, []);
 
-  function handleBuy() { setModal(true); setSubmitted(false); setIsDup(false); setFormErr(""); setName(""); setEmail(""); setPhone("+1 "); setHearAbout(""); setReason(""); }
-  function closeModal() { setModal(false); }
-
-  async function submitPreorder(e) {
-    e.preventDefault();
-    const em = email.trim().toLowerCase();
-    if (!em || !/^[^@]+@[^@]+\.[^@]+$/.test(em)) { setFormErr("Please enter a valid email."); return; }
-
-    // Phone is optional. If empty or unchanged from the "+1 " prefill, skip.
-    // Otherwise require: starts with "+" and contains 8-15 digits (ignoring spaces/dashes/parens/dots).
-    const phoneRaw = phone.trim();
-    let phoneForRecord = "";
-    if (phoneRaw !== "" && phoneRaw !== "+1") {
-      const digits = phoneRaw.replace(/[\s\-().+]/g, "");
-      if (!phoneRaw.startsWith("+") || !/^\d{8,15}$/.test(digits)) {
-        setFormErr("Please enter a valid phone number with country code, starting with +");
-        return;
-      }
-      // Leading apostrophe forces Google Sheets to store as text, not formula.
-      phoneForRecord = "'+" + digits;
-    }
-
-    setSubmitting(true); setFormErr(""); setIsDup(false);
-
-    // Load existing submissions
-    let subs = {};
-    try { const raw = localStorage.getItem(SUBS_KEY); subs = raw ? JSON.parse(raw) : {}; } catch {}
-
-    if (subs[em]) {
-      // Already registered — show duplicate message, don't increment
-      setIsDup(true); setSubmitting(false); return;
-    }
-
-    // New submission — save record
-    const record = { name: name.trim(), email: em, phone: phoneForRecord, hearAbout, reason, ts: new Date().toISOString() };
-    subs[em] = record;
-    try { localStorage.setItem(SUBS_KEY, JSON.stringify(subs)); } catch {}
-
-    // Send to Google Sheets, then refetch live count from sheet (single source of truth)
-    if (SHEETS_URL) {
-      try {
-        await fetch(SHEETS_URL, {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body: JSON.stringify(record),
-          mode:"no-cors",
-        });
-      } catch {}
-
-      try {
-        const r = await fetch(SHEETS_URL);
-        const d = await r.json();
-        if (typeof d.count === "number") {
-          setClicks(d.count);
-          setPop(true);
-          setTimeout(()=>setPop(false), 500);
-        }
-      } catch {}
-    }
-
-    setSubmitting(false); setSubmitted(true);
-    // Auto-close and show confirm after 2.5s
-    setTimeout(() => { setModal(false); setConf(true); setConf2(true); }, 2500);
-    setTimeout(() => { setConf(false); setConf2(false); }, 6000);
+  /** Both page CTAs lead to the one form. */
+  function goToWaitlist(location) {
+    track(EVENTS.HERO_CTA_VIEW, { location, clicked: 1 });
+    const target = document.getElementById("waitlist");
+    if (!target) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+    target.querySelector("input[type=email]")?.focus({ preventScroll: true });
   }
 
   function handleLogoClick() {
@@ -1061,97 +989,6 @@ export default function ZucaGate() {
       {veil !== "gone" && (
         <div className={`t-veil${veil==="darken"?" darken":veil==="lighten"?" lighten":""}`}/>
       )}
-
-      {/* Pre-order Modal */}
-      <div className={`modal-backdrop${modal?" open":""}`} onClick={e=>{if(e.target===e.currentTarget)closeModal();}}>
-        <div className="modal-box">
-          <button className="modal-close" onClick={closeModal}>✕ close</button>
-          {submitted ? (
-            <div className="modal-success">
-              <span className="modal-success-icon">✓</span>
-              <div className="modal-success-head">You're on the list.</div>
-              <div className="modal-success-sub">We'll be in touch when it's ready.</div>
-            </div>
-          ) : (
-            <form onSubmit={submitPreorder}>
-              <div className="modal-eyebrow">Pre-order</div>
-              <div className="modal-headline">Reserve your box<br/>before we sell out.</div>
-              <div className="modal-field">
-                <label className="modal-label">First name <span style={{color:"rgba(200,170,130,.3)"}}>optional</span></label>
-                <input
-                  className="modal-input"
-                  type="text"
-                  placeholder="Your first name"
-                  autoComplete="given-name"
-                  value={name}
-                  onChange={e=>setName(e.target.value)}
-                  onMouseEnter={()=>setHov(true)}
-                  onMouseLeave={()=>setHov(false)}
-                />
-              </div>
-              <div className="modal-field">
-                <label className="modal-label">Email *</label>
-                <input
-                  className="modal-input"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={e=>setEmail(e.target.value)}
-                  onMouseEnter={()=>setHov(true)}
-                  onMouseLeave={()=>setHov(false)}
-                  required
-                />
-              </div>
-              <div className="modal-field">
-                <label className="modal-label">Phone <span style={{color:"rgba(200,170,130,.3)"}}>optional</span></label>
-                <input
-                  className="modal-input"
-                  type="tel"
-                  placeholder="+1 (555) 000-0000"
-                  value={phone}
-                  onChange={e=>setPhone(e.target.value)}
-                  onMouseEnter={()=>setHov(true)}
-                  onMouseLeave={()=>setHov(false)}
-                />
-              </div>
-              <div className="modal-field">
-                <label className="modal-label">How did you hear about us? <span style={{color:"rgba(200,170,130,.3)"}}>optional</span></label>
-                <select className="modal-select" value={hearAbout} onChange={e=>setHearAbout(e.target.value)}>
-                  <option value="">Select one</option>
-                  <option value="physician">Physician recommendation</option>
-                  <option value="friend">Friend or family</option>
-                  <option value="social">Social media</option>
-                  <option value="stanford">Stanford community</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="modal-field">
-                <label className="modal-label">Why do you want Zuca? <span style={{color:"rgba(200,170,130,.3)"}}>optional</span></label>
-                <select className="modal-select" value={reason} onChange={e=>setReason(e.target.value)}>
-                  <option value="">Select one</option>
-                  <option value="gut">Gut health</option>
-                  <option value="fiber">Increase fiber intake</option>
-                  <option value="sustainability">Sustainable eating</option>
-                  <option value="weight">Weight management</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="modal-note">No payment now. We'll reach out when your order is ready to confirm.</div>
-              {formErr && <div className="modal-err">{formErr}</div>}
-              {isDup && <div className="modal-dup">✓ You're already on the list — we'll be in touch.</div>}
-              <button
-                className="modal-submit"
-                type="submit"
-                disabled={submitting}
-                onMouseEnter={()=>setHov(true)}
-                onMouseLeave={()=>setHov(false)}
-              >
-                {submitting ? "Reserving..." : "Reserve my spot →"}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
 
       {/* ══════════════════════════════════════════════════
           PAGE A — INTRO  (identical to original)
@@ -1197,7 +1034,7 @@ export default function ZucaGate() {
           <div className="nav-strip" style={{gridColumn:"1/-1"}}>
             <div className="nav-logo">ZUCA</div>
             <div className="nav-right">
-              <span>Pre-order open</span>
+              <span>Waitlist open</span>
               <div className="nav-dot"/>
               <span>Stanford, CA</span>
             </div>
@@ -1205,46 +1042,26 @@ export default function ZucaGate() {
 
           {/* Full-width copy */}
           <div className="hero-left">
-            <div className="h-eyebrow si1">Pre-order · Limited Release</div>
+            {/* Headline, subhead and proof are on a dark ground: the token roles
+                are inverted for this block only. The waitlist card below sits
+                OUTSIDE it, so it keeps the tokens the right way up. */}
+            <div className="zc zc-invert zc-hero si1">
+              <p className="zc-hero-eyebrow">{hero.eyebrow}</p>
+              <h1 className="zc-hero-headline">{hero.headline}</h1>
+              <p className="zc-hero-subhead">{hero.subhead}</p>
+            </div>
 
-            <h1 className="accusation si2">
-              <span className="acc-line1">Your gut is</span>
-              <span className="acc-line2">sick.</span>
-              <span className="acc-line3">Fix it.</span>
-            </h1>
+            {/* Step 1 sits here, above the fold on a 390px screen. */}
+            <section id="waitlist" className="si2" style={{ marginBottom: "2rem", scrollMarginTop: "4rem" }}>
+              <WaitlistForm/>
+            </section>
 
-            <div className="red-rule"/>
-
-            <p className="hero-body si3">
-              <strong>95% of Americans aren't getting enough fiber.</strong> A chronic disease epidemic. We build the snack that actually addresses it. A Michelin-trained chef and a Stanford physician. Nothing compromised.
-            </p>
-
-            <p className="ai-line si3b">
-              Bad food broke health.<br/>
-              Better <span style={{ position: "relative", display: "inline-block" }}>
-                AI
-                <svg
-                  viewBox="0 0 50 20"
-                  preserveAspectRatio="none"
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: -5,
-                    width: "calc(100% + 10px)",
-                    height: "0.75em",
-                    transform: "translateY(-50%)",
-                    overflow: "visible",
-                    pointerEvents: "none",
-                  }}
-                >
-                  <path d="M 2 10 Q 8 4, 14 12 T 26 8 T 38 12 T 48 8" stroke="#E8192C" strokeWidth="2.25" fill="none" strokeLinecap="round"/>
-                  <path d="M 3 8 Q 12 14, 22 6 Q 32 12, 47 10" stroke="#E8192C" strokeWidth="1.75" opacity="0.85" fill="none" strokeLinecap="round"/>
-                </svg>
-              </span> food fixes it.
-            </p>
+            <div className="zc zc-invert zc-hero si3" style={{ marginBottom: "2.5rem" }}>
+              <ProofStrip count={clicks}/>
+            </div>
 
             <div className="data-row si4">
-              {[["10g","Fiber /serving"],["4g","Protein"],["0g","Refined sugar"],["150","Kcal"]].map(([v,l])=>(
+              {[["10g","Fiber /serving"],["4g","Protein"],["0g","Added sugar"],["150","Kcal"]].map(([v,l])=>(
                 <div key={l} className="data-cell">
                   <span className="data-num">{v}</span>
                   <span className="data-lbl">{l}</span>
@@ -1282,29 +1099,25 @@ export default function ZucaGate() {
               </div>
             </div>
 
+            {/* No price appears anywhere on this page, by decision: the
+                waitlist measures willingness to pay, and any figure anchors the
+                price_band answer. The old $28 / box-of-12 block was also stale.
+                See the pricing note in src/content/copy.js. */}
             <div className="cta-cluster si5">
-              <div className="price-block">
-                <div className="price-big">$28</div>
-                <div className="price-note">Box of 12</div>
-              </div>
               <button
                 className="order-btn"
-                onClick={handleBuy}
+                onClick={()=>goToWaitlist("hero_secondary")}
                 onMouseEnter={()=>setHov(true)}
                 onMouseLeave={()=>setHov(false)}
               >
-                Pre-order now →
+                {step1.cta} &rarr;
               </button>
             </div>
 
-            <div className="confirm-txt" style={{opacity:conf?1:0}}>
-              ✓ Reserved. We'll be in touch.
-            </div>
-
-            {clicks!==null && (
+            {clicks!==null && clicks > 0 && (
               <div className="counter-row si6">
-                <span className={`counter-n${pop?" pop":""}`}>{clicks.toLocaleString()}</span>
-                <span className="counter-txt">pre-orders<br/>and counting</span>
+                <span className="counter-n">{clicks.toLocaleString()}</span>
+                <span className="counter-txt">already<br/>in line</span>
               </div>
             )}
           </div>
@@ -1318,32 +1131,16 @@ export default function ZucaGate() {
               <span className="section-title-txt">The founders</span>
             </div>
             <div className="founders-top">
-              <div className="founder-col">
-                <div className="fc-index">01 / Co-founder</div>
-                <div className="fc-name-big">Emil Nordin</div>
-                <div className="fc-role">Chef & Co-Founder</div>
-                <div className="fc-cred-list">
-                  {[
-                    "Norway's Most Promising Young Chef '21",
-                    "Michelin-trained, Restaurant Kontrast",
-                    "National TV host, 1M+ viewers",
-                    "Stanford Bioengineering & Biodesign '26",
-                  ].map(c=><div key={c} className="fc-cred-item">{c}</div>)}
+              {founders.map((f,i)=>(
+                <div key={f.name} className="founder-col">
+                  <div className="fc-index">{`0${i+1}`} / Co-founder</div>
+                  <div className="fc-name-big">{f.name}</div>
+                  <div className="fc-role">{f.role}</div>
+                  <div className="fc-cred-list">
+                    {f.creds.map(c=><div key={c} className="fc-cred-item">{c}</div>)}
+                  </div>
                 </div>
-              </div>
-              <div className="founder-col">
-                <div className="fc-index">02 / Co-founder</div>
-                <div className="fc-name-big">Dr. Kelley Yuan, MD</div>
-                <div className="fc-role">Physician & Co-Founder</div>
-                <div className="fc-cred-list">
-                  {[
-                    "Stanford Medicine physician",
-                    "Sustainability Fellow",
-                    "Reversed autoimmune disease through diet",
-                    "Leads clinical network: 10+ physicians, 7 specialties",
-                  ].map(c=><div key={c} className="fc-cred-item">{c}</div>)}
-                </div>
-              </div>
+              ))}
             </div>
             <div className="backed-row">
               <div className="backed-lbl">Backed by</div>
@@ -1367,10 +1164,10 @@ export default function ZucaGate() {
             <div className="product-top">
               <div>
                 <h2 className="product-headline">
-                  Two flavors.<br/><em>Both obsession-worthy.</em>
+                  {sections.product.title}
                 </h2>
                 <p className="product-desc">
-                  Clinician-formulated. Chef-crafted.
+                  {sections.product.body}
                 </p>
               </div>
             </div>
@@ -1407,38 +1204,30 @@ export default function ZucaGate() {
           </div>
         </section>
 
+        {/* ── SECTION 5: THE NUMBERS ── */}
+        <NumberBlock/>
+
+        {/* ── SECTION 6: OBJECTIONS ── */}
+        <Faq/>
+
         {/* ── FOOTER CTA ── */}
+        {/* A second WaitlistForm instance. Both share state, so anyone who
+            signed up in the hero sees their confirmation here rather than
+            being asked for the same email twice. */}
         <div style={{background:"#1E1208"}}>
           <div className="footer-cta">
-            <div className="footer-left">
-              <h2 className="footer-headline">
-                Your gut is sick.<br/><em>Give it fiber.</em>
-              </h2>
-              <div className="footer-sub">
-                Clinician-formulated. Chef-crafted.
-              </div>
+            <div className="footer-left zc zc-invert zc-hero">
+              <h2 className="zc-hero-headline">{sections.waitlist.title}</h2>
+              <p className="zc-hero-subhead">{sections.waitlist.body}</p>
+              <ProofStrip count={clicks}/>
             </div>
-            <div className="footer-right">
-              <div>
-                <div className="footer-price">$28</div>
-                <div className="footer-price-note">/ Box of 12</div>
-              </div>
-              <button
-                className="footer-btn"
-                onClick={handleBuy}
-                onMouseEnter={()=>setHov(true)}
-                onMouseLeave={()=>setHov(false)}
-              >
-                Pre-order now →
-              </button>
-              {clicks!==null&&(
+            <div className="footer-right" style={{width:"100%"}}>
+              <WaitlistForm location="footer"/>
+              {clicks!==null&&clicks>0&&(
                 <div className="footer-counter">
-                  Join <strong>{clicks.toLocaleString()}</strong> others on the list
+                  Join <strong>{clicks.toLocaleString()}</strong> others already in line
                 </div>
               )}
-              <div className="footer-confirm" style={{opacity:conf2?1:0}}>
-                ✓ Reserved. We'll be in touch.
-              </div>
               <div style={{fontFamily:MONO,fontSize:9,letterSpacing:3,color:"rgba(227,0,27,.45)",textTransform:"uppercase"}}>
                 Chocolate Raspberry · Maple Pecan
               </div>
