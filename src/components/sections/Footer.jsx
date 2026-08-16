@@ -19,7 +19,10 @@ export default function Footer() {
         </p>
 
         <p className="z-footer__meta">
-          <a href="mailto:letschat@zucasnacks.com">letschat@zucasnacks.com</a>
+          {/* emil@ for general contact. The legal pages use privacy@ for GDPR
+              rights requests — a statutory one-month clock should not land in a
+              personal inbox. Do not point this link at privacy@. */}
+          <a href="mailto:emil@zucasnacks.com">emil@zucasnacks.com</a>
           {' · '}
           <a href="/privacy">Privacy</a>
           {' · '}
