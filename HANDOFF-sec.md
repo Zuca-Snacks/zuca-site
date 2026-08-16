@@ -618,6 +618,11 @@ Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign bl
 11. **Watch the CSP reports for a week** before enforcing. `vercel logs --follow`, look for
     `csp.violation`. When the only entries are ones you recognise, move the policy from
     `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in `vercel.json`.
+12. **Pre-render the landing route — PENDING, NOT REJECTED (Emil, 16 Aug).** Would take LCP from
+    2.3s to roughly 1.8s, but it changes the build setup, so it is not something to slip in.
+    Deferred on purpose rather than declined: the LCP element is hero photography that the reshoot
+    is about to replace, so measuring against the current images tells us little. **Revisit once
+    the new photos land** — the decision needs remaking then, not closing now.
 
 ---
 
