@@ -11,10 +11,13 @@
  * "cheap" rather than "clever" to a consumer.
  *
  * PHOTOGRAPHY STATUS — degrades gracefully, by design.
- * ALL FIVE steps now carry a real Zuca photograph. Steps 1 and 2 came from the
- * process strip Emil sent; they are extracted from a composite, so their
- * sources are only ~240px and are served at that size without enlargement.
- * Camera originals would let them match the density of the rest of the strip.
+ * FOUR of five steps carry a real Zuca photograph. Step 1 is a placeholder: the
+ * available shot is pulp in a disposable foil catering pan and was withdrawn —
+ * see the note on that step. Step 2 is a dehydrator tray, which reads as
+ * equipment rather than catering, and stays.
+ *
+ * Steps 1 and 2 came from a composite strip, so their sources are only ~240px
+ * against a ~325px slot. Camera originals are needed for both.
  *
  * Step 4 of Emil's strip was NOT used. Its panel is stock imagery rather than
  * Zuca's own, and one quadrant shows a grain that reads as oats. The current
@@ -35,12 +38,16 @@ const STEPS = [
     n: 1,
     title: 'Collect the pulp',
     body: 'Pressing apples for juice leaves the fiber behind. We take it before it spoils.',
-    img: {
-      slug: 'process-pulp-wet',
-      widths: [240, 240],
-      cutout: true,
-      alt: 'Freshly collected apple pulp, a dense russet mash in a shallow tray.',
-    },
+    /* ⚠️ WITHDRAWN, DO NOT RESTORE THIS PHOTOGRAPH.
+       The extracted shot is wet pulp in a crimped DISPOSABLE FOIL CATERING PAN,
+       and the pan is the dominant object in frame. That is the exact thing the
+       reshoot rules forbid — "no foil catering trays" — because the FAQ asserts
+       21 CFR 117 manufacturing four sections below it, and the picture must not
+       contradict the sentence. It was extracted at 240px and reviewed at 162px
+       in the strip, where the pan reads as a dark rim; it is unmistakable at
+       source. Cropping to the pulp alone leaves ~150px, far too small.
+       A numbered placeholder is the honest state until the reshoot lands. */
+    img: null,
   },
   {
     n: 2,
