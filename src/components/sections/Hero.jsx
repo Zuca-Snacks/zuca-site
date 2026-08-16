@@ -141,13 +141,23 @@ export default function Hero() {
                     srcSet={`/images/${f.slug}-360.webp 360w, /images/${f.slug}-640.webp 640w`}
                     sizes="(min-width: 48em) 22vw, 46vw"
                   />
+                  {/* NEITHER image is lazy. They sit side by side in the hero,
+                      so both are above the fold at every width in the test
+                      matrix — 360 through 1280. loading="lazy" on the second was
+                      left over from when the hero held one photo and the flavour
+                      crops appeared only further down the page; it contradicted
+                      the preload in index.html, which was cancelling it anyway.
+                      Two directives disagreeing is worse than either alone, even
+                      when the faster one happens to win.
+
+                      fetchPriority stays on the first only: it is the LCP
+                      candidate, and marking both high would have them compete. */}
                   <img
                     src={`/images/${f.slug}-360.jpg`}
                     width="640"
                     height="640"
                     alt={f.alt}
                     fetchPriority={f.lcp ? 'high' : undefined}
-                    loading={f.lcp ? undefined : 'lazy'}
                     decoding={f.lcp ? 'sync' : 'async'}
                   />
                 </picture>
