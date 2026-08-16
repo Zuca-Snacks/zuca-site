@@ -163,12 +163,15 @@
   .z-hero__eyebrow { display: flex; }
 }
 
-/* One step down on phones. The product block above now carries the visual
-   weight, and at --z-step-3 growth's headline ran to five lines of display caps
-   that restated "10g of fiber" and "150 calories" — both already shown in the
-   stamp and the stat chips directly above it. Dropping a step keeps the
-   headline as the sentence that explains the pictures rather than competing
-   with them, and returns ~90px to the fold. Full size from tablet up. */
+/* One step down on phones — MEASURED, not a hunch, and re-checked after growth
+   shortened the headline from 82 to 56 characters.
+   At --z-step-3 the 56-character line still wraps to FIVE lines at 360px and
+   pushes the CTA 35px below the fold (22px at 390, 15px at 430). It needs
+   exactly one line less at every width.
+   BUDGET IF SOMEONE WANTS THE BIGGER SIZE: ~46-48 characters. That is what
+   gives 4 lines at 360px (~16 chars/line) and 3 at 430px (~18 chars/line) with
+   the wrap waste real sentences produce. At 56 characters, step-2 is correct.
+   Full size from tablet up, where there is no constraint. */
 .z-hero__title {
   font-size: var(--z-step-2);
   color: var(--z-ink);

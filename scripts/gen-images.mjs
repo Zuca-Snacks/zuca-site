@@ -47,13 +47,10 @@ const JOBS = [
      at the same density as the rest of the strip.
      Step 4 of that strip was deliberately NOT imported: it is stock imagery,
      not Zuca's, and one panel shows a grain that reads as oats — an allergen we
-     have not confirmed. */
-  {
-    name: 'process-pulp-wet',
-    src: 'process-pulp-wet.png',
-    extract: { left: 0, top: 0, width: 244, height: 244 },
-    widths: [240],
-  },
+     have not confirmed.
+     Step 1 was imported and then WITHDRAWN: the pulp sits in a disposable foil
+     catering pan, which the reshoot rules forbid because the FAQ asserts
+     21 CFR 117 manufacturing. Do not re-add it from the strip. */
   {
     name: 'process-pulp-dried',
     src: 'process-pulp-dried.jpg',
