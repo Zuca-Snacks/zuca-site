@@ -22,12 +22,9 @@
  * The <section> takes tabIndex={-1} so the hero can move focus here after the
  * smooth scroll without adding it to the tab order.
  */
-import { proof, sections } from '../../content/copy.js';
-import useWaitlistCount from '../../hooks/useWaitlistCount.js';
+import { sections } from '../../content/copy.js';
 
 export default function WaitlistSlot({ children }) {
-  const count = useWaitlistCount();
-
   return (
     <section
       id="waitlist"
@@ -44,14 +41,16 @@ export default function WaitlistSlot({ children }) {
             <h2 id="waitlist-title" className="z-waitlist-slot__title">
               {sections.waitlist.title}
             </h2>
-            <p className="z-section__lede">
-              {sections.waitlist.body}{' '}
-              <span className="z-waitlist-slot__count">
-                {count != null && count > 0
-                  ? `${count.toLocaleString()} ${proof.liveLabel}.`
-                  : ''}
-              </span>
-            </p>
+            {/* The count is deliberately NOT repeated here.
+                It was appended to this lede as a second sentence, which grew the
+                section by 38px the moment the number arrived — the count clause
+                wrapped to a new line. Reserving a blank line instead would have
+                traded a late shift for a permanent gap.
+                It is already stated three times above this point: the hero
+                badge, the proof strip and the sticky bar. Dropping the fourth
+                removes the shift outright and is the same de-duplication the UX
+                agent applied to the hero microcopy. */}
+            <p className="z-section__lede">{sections.waitlist.body}</p>
           </div>
 
           {children}

@@ -417,6 +417,25 @@
   gap: var(--z-space-3);
 }
 
+/* The first item's figure is the LIVE waitlist count and is empty until
+   /api/count answers — the other two are static strings. Without a reserved
+   line box that empty span collapses, which does two bad things: item one's
+   label rides up out of alignment with items two and three, and the strip grows
+   6px when the number lands. `min-height` reserves exactly one line so the row
+   is aligned before the fetch and unchanged after it.
+
+   This is the reserve-the-space half of the same rule the hero count badge
+   solves by being absent entirely. The difference is deliberate: the hero badge
+   sits alone over the photography, so its absence leaves nothing to misalign;
+   this figure sits in a row of three, so its absence is visible in its
+   neighbours.
+
+   The space is held by rendering a non-breaking space in ProofStrip.jsx rather
+   than by a min-height here. A reserved height has to GUESS the line box, and
+   `min-height: 1lh` guessed 6px too tall against the display font's real
+   metrics — so the strip shrank when the number arrived, which is the same bug
+   pointing the other way. A placeholder glyph takes the identical layout path
+   as the numeral, so the two states cannot disagree. */
 .z-proof__figure {
   font-family: var(--z-font-display);
   font-size: var(--z-step-2);

@@ -24,8 +24,14 @@ export default function ProofStrip() {
       <div className="z-container">
         <ul className="z-proof__list">
           <li className="z-proof__item">
+            {/* Non-breaking space, not an empty string, while the count is
+                loading or unavailable. The figure then takes the identical
+                layout path in both states, so this item stays aligned with the
+                two static ones beside it and the strip does not resize when the
+                number lands. Reserving a height in CSS instead meant guessing
+                the display font's line box, and the guess was 6px out. */}
             <span className="z-proof__figure">
-              {count != null && count > 0 ? count.toLocaleString() : ''}
+              {count != null && count > 0 ? count.toLocaleString() : ' '}
             </span>
             <span className="z-proof__label">{proof.liveLabel}</span>
           </li>
