@@ -144,6 +144,59 @@ export const hero = {
   // Shown directly under the email field. Removes the two objections that stop
   // an email being typed: what happens next, and how hard is it to leave.
   reassurance: "One email. No payment, no spam, unsubscribe in one click.",
+
+  // ── Count band fallback ─────────────────────────────────────────────────
+  // Occupies `.z-hero__count` whenever the live waitlist number is absent.
+  // Per Hero.jsx that is EVERY visit until the count endpoint is configured,
+  // so this is not edge-case copy — it is the default state of that band, and
+  // it should do conversion work rather than merely fill the space.
+  //
+  // Why this line and not another fact: the band's job is to give a reason to
+  // type an email. With no number available, the nearest honest substitute is
+  // not a different fact about fiber — it is the one thing the hero never
+  // says, which is what joining actually gets you. Everything else true about
+  // Zuca is already on screen above it: the chef and physician (tagline), the
+  // taste and the origin (headline), the flavours and the figures (name
+  // plates, spec stacks, subhead, big figure), and the terms of joining
+  // (microcopy). Restating any of those would trade a reason to act for an echo.
+  //
+  // Backable without qualification: it is exactly what the confirmation
+  // timeline already promises ("one email with the ship date and your ordering
+  // window, ahead of the public"), so it creates no obligation that is not
+  // already made. No number, no price, no scarcity claim.
+  //
+  // FITS THE RESERVED HEIGHT — measured, not estimated. `.z-hero__count`
+  // reserves min-height 3.25rem (52px); the fallback renders at --z-step-0
+  // (~16px at 360px) inside max-width 30ch, so the band holds exactly two
+  // lines. This wraps to 2 at 360px:
+  //     "You'll hear the ship date / before it's public."
+  // Budget for any replacement: <=~55 chars AND verify it wraps to <=2 lines
+  // at 30ch — character count alone is not sufficient, wrap waste decides it.
+  //
+  // WORDS THIS LINE MUST AVOID. Supplying `countFallback` sets
+  // `usingInterimFallback` false in Hero.jsx, which brings the eyebrow badge
+  // BACK — so this line and the eyebrow are on screen together, not in
+  // alternation. A first draft opened "Waitlist members hear..." directly
+  // beneath "Waitlist open - First run is limited": different information,
+  // but two lines in one viewport opening on the same word. Avoid "waitlist"
+  // (eyebrow), "first" and "access" (eyebrow and the CTA), and the figures
+  // and flavour names carried by the spec stacks and subhead.
+  //
+  // DECIDED — Emil, 17 Aug 2026: this line, on the reasoning above. Chosen
+  // because it is the only candidate that gives someone a reason to type an
+  // email rather than restating something already on screen. Settled, not a
+  // default someone landed on.
+  //
+  // ALTERNATIVE CONSIDERED, not shipped:
+  //   (41) "95% of Americans don't get enough fiber."
+  //        Fits, and is explicitly allowed by the brief as a population
+  //        statistic rather than a product claim. Rejected for two reasons:
+  //        it opens on the reader's deficit directly beneath appetising
+  //        product photography, the same negative-adjacency problem that put
+  //        taste first in the headline; and it is variant C's opening clause
+  //        verbatim, so activating C would put the same sentence on screen
+  //        twice. If C is ever made ACTIVE_HEADLINE, this line must change.
+  countFallback: "You'll hear the ship date before it's public.",
 };
 
 // ─── Proof strip ─────────────────────────────────────────────────────────────
