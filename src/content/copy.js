@@ -182,6 +182,11 @@ export const hero = {
   // (eyebrow), "first" and "access" (eyebrow and the CTA), and the figures
   // and flavour names carried by the spec stacks and subhead.
   //
+  // DECIDED — Emil, 17 Aug 2026: this line, on the reasoning above. Chosen
+  // because it is the only candidate that gives someone a reason to type an
+  // email rather than restating something already on screen. Settled, not a
+  // default someone landed on.
+  //
   // ALTERNATIVE CONSIDERED, not shipped:
   //   (41) "95% of Americans don't get enough fiber."
   //        Fits, and is explicitly allowed by the brief as a population
