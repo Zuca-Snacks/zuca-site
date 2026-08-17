@@ -47,6 +47,10 @@
   --z-ink: var(--z-surface);
   --z-ink-muted: var(--z-surface-alt);
   --z-brand: var(--z-warm);
+  /* Remapped too, so anything using the text-safe red stays correct when it
+     lands on the dark ground. Without this, .zc-hero-eyebrow would be a dark
+     red on a dark band the moment it moved out of the inverted context. */
+  --z-brand-ink: var(--z-warm);
   color: var(--z-ink);
 }
 
@@ -59,7 +63,9 @@
   font-size: var(--z-step--1);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--z-brand);
+  /* Body size. Safe on dark today only because .zc-invert remaps it; using the
+     text-safe token means it is also correct if this ever renders on light. */
+  color: var(--z-brand-ink);
   margin: 0 0 var(--z-space-4);
 }
 
@@ -209,7 +215,8 @@
   content: "+";
   margin-left: auto;
   font-weight: 400;
-  color: var(--z-brand);
+  /* Same as .zw-disclosure — 1rem at weight 400 is body text for contrast. */
+  color: var(--z-brand-ink);
   transition: transform var(--z-dur) var(--z-ease);
 }
 

@@ -268,7 +268,8 @@ fieldset.zw-field {
 }
 
 .zw-consent-text a {
-  color: var(--z-brand);
+  /* Body-size text on light: --z-brand is a fill colour and misses AA here. */
+  color: var(--z-brand-ink);
 }
 
 /* The health-motivation opt-in is visually separated so it can never read as
@@ -314,7 +315,10 @@ fieldset.zw-field {
   content: "+";
   margin-left: auto;
   font-weight: 400;
-  color: var(--z-brand);
+  /* Renders at 1rem and font-weight 400, so it is body text for contrast
+     purposes, not a large-text exception — the weight on the summary does not
+     carry into the pseudo-element. */
+  color: var(--z-brand-ink);
 }
 
 .zw-disclosure[open] > summary::after {
@@ -384,7 +388,7 @@ fieldset.zw-field {
 .zw-when {
   font-size: var(--z-step--1);
   font-weight: 700;
-  color: var(--z-brand);
+  color: var(--z-brand-ink);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }

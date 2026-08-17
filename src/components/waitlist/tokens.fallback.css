@@ -23,6 +23,13 @@
 
     --z-brand: #1F6B4A;
     --z-brand-dark: #14472F;
+
+    /* --z-brand-ink: brand red darkened until it clears AA at body size on the
+       page ground. --z-brand itself is a FILL colour — correct behind white
+       text and for borders, too light for small text on cream.
+       Added here because no branch defines it yet (checked all six). Being in
+       @layer, UX's tokens.css still wins the moment it ships one. */
+    --z-brand-ink: #cc0018;
     --z-accent: #C2314B;
     --z-accent-ink: #FFFFFF;
     --z-warm: #E08A3C;
