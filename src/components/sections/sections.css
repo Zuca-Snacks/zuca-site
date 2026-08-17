@@ -391,6 +391,11 @@
   isolation: isolate;
   text-align: center;
   background: var(--z-bg);
+  /* The botanicals and fruit are positioned to bleed past both edges, so the
+     hero must clip them. Without this they extended the document to 413px at a
+     390px viewport and gave the whole page a horizontal scrollbar. A
+     decorative layer must never be able to do that. */
+  overflow: hidden;
 }
 
 /* Decorative ingredient wash — Emil's artwork, now supplied with a real alpha
