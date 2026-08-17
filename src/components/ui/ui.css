@@ -78,7 +78,7 @@
   --btn-border: transparent;
   padding-inline: var(--z-space-3);
 }
-.z-btn--ghost:hover:not(:disabled) { --btn-bg: rgb(82 65 40 / 0.08); }
+.z-btn--ghost:hover:not(:disabled) { --btn-bg: color-mix(in srgb, var(--z-ink) 8%, transparent); }
 
 /* Sizes */
 .z-btn--lg { min-height: 56px; font-size: var(--z-step-1); padding-inline: var(--z-space-6); }
@@ -181,7 +181,11 @@
 .z-select:focus-visible {
   outline: none;
   border-color: var(--z-focus);
-  box-shadow: 0 0 0 3px rgb(204 24 80 / 0.25);
+  /* ⚠️ WAS rgb(204 24 80 / 0.25) — the OLD brand red at 25% alpha, hand-copied
+     and left stale when the brand red changed. color-mix() derives it from the
+     token at paint time, so it can never go stale again. This is the pattern:
+     do not hand-copy a token's channels into an rgba(). */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--z-focus) 25%, transparent);
 }
 
 .z-input:disabled,
@@ -196,7 +200,7 @@
 
 .z-input[aria-invalid='true']:focus-visible,
 .z-select[aria-invalid='true']:focus-visible {
-  box-shadow: 0 0 0 3px rgb(179 38 30 / 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--z-danger) 25%, transparent);
 }
 
 /* ─── Select ─────────────────────────────────────────────────────────────── */

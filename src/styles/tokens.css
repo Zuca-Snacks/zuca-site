@@ -15,6 +15,32 @@
        [DERIVED]  computed from a [BRAND] value; the parent is always named
        [INVENTED] no equivalent existed; chosen here
 
+   ─────────────────────────────────────────────────────────────────────────────
+   DERIVED-VALUE REGISTER — WHAT MOVES IF A PARENT MOVES
+   A derived colour outlives the value it came from without announcing it. That
+   happened three times: the plate red, --z-brand-dark and the input focus glow
+   were each computed from #CC1850 and each was found by accident, in a
+   different round. This register exists so it does not happen a fourth time.
+
+   COMPUTED ONCE, RE-DERIVE BY HAND if the parent changes:
+     --z-brand-ink       <- --z-brand    minimum darkening clearing 4.5:1 on cream
+     --z-brand-on-plate  <- --z-brand    minimum lightening clearing 4.5:1 on plate
+     --z-brand-dark      <- --z-brand    18% darker; hover/pressed fills only
+     --z-ink-muted       <- --gray #888888 (brand grey) darkened to clear 4.5:1
+
+   DERIVED LIVE by color-mix(), these can never go stale:
+     --z-shadow-sm / --z-shadow-md          <- --z-ink
+     input focus glow      (ui.css)         <- --z-focus
+     invalid focus glow    (ui.css)         <- --z-danger
+     ghost button hover    (ui.css)         <- --z-ink
+     sticky bar shadow     (sections.css)   <- --z-ink
+     process step rules and placeholder     <- --z-on-ink
+
+   RULE: never hand-copy a token's channels into an rgb()/rgba(). Use
+   color-mix(in srgb, var(--token) N%, transparent). There are now ZERO colour
+   literals outside this file.
+   ─────────────────────────────────────────────────────────────────────────────
+
    ACCESSIBILITY
    Brand values are never altered to pass AA. Where a brand colour fails in a
    role, a DERIVED variant of the same hue is used for that role only, with the
@@ -45,7 +71,15 @@
      came from the investor site; the comps and the original site both use this
      one and Emil has confirmed it is the brand red of record. */
   --z-brand: #e3001b;       /* identity, wordmark, CTA fill */
-  --z-brand-dark: #a3112d;  /* hover / pressed */
+  /* [DERIVED from --z-brand] HOVER AND PRESSED FILLS ONLY. It is not a text
+     colour — that job belongs to --z-brand-ink, and the two were previously
+     conflated in one token whose comment read "hover, and red text on cream".
+     18% darker than the brand red: enough to read as a state change (ΔL 0.059)
+     without becoming a different colour. White on it is 6.67:1.
+     ⚠️ Derived value: it was #A3112D, taken from the investor palette and left
+     stale when the brand red moved — the same failure as the old plate red.
+     If --z-brand moves again, re-derive this too. */
+  --z-brand-dark: #ba0016;
   --z-accent: #e3001b;      /* primary CTA fill — accent equals brand */
 
   /* [DERIVED from --z-brand] The brand red is 3.85:1 on cream, which fails AA
@@ -62,7 +96,12 @@
      ⚠️ Derived value with a named parent: previously #D74975, which was derived
      from the OLD brand red and was therefore left pointing at the wrong parent.
      If --z-brand moves again, re-derive this too. */
-  --z-brand-on-plate: #e93349; /* 4.53:1 on #111 */
+  --z-brand-on-plate: #e93349; /* 4.53:1 on --z-plate */
+
+  /* [INVENTED] The near-black spec plate from the comps. Authored, not derived
+     — it is its own colour, not a shade of the brand. Was a bare #111111
+     repeated in seven rules. */
+  --z-plate: #111111;
   --z-accent-ink: #fffdf8;  /* [BRAND] --white on the brand red = 4.83:1 */
   --z-warm: #fdb026;        /* [BRAND] --amber — fills and dark-band text only */
 
@@ -120,10 +159,16 @@
   --z-radius-full: 999px;/* [INVENTED] */
 
   /* ---- Shadow ------------------------------------------------------------ */
-  /* [INVENTED] none on the site; tinted with the brand brown, not neutral grey,
-     so shadows sit correctly on cream. */
-  --z-shadow-sm: 0 1px 2px rgb(82 65 40 / 0.08), 0 2px 6px rgb(82 65 40 / 0.06);
-  --z-shadow-md: 0 4px 12px rgb(82 65 40 / 0.10), 0 12px 32px rgb(82 65 40 / 0.12);
+  /* [DERIVED from --z-ink] Tinted with the brand brown, not neutral grey, so
+     shadows sit correctly on cream. Uses color-mix rather than hand-copied
+     channels — rgb(82 65 40 / …) was --z-ink's channels typed out, which is the
+     same staleness trap that left three reds pointing at a retired parent. */
+  --z-shadow-sm:
+    0 1px 2px color-mix(in srgb, var(--z-ink) 8%, transparent),
+    0 2px 6px color-mix(in srgb, var(--z-ink) 6%, transparent);
+  --z-shadow-md:
+    0 4px 12px color-mix(in srgb, var(--z-ink) 10%, transparent),
+    0 12px 32px color-mix(in srgb, var(--z-ink) 12%, transparent);
 
   /* ---- Motion ------------------------------------------------------------ */
   --z-ease: cubic-bezier(0.16, 1, 0.3, 1); /* [INVENTED] */

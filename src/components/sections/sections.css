@@ -345,7 +345,7 @@
 /* The comp draws the photo as a heavy-bordered squircle, not a soft card. */
 .z-hero__product picture {
   display: block;
-  border: 5px solid #111111;
+  border: 5px solid var(--z-plate);
   border-radius: 34px;
   overflow: hidden;
   background: var(--z-surface-alt);
@@ -376,7 +376,7 @@
      brand red is 3.85:1. The ink variant is the minimum darkening that passes. */
   color: var(--z-brand-ink);
   background: var(--z-surface-alt);
-  border: 3px solid #111111;
+  border: 3px solid var(--z-plate);
   border-radius: 12px;
   padding: 3px 5px;
   text-align: center;
@@ -495,14 +495,15 @@
   white-space: nowrap;
   color: var(--z-ink);
   background: var(--z-surface);
-  border: 1.5px solid #111111;
+  border: 1.5px solid var(--z-plate);
   border-radius: var(--z-radius-full);
   padding: 2px 4px;
 }
 
 /* The fiber figure gets the dark plate, full width of the column.
    ⚠️ CONTRAST — DO NOT SHRINK THIS BELOW 1.25rem.
-   Brand red on #111 is 3.43:1. That clears AA only under the LARGE-text
+   Brand red on the plate is 3.85:1 (was 3.43:1 under the old brand red).
+   That clears AA only under the LARGE-text
    threshold, which is >=18.66px BOLD (or >=24px regular) — not merely "big
    looking". An earlier version set this to 15px bold and failed the audit at
    3.42:1, because 15px is below the threshold no matter how bold it is. 1.25rem
@@ -516,8 +517,8 @@
   font-size: 0.9375rem !important;
   font-weight: 700;
   padding: var(--z-space-1) var(--z-space-2) !important;
-  background: #111111 !important;
-  border-color: #111111 !important;
+  background: var(--z-plate) !important;
+  border-color: var(--z-plate) !important;
   /* Derived from --z-brand, not hardcoded — see tokens.css. */
   color: var(--z-brand-on-plate) !important;
 }
@@ -864,7 +865,7 @@
   display: grid;
   gap: var(--z-space-2);
   padding-top: var(--z-space-4);
-  border-top: 1px solid rgb(253 224 180 / 0.25);
+  border-top: 1px solid color-mix(in srgb, var(--z-on-ink) 25%, transparent);
 }
 
 .z-process__step::before {
@@ -941,7 +942,7 @@
   position: relative;
   border-radius: var(--z-radius-md);
   overflow: hidden;
-  background: rgb(253 224 180 / 0.08);
+  background: color-mix(in srgb, var(--z-on-ink) 8%, transparent);
 }
 
 .z-process-step__media img {
@@ -961,17 +962,17 @@
   background:
     repeating-linear-gradient(
       -45deg,
-      rgb(253 224 180 / 0.06) 0 6px,
+      color-mix(in srgb, var(--z-on-ink) 6%, transparent) 0 6px,
       transparent 6px 12px
     );
-  border: 1px dashed rgb(253 224 180 / 0.3);
+  border: 1px dashed color-mix(in srgb, var(--z-on-ink) 30%, transparent);
   border-radius: var(--z-radius-md);
 }
 
 .z-process-step__placeholder span {
   font-family: var(--z-font-display);
   font-size: var(--z-step-2);
-  color: rgb(253 224 180 / 0.45);
+  color: color-mix(in srgb, var(--z-on-ink) 45%, transparent);
 }
 
 /* The step number, stamped on the corner of the plate. */
@@ -1221,7 +1222,7 @@
 
   background: var(--z-surface);
   border-top: 1px solid var(--z-border);
-  box-shadow: 0 -4px 16px rgb(82 65 40 / 0.10);
+  box-shadow: 0 -4px 16px color-mix(in srgb, var(--z-ink) 10%, transparent);
 
   transform: translateY(110%);
   transition: transform var(--z-dur) var(--z-ease);
