@@ -84,7 +84,11 @@ input, select, textarea {
 /* ---- Links --------------------------------------------------------------- */
 
 a {
-  color: var(--z-brand);
+  /* --z-brand-ink, not --z-brand: links are body-sized text on cream, where the
+     brand red measures 3.85:1 and fails AA. The ink variant is the minimum
+     darkening of the same hue that clears 4.5:1. Large red text — wordmark,
+     CTA heading, big figures — uses --z-brand directly. */
+  color: var(--z-brand-ink);
   text-underline-offset: 0.18em;
   text-decoration-thickness: from-font;
 }

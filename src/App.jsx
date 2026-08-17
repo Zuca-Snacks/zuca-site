@@ -29,6 +29,7 @@ import FiberGap from './components/sections/FiberGap.jsx';
 import Numbers from './components/sections/Numbers.jsx';
 import HowItsMade from './components/sections/HowItsMade.jsx';
 import Founders from './components/sections/Founders.jsx';
+import SupporterWall from './components/sections/SupporterWall.jsx';
 import Flavors from './components/sections/Flavors.jsx';
 import Faq from './components/sections/Faq.jsx';
 import WaitlistSlot from './components/sections/WaitlistSlot.jsx';
@@ -60,6 +61,7 @@ export default function App() {
         <Numbers />
         <HowItsMade />
         <Founders />
+        <SupporterWall />
         <Flavors />
         <Faq />
         {/* The one and only waitlist form on the page. */}

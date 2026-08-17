@@ -4,20 +4,23 @@
    Never hardcode a hex value or a px font-size anywhere else in the codebase.
 
    ─────────────────────────────────────────────────────────────────────────────
-   SOURCE OF TRUTH: https://zucainvestor.netlify.app/
-   Values below were read out of that page's :root block directly, not
-   eyedropped from a screenshot. Provenance is marked on every line:
-       [BRAND]    taken verbatim from the investor site
-       [INVENTED] no equivalent existed on the site; chosen here
-   The brief's token NAMES are all preserved; only the values changed.
+   SOURCES OF TRUTH — two, and the red comes from the second:
+     - Surfaces, ink, amber, green, radius, type scale: https://zucainvestor.netlify.app/
+       read out of that page's :root block, not eyedropped.
+     - THE RED: #E3001B, confirmed by Emil 17 Aug as the canonical Zuca red.
+       This supersedes the investor site's #CC1850. The comps and the original
+       site both use #E3001B.
+   Provenance is marked on every line:
+       [BRAND]    taken verbatim from a source above
+       [DERIVED]  computed from a [BRAND] value; the parent is always named
+       [INVENTED] no equivalent existed; chosen here
 
-   ACCESSIBILITY NOTE
-   Ten real brand pairings fail WCAG AA. They have NOT been silently altered —
-   the brand values are used as-is and every failure is documented in
-   HANDOFF-ux.md with a suggested accessible variant awaiting Emil's approval.
-   Where a failing pair would have carried body text, the layer below reaches
-   for a different *real brand color* that passes (e.g. red-dark instead of red
-   on cream) rather than inventing a new one.
+   ACCESSIBILITY
+   Brand values are never altered to pass AA. Where a brand colour fails in a
+   role, a DERIVED variant of the same hue is used for that role only, with the
+   minimum change that clears the threshold — see --z-brand-ink,
+   --z-brand-on-plate and --z-ink-muted. If a parent moves, re-derive the child;
+   do not freeze it. The full pairing table lives in HANDOFF-ux.md.
    ========================================================================== */
 
 :root {
@@ -38,11 +41,29 @@
   --z-border-strong: #8a7250; /* [INVENTED] control edges, needs 3:1 */
 
   /* ---- Brand ------------------------------------------------------------- */
-  --z-brand: #cc1850;       /* [BRAND] --red — identity + CTA fill */
-  --z-brand-dark: #a3112d;  /* [BRAND] --red-dark — hover, and red text on cream */
-  --z-accent: #cc1850;      /* [BRAND] primary CTA is --red on the real site,
-                                so accent intentionally equals brand */
-  --z-accent-ink: #fffdf8;  /* [BRAND] --white on red = 5.42:1 */
+  /* [BRAND] Canonical Zuca red (Emil, 17 Aug). This supersedes #CC1850, which
+     came from the investor site; the comps and the original site both use this
+     one and Emil has confirmed it is the brand red of record. */
+  --z-brand: #e3001b;       /* identity, wordmark, CTA fill */
+  --z-brand-dark: #a3112d;  /* hover / pressed */
+  --z-accent: #e3001b;      /* primary CTA fill — accent equals brand */
+
+  /* [DERIVED from --z-brand] The brand red is 3.85:1 on cream, which fails AA
+     for body-sized text. This is the MINIMUM darkening that clears 4.5:1 — 10%
+     darker, same hue. Use it wherever red is text at body size; use --z-brand
+     itself for the wordmark, CTA fills and any large display text.
+     ⚠️ Derived value: if --z-brand moves, re-derive this rather than keeping it.
+     Same pattern as --z-ink-muted. */
+  --z-brand-ink: #cc0018;   /* 4.61:1 on bg · 5.77:1 on surface */
+
+  /* [DERIVED from --z-brand] Red on the near-black spec plate. The brand red is
+     3.85:1 there and the plate text is below the large-text threshold, so this
+     is the minimum lightening that clears 4.5:1 — 20% toward white, same hue.
+     ⚠️ Derived value with a named parent: previously #D74975, which was derived
+     from the OLD brand red and was therefore left pointing at the wrong parent.
+     If --z-brand moves again, re-derive this too. */
+  --z-brand-on-plate: #e93349; /* 4.53:1 on #111 */
+  --z-accent-ink: #fffdf8;  /* [BRAND] --white on the brand red = 4.83:1 */
   --z-warm: #fdb026;        /* [BRAND] --amber — fills and dark-band text only */
 
   /* ---- Status ------------------------------------------------------------ */
@@ -50,7 +71,7 @@
   --z-danger: #b3261e;      /* [INVENTED] no error color on the site; kept
                                 distinct from the pink-red brand so an error
                                 never reads as a CTA */
-  --z-focus: #cc1850;       /* [BRAND] --red, 4.33:1 on bg (needs 3:1) */
+  --z-focus: #e3001b;       /* [BRAND] follows --z-brand. 3.85:1 on bg (needs 3:1) */
 
   /* ---- Inverted band ----------------------------------------------------- */
   --z-ink-surface: #1a3a1a; /* [BRAND] --green — the deep green band */

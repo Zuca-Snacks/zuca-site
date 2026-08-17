@@ -6,10 +6,13 @@
 
 /* ─── Header ─────────────────────────────────────────────────────────────── */
 
+/* Hidden on phones. The comp has no header at all — ZUCA starts at y21 — and
+   the hero wordmark is the brand mark, so a second one costs 68px of fold for
+   nothing. Returns at tablet width. */
 .z-header {
   position: relative;
   z-index: var(--z-layer-header);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--z-space-4);
@@ -69,6 +72,7 @@
 .z-header__cta { display: none; }
 
 @media (min-width: 48em) {
+  .z-header { display: flex; }
   .z-header__cta { display: inline-flex; }
 }
 
@@ -100,6 +104,15 @@
 .z-hero {
   padding-top: var(--z-space-3);
   padding-bottom: var(--z-section-y);
+  /* Full-bleed: the comp runs the flavour stacks and their botanical art to
+     both viewport edges. Inner text blocks re-apply their own gutter. */
+  padding-inline: 0;
+  max-width: none;
+}
+
+/* Text content keeps a readable gutter even though the section does not. */
+.z-hero__copy > *:not(.z-hero__products):not(.z-hero__media) {
+  padding-inline: var(--z-gutter);
 }
 
 /* On a phone the product photo leads — this is a food brand, and appetite is
@@ -209,12 +222,95 @@
   overflow: visible;
 }
 
+/* Botanical clusters, anchored to the wordmark. Measured off the comp: the art
+   begins just below the wordmark (~y110) and runs to ~y315, bleeding off each
+   outer edge. Positioned against the HERO, not the product figures, so it does
+   not move when the stacks reflow. Above the fold — kept small. */
+.z-hero__stack-art {
+  position: absolute;
+  top: 11.5%;
+  width: 46%;
+  aspect-ratio: 340 / 347;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.95;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.z-hero__stack-art--berry {
+  left: -6%;
+  background-position: left top;
+  background-image: image-set(
+    url('/images/hero-art-left-340.avif') type('image/avif'),
+    url('/images/hero-art-left-340.webp') type('image/webp')
+  );
+}
+
+.z-hero__stack-art--maple {
+  right: -6%;
+  background-position: right top;
+  background-image: image-set(
+    url('/images/hero-art-right-340.avif') type('image/avif'),
+    url('/images/hero-art-right-340.webp') type('image/webp')
+  );
+}
+
+/* Fruit clusters at the foot of the hero, bleeding off both bottom corners. */
+.z-hero__fruit {
+  position: absolute;
+  bottom: 0;
+  width: 46%;
+  z-index: -1;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.z-hero__fruit--left {
+  left: 0;
+  aspect-ratio: 340 / 308;
+  background-position: left bottom;
+}
+
+.z-hero__fruit--right {
+  right: 0;
+  aspect-ratio: 360 / 232;
+  background-position: right bottom;
+}
+
+.is-in .z-hero__fruit--left {
+  background-image: image-set(
+    url('/images/hero-fruit-left-340.avif') type('image/avif'),
+    url('/images/hero-fruit-left-340.webp') type('image/webp')
+  );
+}
+
+.is-in .z-hero__fruit--right {
+  background-image: image-set(
+    url('/images/hero-fruit-right-360.avif') type('image/avif'),
+    url('/images/hero-fruit-right-360.webp') type('image/webp')
+  );
+}
+
 /* --- The two products --------------------------------------------------- */
 
 .z-hero__products {
+  /* Measured off the comp at 390px: left stack x 0-154, right stack x 238-389.
+     Each is ~39.5% of the width and they sit hard against both edges with the
+     remainder between them — not a 1fr/1fr grid with a small gap. The hero
+     therefore goes full-bleed and the stacks provide their own inset. */
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--z-space-3);
+  /* Measured off the comp at 390px: each stack is 103px wide (26.4%), the left
+     one starting at x22 and the right ending at x377. Not 39.5% columns — the
+     BOTANICAL ART reaches the edges, the plates do not. */
+  /* 29.7%, not 26.4%: percentages here resolve against the PADDED content box
+     (346px at 390 viewport), so 26.4% gave 91px stacks instead of the comp's
+     103px — and 91px is too narrow for the two chips to sit on one row. */
+  grid-template-columns: repeat(2, 29.7%);
+  justify-content: space-between;
+  padding-inline: 5.6%;
+  gap: 0;
   position: relative;
   /* Three named rows — name, spec, photo — so both columns share them via
      subgrid below. Without this the columns drift apart: "Chocolate Raspberry
@@ -226,6 +322,7 @@
 }
 
 .z-hero__product {
+  position: relative;
   display: grid;
   grid-row: span 3;
   /* Inherit the parent's row track sizes, so the name box and the fiber plate
@@ -245,23 +342,21 @@
   .z-hero__product-name { min-height: calc(2.4em + var(--z-space-2)); }
 }
 
+/* The comp draws the photo as a heavy-bordered squircle, not a soft card. */
 .z-hero__product picture {
   display: block;
-  border-radius: var(--z-radius-md);
+  border: 5px solid #111111;
+  border-radius: 34px;
   overflow: hidden;
   background: var(--z-surface-alt);
-  box-shadow: var(--z-shadow-md);
 }
 
-/* 4:3 on phones, square from tablet up. The stack gained a per-flavour chip row
-   and the count moved into flow beneath it, which together cost ~90px and put
-   the CTA below the fold at 360px. The photograph is the most compressible
-   element in the stack — cropping it shorter costs no information, where
-   dropping a chip or the count would. */
+/* Measured off the comp: the photo box is 107x123 css, i.e. slightly TALLER
+   than wide, not the 4:3 landscape used before. Square from tablet up. */
 .z-hero__product img {
   width: 100%;
   height: auto;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 107 / 123;
   object-fit: cover;
 }
 
@@ -270,18 +365,21 @@
 }
 
 .z-hero__product-name {
-  font-size: var(--z-step--1);
+  /* Comp cap height ~9px at 390 => ~12px type. Deliberately small: these are
+     pack labels, not headings. */
+  font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1.2;
   text-transform: uppercase;
   letter-spacing: 0.01em;
-  /* red-dark, NOT brand red: the mockup's red on cream is 4.33:1 and this is
-     normal-size text, so it fails AA. red-dark is 6.17:1 and reads the same. */
-  color: var(--z-brand-dark);
+  /* --z-brand-ink, not --z-brand: this is body-sized text on cream, where the
+     brand red is 3.85:1. The ink variant is the minimum darkening that passes. */
+  color: var(--z-brand-ink);
   background: var(--z-surface-alt);
-  border: 1px solid var(--z-border);
-  border-radius: var(--z-radius-sm);
-  padding: var(--z-space-1) var(--z-space-2);
+  border: 3px solid #111111;
+  border-radius: 12px;
+  padding: 3px 5px;
+  text-align: center;
 }
 
 [data-tone='maple'] .z-hero__product-name { color: var(--z-ink); }
@@ -318,10 +416,7 @@
      upscale is imperceptible while the bytes are not — the transparent master
      costs roughly 2.5x what the flattened one did, because a uniform white
      field compressed almost to nothing. Referencing the raw PNG cost 4.9s LCP. */
-  background-image: image-set(
-    url('/images/art-backdrop-600.avif') type('image/avif'),
-    url('/images/art-backdrop-600.webp') type('image/webp')
-  );
+  background-image: none;
   /* The artwork is a wide desktop frame with its ingredients along the left and
      right edges and an empty middle. `cover` on a tall narrow phone therefore
      crops to the blank centre and shows nothing at all. Full-width at the top
@@ -345,7 +440,7 @@
 /* The wordmark at poster scale. */
 .z-hero__wordmark {
   font-family: var(--z-font-display);
-  font-size: clamp(2.75rem, 1rem + 12vw, 8rem);
+  font-size: clamp(3.25rem, 0.5rem + 24.5vw, 7.5rem);
   line-height: 0.9;
   letter-spacing: 0.02em;
   color: var(--z-brand);
@@ -383,21 +478,26 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--z-space-1);
+  gap: 3px;
   list-style: none;
 }
 
+/* Comp-sized: both chips must fit one row inside a 103px stack, which they do
+   at ~7px with tight chrome. Any larger and they wrap, which adds ~23px to
+   every stack and is what pushed the CTA off the fold. */
 .z-hero__spec li {
-  font-size: 0.6875rem;
+  /* Scales with the stack so the two chips stay on one row at 360px too, where
+     the stack is 95px rather than 103px. Wrapping costs ~23px per stack. */
+  font-size: clamp(0.4rem, 0.28rem + 0.35vw, 0.4375rem);
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--z-ink);
   background: var(--z-surface);
-  border: 1px solid var(--z-border);
+  border: 1.5px solid #111111;
   border-radius: var(--z-radius-full);
-  padding: 3px var(--z-space-2);
+  padding: 2px 4px;
 }
 
 /* The fiber figure gets the dark plate, full width of the column.
@@ -411,12 +511,15 @@
    shared so the two flavours stay symmetrical. */
 .z-hero__spec-hero {
   flex-basis: 100%;
-  font-size: 1.25rem !important;
+  /* ⚠️ See the contrast note below — the comp draws this at ~15px, which is
+     below the 18.66px large-text threshold that red-on-black needs. */
+  font-size: 0.9375rem !important;
   font-weight: 700;
   padding: var(--z-space-1) var(--z-space-2) !important;
   background: #111111 !important;
   border-color: #111111 !important;
-  color: var(--z-brand) !important;
+  /* Derived from --z-brand, not hardcoded — see tokens.css. */
+  color: var(--z-brand-on-plate) !important;
 }
 
 [data-tone='maple'] .z-hero__spec-hero {
@@ -497,6 +600,19 @@
        top-aligned button would sit level with the label instead of the input. */
     align-items: end;
   }
+}
+
+/* The comp's "JOIN THE WAITLIST" line. Large display text, so brand red on
+   cream at 4.33:1 clears the 3:1 large-text threshold. */
+.z-hero__cta-heading {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-3);
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--z-brand);
+  text-align: center;
+  margin-inline: auto;
+  margin-top: var(--z-space-4);
 }
 
 .z-hero__microcopy {
@@ -976,6 +1092,32 @@
 
 @media (min-width: 48em) {
   .z-founders__grid { grid-template-columns: repeat(2, 1fr); gap: var(--z-space-7); }
+}
+
+/* ─── Supporter wall ────────────────────────────────────────────────────── */
+
+.z-supporters {
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+  text-align: center;
+}
+
+/* Small, quiet heading — the logos carry the weight, and an oversized heading
+   would push this toward reading as an endorsement claim. */
+.z-supporters__title {
+  font-family: var(--z-font-body);
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--z-ink-muted);
+}
+
+.z-supporters__wall {
+  width: 100%;
+  max-width: 45rem;
+  height: auto;
+  margin: var(--z-space-5) auto 0;
 }
 
 /* ─── Flavors ────────────────────────────────────────────────────────────── */

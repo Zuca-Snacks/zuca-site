@@ -60,6 +60,12 @@ export default function Hero() {
           and purely decorative either way. */}
       <div className="z-hero__backdrop" aria-hidden="true" />
 
+      {/* Botanical clusters. Anchored to the WORDMARK, not to the stacks: the
+          comp runs them from just under the wordmark down through the plates,
+          bleeding off each outer edge. Above the fold, hence the small encode. */}
+      <span className="z-hero__stack-art z-hero__stack-art--berry" aria-hidden="true" />
+      <span className="z-hero__stack-art z-hero__stack-art--maple" aria-hidden="true" />
+
       {/* The wordmark at poster scale, as the mockup has it. The <header> one
           is hidden while this is on screen — see .z-header__wordmark rules —
           so the page still has exactly one visible ZUCA above the fold. */}
@@ -105,6 +111,12 @@ export default function Hero() {
               the subhead above the form the CTA landed 128px below the 844px
               fold on a 390px phone. Moving it costs no words. Reading order is
               now tagline -> headline -> email + CTA -> detail. */}
+          {/* The comp's red "JOIN THE WAITLIST" line. Emil's call was heading
+              or button label; heading keeps the comp's visual exactly AND
+              leaves the button carrying growth's outcome-worded label, rather
+              than replacing a tested CTA string with a poster's. */}
+          <p className="z-hero__cta-heading">Join the waitlist</p>
+
           <form className="z-hero__capture" onSubmit={handleSubmit} noValidate>
             <div className="z-hero__capture-row">
               {/* No hint: it read "No spam. Unsubscribe anytime." directly
@@ -146,6 +158,9 @@ export default function Hero() {
               subhead — a fourth reading is noise to a screen reader while being
               the whole composition visually. It also sits BELOW the capture
               form, so it never competes with the CTA for the fold. */}
+          <span className="z-hero__fruit z-hero__fruit--left" aria-hidden="true" />
+          <span className="z-hero__fruit z-hero__fruit--right" aria-hidden="true" />
+
           <p className="z-hero__bigfig" aria-hidden="true">
             10g fiber
           </p>
