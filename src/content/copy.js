@@ -55,6 +55,49 @@ export const HEADLINES = {
   // above, opening on a discard word ("landfill", "thrown away") puts a
   // negative directly under the food. Leading with the taste lets the photo and
   // the first sentence agree, and the origin then lands as the surprise it is.
+  //
+  // DECIDED — Emil, 16 Aug 2026: taste-first is final. The origin-first
+  // inversion ("Made from what juicing throws away. Tastes like dessert.") was
+  // considered and rejected. Not an open question; do not reopen it as one.
+  //
+  // ── RESERVED ALTERNATIVE — NOT APPROVED. DO NOT SHIP WITHOUT EMIL. ────────
+  // Kept here because the next person to hit the fold constraint will
+  // otherwise redo this work, or ship the short version without knowing it
+  // needs sign-off.
+  //
+  //     "Dessert, made from what juicing throws away."      (44 chars)
+  //
+  // Two gates, both open before it goes live:
+  //
+  //   1. TYPE STEP. This only matters if the hero headline moves up to
+  //      --z-step-3. It is deliberately held at --z-step-2 today: the larger
+  //      step costs 22-35px of fold clearance, and the fold still has to
+  //      survive the product photo reshoot. Re-check that it is actually
+  //      unblocked rather than assuming — as of 16 Aug it is not.
+  //
+  //   2. EMIL, SPECIFICALLY. It buys its characters by dropping "Tastes
+  //      like", which turns a claim about the EXPERIENCE into an assertion of
+  //      the CATEGORY. On a food product under FDA scrutiny those are
+  //      different kinds of statement, and a fiber snack flatly calling itself
+  //      dessert also undercuts the fiber positioning it is trying to earn.
+  //      Low risk, not zero — his call, not ours.
+  //
+  // CHARACTER BUDGET, measured by UX at 360/390/430 — do not re-measure:
+  //   ~46-48 chars buys --z-step-3. The current 56 wraps to five lines at
+  //   360px at that step and pushes the CTA 35px past the fold (22px at 390,
+  //   15px at 430). It needs exactly one line less at every width.
+  //
+  // ALREADY TRIED AND REJECTED. The reasons generalise — anyone writing the
+  // next headline will hit both traps:
+  //   (50) "Tastes like dessert. Made from rescued apple pulp."
+  //        Loses the discard story, and bare "pulp" reads cheap rather than
+  //        clever — the same failure Emil called out on the $25/ton figure.
+  //   (51) "Tastes like dessert. Made from juicing's leftovers."
+  //        Negative-adjacency again in a new word: a discard term sitting
+  //        directly beneath appetising product photography.
+  //   (50) "Tastes like dessert. From what juicing throws out."
+  //        Still over budget, and clumsier than the line it would replace.
+  // ─────────────────────────────────────────────────────────────────────────
   a: {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",

@@ -50,7 +50,26 @@ const JOBS = [
      have not confirmed.
      Step 1 was imported and then WITHDRAWN: the pulp sits in a disposable foil
      catering pan, which the reshoot rules forbid because the FAQ asserts
-     21 CFR 117 manufacturing. Do not re-add it from the strip. */
+     21 CFR 117 manufacturing. Do not re-add it from the strip.
+
+     ── DO NOT IMPORT FROM ~/Desktop/zuca-comp (Emil, 17 Aug) ─────────────────
+     The comp folder holds the deck mockups the redesign was built from. They
+     are layout targets, NOT asset sources. Two things in them must never reach
+     a build:
+
+       1. The step-3 "ADD INGREDIENTS" tile shows a grain that reads as OATS,
+          and the step-1 tile shows mixed-produce pulp rather than apple. Oats
+          are on the unconfirmed list at the top of src/content/copy.js. A
+          photograph asserts a claim exactly as effectively as a sentence does,
+          so the allergen gate that governs the copy governs the picture too —
+          same rule, same blocker, no separate sign-off.
+       2. Every tile in those comps is stock imagery, not Zuca's own product,
+          and the file names starting `alt-` and `ref-` are explicitly not
+          layout targets — `alt-` are preserved alternatives Emil rejected,
+          `ref-` are wide reference art.
+
+     Only `hero-comp.png` and `comp-nutshell.png` are targets, and even those
+     are compositions to build TOWARD, not files to slice. */
   {
     /* Step 1, replacing the withdrawn foil-tray shot. This one is a working
        juice bar — commercial press, apples waiting, pulp collecting in a lined
