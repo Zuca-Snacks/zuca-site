@@ -25,6 +25,8 @@
    COMPUTED ONCE, RE-DERIVE BY HAND if the parent changes:
      --z-brand-ink       <- --z-brand    minimum darkening clearing 4.5:1 on cream
      --z-brand-on-plate  <- --z-brand    minimum lightening clearing 4.5:1 on plate
+     --z-brand-on-cream  <- --z-brand    minimum darkening clearing 4.5:1 on the
+                                         artwork name plate (#F1D4A7)
      --z-brand-dark      <- --z-brand    18% darker; hover/pressed fills only
      --z-ink-muted       <- --gray #888888 (brand grey) darkened to clear 4.5:1
 
@@ -97,6 +99,15 @@
      from the OLD brand red and was therefore left pointing at the wrong parent.
      If --z-brand moves again, re-derive this too. */
   --z-brand-on-plate: #e93349; /* 4.53:1 on --z-plate */
+
+  /* [DERIVED from --z-brand] Red on the flavour artwork's cream name plate.
+     That plate is #F1D4A7 — measured out of the PNG, and darker than
+     --z-surface-alt — where --z-brand is 3.44:1 and even --z-brand-ink is only
+     4.11:1. This is the minimum darkening that clears 4.5:1 on it: 16% darker,
+     same hue, 4.56:1.
+     ⚠️ Derived value with a named parent. Re-derive if --z-brand moves, and
+     re-check if the artwork is re-exported with a different plate fill. */
+  --z-brand-on-cream: #bf0017;
 
   /* [INVENTED] The near-black spec plate from the comps. Authored, not derived
      — it is its own colour, not a shade of the brand. Was a bare #111111
