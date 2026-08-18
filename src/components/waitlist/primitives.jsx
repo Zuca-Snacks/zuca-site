@@ -58,7 +58,7 @@ export function Input({ label, id, error, errorId, ...props }) {
 }
 
 /** Single-choice chips. Radio semantics, so a screen reader announces 1 of N. */
-export function ChipRadioGroup({ legend, name, options, value, onChange, hint }) {
+export function ChipRadioGroup({ legend, name, options, value, onChange, hint, other }) {
   return (
     <fieldset className="zw-field">
       <legend className="zw-legend">{legend}</legend>
@@ -81,12 +81,73 @@ export function ChipRadioGroup({ legend, name, options, value, onChange, hint })
           );
         })}
       </div>
+      {other && value === "other" ? (
+        <OtherInput
+          label={other.label}
+          value={other.value}
+          onChange={other.onChange}
+          maxLength={other.maxLength}
+        />
+      ) : null}
     </fieldset>
   );
 }
 
+/**
+ * Progress. Real numbers, not a decorative bar — someone deciding whether to
+ * keep going is asking "how much more of this is there", and a bar with no
+ * count answers a different question.
+ */
+export function Progress({ step, total, label }) {
+  const pct = Math.round((step / total) * 100);
+  return (
+    <div className="zw-progress">
+      <div className="zw-progress-head">
+        <span className="zw-progress-step">{`${step} of ${total}`}</span>
+        {label ? <span className="zw-progress-label">{label}</span> : null}
+      </div>
+      <div
+        className="zw-progress-track"
+        role="progressbar"
+        aria-valuenow={step}
+        aria-valuemin={1}
+        aria-valuemax={total}
+        aria-label={`Step ${step} of ${total}`}
+      >
+        <span className="zw-progress-fill" style={{ inlineSize: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The free-text box revealed by an "Other" chip. Always capped, always
+ * optional — an "Other" that selects but cannot be explained collects a shrug.
+ */
+export function OtherInput({ id, label, value, onChange, maxLength }) {
+  const generated = useId();
+  const inputId = id || generated;
+  return (
+    <div className="zw-other">
+      <label className="zw-label" htmlFor={inputId}>
+        {label}
+      </label>
+      <input
+        id={inputId}
+        className="zw-input"
+        type="text"
+        maxLength={maxLength}
+        value={value}
+        autoComplete="off"
+        onChange={(e) => onChange(e.target.value.slice(0, maxLength))}
+      />
+      <span className="zw-count" aria-hidden="true">{`${value.length}/${maxLength}`}</span>
+    </div>
+  );
+}
+
 /** Multi-choice chips with a hard cap. Over-cap chips disable rather than hide. */
-export function ChipMultiGroup({ legend, options, values, onChange, max, hint, disabled }) {
+export function ChipMultiGroup({ legend, options, values, onChange, max, hint, disabled, other }) {
   const atMax = max != null && values.length >= max;
   return (
     <fieldset className="zw-field" disabled={disabled}>
@@ -111,6 +172,14 @@ export function ChipMultiGroup({ legend, options, values, onChange, max, hint, d
           );
         })}
       </div>
+      {other && values.includes("other") ? (
+        <OtherInput
+          label={other.label}
+          value={other.value}
+          onChange={other.onChange}
+          maxLength={other.maxLength}
+        />
+      ) : null}
     </fieldset>
   );
 }

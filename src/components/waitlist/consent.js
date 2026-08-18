@@ -78,6 +78,19 @@ export function marketingConsent(region = detectConsentRegion()) {
  * which is what GDPR Art 9 requires, and the US has no weaker standard worth
  * having for health-adjacent data.
  */
+export function smsConsent() {
+  const entry = consentTexts.sms;
+  // Audience token `us`: TCPA is the US regime this wording is written to meet.
+  // The server reads the regime off the token, so it must be honest about which
+  // rulebook the sentence was drafted against.
+  return { text: entry.text, version: version("sms", "us", entry) };
+}
+
+export function mailConsent() {
+  const entry = consentTexts.mail;
+  return { text: entry.text, version: version("mail", "eea", entry) };
+}
+
 export function motivationConsent() {
   const entry = consentTexts.motivation;
   return {

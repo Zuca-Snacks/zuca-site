@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import WaitlistForm from "./components/waitlist/WaitlistForm.jsx";
 import { Faq, NumberBlock, ProofStrip } from "./components/content/sections.jsx";
-import { fetchCount } from "./components/waitlist/api.js";
+import LiveCount from "./components/waitlist/LiveCount.jsx";
+import { loadCount, subscribe as subscribeCount } from "./components/waitlist/countStore.js";
 import { EVENTS, track, trackPageView } from "./lib/analytics.js";
 import { founders, hero, introLines, sections, step1 } from "./content/copy.js";
 
@@ -947,7 +948,9 @@ export default function ZucaGate() {
   }, []);
 
   useEffect(() => {
-    fetchCount().then(count => setClicks(typeof count === "number" ? count : 0));
+    const off = subscribeCount((c) => setClicks(c.value));
+    loadCount();
+    return off;
   }, []);
 
   /** Both page CTAs lead to the one form. */
@@ -1114,12 +1117,9 @@ export default function ZucaGate() {
               </button>
             </div>
 
-            {clicks!==null && clicks > 0 && (
-              <div className="counter-row si6">
-                <span className="counter-n">{clicks.toLocaleString()}</span>
-                <span className="counter-txt">already<br/>in line</span>
-              </div>
-            )}
+            <div className="counter-row si6">
+              <LiveCount/>
+            </div>
           </div>
         </section>
 
@@ -1223,11 +1223,9 @@ export default function ZucaGate() {
             </div>
             <div className="footer-right" style={{width:"100%"}}>
               <WaitlistForm location="footer"/>
-              {clicks!==null&&clicks>0&&(
-                <div className="footer-counter">
-                  Join <strong>{clicks.toLocaleString()}</strong> others already in line
-                </div>
-              )}
+              <div className="footer-counter">
+                <LiveCount/>
+              </div>
               <div style={{fontFamily:MONO,fontSize:9,letterSpacing:3,color:"rgba(227,0,27,.45)",textTransform:"uppercase"}}>
                 Chocolate Raspberry · Maple Pecan
               </div>

@@ -362,9 +362,34 @@ export const consentTexts = {
   },
   // Health-adjacent data, and under GDPR Art 9 the consent most likely to be
   // challenged. Its wording is versioned separately from marketing.
+  // Covers BOTH the reason-for-interest chips and the dietary chips. An allergy
+  // is health data under Art 9 exactly as a health motivation is, so one
+  // explicit opt-in naming both is correct — two separate boxes would be
+  // friction without added protection, and either field without a box is
+  // unlawful. Wording changed 17 Aug to name dietary needs, which mints a new
+  // version automatically.
   motivation: {
-    authored: "2026-08-15",
-    text: "I'm happy to tell Zuca why fiber matters to me. This is optional, it's stored with my signup, it's never sold and never sent to an ad or analytics tool, and I can ask Zuca to delete it at any time.",
+    authored: "2026-08-17",
+    text: "I'm happy to tell Zuca why fiber matters to me and anything dietary it should know. This is optional, it's stored with my signup, it's never sold and never sent to an ad or analytics tool, and I can ask Zuca to delete it at any time.",
+  },
+
+  // ⚠️ TCPA-GRADE. US SMS marketing needs prior EXPRESS WRITTEN consent, a
+  // higher bar than the email checkbox: it must identify the sender, say the
+  // messages are marketing, say they are automated, state that agreeing is not
+  // a condition of buying anything, and disclose that rates may apply. Every
+  // one of those clauses is load-bearing — do not trim this for length.
+  // Unchecked, separate, and never bundled with the email consent.
+  sms: {
+    authored: "2026-08-17",
+    text: "Text me about Zuca. I agree to receive automated marketing texts from Zuca at the number I give — a handful around launch, not a stream. Agreeing is not a condition of buying anything, message and data rates may apply, and I can stop them any time by replying STOP.",
+  },
+
+  // Postal. Framed as what it actually is, because the honest version is also
+  // the appealing one — nobody minds a handwritten note, and pretending it is
+  // something else would be the only way to make this creepy.
+  mail: {
+    authored: "2026-08-17",
+    text: "You can post me something. We send handwritten notes to early supporters — that's what this is for, it's not shared with anyone, and you can ask us to delete it whenever you like.",
   },
 };
 
@@ -401,6 +426,44 @@ export const step2 = {
   // who doesn't want it. The consent box stays INSIDE and ABOVE the chips —
   // consent before collection, never the reverse.
   motivationDisclosure: "Want to help shape what we make?",
+
+  // ── Screens ────────────────────────────────────────────────────────────────
+  // Grouped cards, not a wall. Each screen states what its answers DECIDE —
+  // people finish a form when they can see the lever they are pulling, and
+  // "which flavour we make first" is a lever in a way that "help us improve" is
+  // not. Each screen saves on advance, so leaving at screen 3 keeps 1 and 2.
+  screens: [
+    {
+      id: "product",
+      title: "What would you actually eat?",
+      why: "This decides which flavor we produce first, and how much of it.",
+    },
+    {
+      id: "value",
+      title: "What's it worth to you?",
+      why: "You're setting the launch price. We haven't fixed it yet.",
+    },
+    {
+      id: "reach",
+      title: "Where would you find it?",
+      why: "This decides whether we chase shelves or sell direct.",
+    },
+    {
+      id: "extras",
+      title: "A few optional extras",
+      why: "All opt-in, all skippable. Nothing here is needed to hold your spot.",
+    },
+  ],
+  next: "Continue",
+  nextBusy: "Saving…",
+  back: "Back",
+  finish: "Done",
+  savedNote: "Saved as you go — you can stop anywhere.",
+
+  officeName: "Company",
+  smsDisclosure: "Want launch texts too?",
+  mailDisclosure: "We send handwritten notes. Want one?",
+  mailGate: "Answer anything above first and this opens up.",
 };
 
 // ─── Confirmation ────────────────────────────────────────────────────────────

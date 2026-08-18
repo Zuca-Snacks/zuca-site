@@ -233,6 +233,67 @@ That gives you a reconciliation you should run:
 I expect this to be a small number (VPNs, travellers, misconfigured clocks), but
 it will not be zero.
 
+### 4b. ⚠️ SCHEMA EXTENSION REQUEST — 22 new keys · **blocking for the new fields**
+
+Step 2 now collects considerably more, across four screens. `waitlistSchema` is
+`.strict()`, so **one unrecognised key rejects the entire submission** — which
+is why this is a request rather than a shipped assumption.
+
+**I have not left this to chance.** `post()` detects a 400 on a payload carrying
+extensions, strips to the 16 keys you accept today, and resends once. Verified:
+the downgraded record passes your schema unchanged. So the worst case while you
+catch up is that the extended answers are dropped, never that a submission is
+lost. `payload_downgraded` fires when it happens, so the gap is measurable
+rather than invisible — **if you see that event in production, this section has
+not landed yet.**
+
+Right now `/api/waitlist` does not exist on `main`, so these fall through to the
+Sheets webhook, which accepts anything. The moment your endpoint deploys, the
+downgrade path is what stands between us and losing all of this.
+
+| Key | Type | Notes |
+|---|---|---|
+| `quantity_band` | enum | `lt_4 4_8 9_16 17_30 gt_30` |
+| `channel` | array<enum> max 2 | `online_dtc grocery gym_studio office clinic other` |
+| `channel_other` | string ≤120 | |
+| `referral_source_other` | string ≤120 | |
+| `motivation_other` | string ≤120 | **Art 9** — only with `consent_health` |
+| `dietary` | array<enum> max 3 | **Art 9** — `none nut_allergy gluten_free dairy_free vegan low_sugar other` |
+| `dietary_other` | string ≤120 | **Art 9** |
+| `office_interest` | enum | `yes maybe no` |
+| `company_name` | string ≤80 | |
+| `company_headcount` | enum | `lt_10 10_49 50_199 200_999 gt_1000` |
+| `research_optin` | boolean\|null | |
+| `consent_sms` | boolean, default false | |
+| `phone` | string ≤24 | only with `consent_sms` |
+| `sms_consent_text_version` | version id | |
+| `consent_mail` | boolean, default false | |
+| `address_line1` `address_line2` | string ≤120 | only with `consent_mail` |
+| `address_city` `address_region` | string ≤80 | only with `consent_mail` |
+| `address_postal` | string ≤16 | free-form, **not** the US `zip` regex |
+| `address_country` | string ≤56 | |
+| `mail_consent_text_version` | version id | |
+
+Four things worth your attention rather than a rubber stamp:
+
+1. **`dietary` is Art 9, same as `motivation`.** A nut allergy is health data. It
+   is gated by the *same* single `consent_health` opt-in, whose wording was
+   changed to name both — that minted `mot-eea-2026-08-17-53abe75d`, replacing
+   the 15 Aug version. Please treat `dietary` and `dietary_other` exactly as you
+   treat `motivation`: dropped entirely without `consent_health`. I already drop
+   them client-side, but yours is the copy that matters.
+2. **`phone` needs TCPA-grade handling.** You flagged this yourself. The consent
+   wording is express written consent — sender identified, automated marketing
+   named, not a condition of purchase, rates disclosed, STOP given. `phone` is
+   null unless `consent_sms` is true. If SMS is ever actually sent, that wording
+   is the evidence, and `sms_consent_text_version` points at it.
+3. **`address_postal` must NOT reuse the `zip` rule.** `zip` stays your US-only
+   structured field. This one has to hold `SW1A 1AA` and `100-0001`. Applying
+   the 5-digit regex here would recreate the bug you just fixed, one field over.
+4. **Rate limiting: up to 5 POSTs per signup now**, not 2. Each screen advance
+   upserts, so an abandoned form still keeps what was answered. A limit tuned to
+   2 would break the normal path.
+
 ### 5. Bot signals I already send
 
 - `hp_field` — honeypot, off-screen (not `display:none`). Must be empty.

@@ -222,7 +222,14 @@ export const EVENTS = {
   STEP2_SKIP: "step2_skip",
   SHARE_CLICK: "share_click",
   // Supporting events, outside the core funnel.
+  STEP2_SCREEN_VIEW: "step2_screen_view",
+  STEP2_SCREEN_ADVANCE: "step2_screen_advance",
   STEP2_MOTIVATION_OPEN: "step2_motivation_open",
+  STEP2_OPTIN: "step2_optin",
+  COUNT_INCREMENT: "count_increment",
+  // Fires when the server rejected our extensions and we resent core-only.
+  // If this is non-zero in production, the schema has not caught up yet.
+  PAYLOAD_DOWNGRADED: "payload_downgraded",
   FAQ_OPEN: "faq_open",
 };
 

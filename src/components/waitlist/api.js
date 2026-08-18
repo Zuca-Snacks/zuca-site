@@ -9,7 +9,8 @@
 // so no signup is lost in either direction. Delete FALLBACK_URL and the
 // postFallback() call once /api/waitlist is deployed — see HANDOFF-growth.md.
 
-import { getUtm, getPagePath } from "../../lib/analytics.js";
+import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
+import { OTHER_MAX } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 
@@ -64,41 +65,104 @@ export const RESULT = {
  * server drops `motivation` entirely without it, so it is always sent
  * explicitly — including as `false`, because "no" is a fact worth recording.
  */
+/**
+ * The 16 keys the server's strict schema accepts today. Anything outside this
+ * set is an EXTENSION: valid against the fallback webhook, and a 400 against
+ * `waitlistSchema` until security widens it. `post()` uses this to downgrade
+ * rather than lose a submission — see stripToCore().
+ */
+export const CORE_KEYS = new Set([
+  "email", "zip", "motivation", "intent", "price_band", "flavor", "is_clinician",
+  "referral_source", "consent_marketing", "consent_health", "consent_text_version",
+  "motivation_consent_text_version", "utm", "page_path", "hp_field", "form_render_ts",
+]);
+
+const str = (v, max) => {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t ? t.slice(0, max) : null;
+};
+const arr = (v, max) => (Array.isArray(v) && v.length ? v.slice(0, max) : null);
+
 export function buildPayload({
   email,
   consentMarketing,
   consentHealth = false,
+  consentSms = false,
+  consentMail = false,
   consentTextVersion = null,
   motivationConsentTextVersion = null,
+  smsConsentTextVersion = null,
+  mailConsentTextVersion = null,
   profile = {},
   formRenderTs,
   hpField = "",
 }) {
-  const healthGranted = consentHealth === true;
+  const health = consentHealth === true;
+  const sms = consentSms === true;
+  const mail = consentMail === true;
+  const p = profile;
 
   return {
+    // ── Core: accepted by the strict schema today ───────────────────────────
     email: String(email || "").trim().toLowerCase().slice(0, 254),
-    zip: profile.zip || null,
-    motivation:
-      healthGranted && profile.motivation && profile.motivation.length
-        ? profile.motivation.slice(0, 3)
-        : null,
-    intent: profile.intent ?? null,
-    price_band: profile.price_band ?? null,
-    flavor: profile.flavor ?? null,
-    is_clinician: typeof profile.is_clinician === "boolean" ? profile.is_clinician : null,
-    referral_source: profile.referral_source ?? null,
+    zip: p.zip || null,
+    // Health-adjacent values never travel without their Art 9 opt-in, on our
+    // side as well as the server's.
+    motivation: health ? arr(p.motivation, 3) : null,
+    intent: p.intent ?? null,
+    price_band: p.price_band ?? null,
+    flavor: p.flavor ?? null,
+    is_clinician: typeof p.is_clinician === "boolean" ? p.is_clinician : null,
+    referral_source: p.referral_source ?? null,
     consent_marketing: consentMarketing === true,
-    consent_health: healthGranted,
+    consent_health: health,
     consent_text_version: consentTextVersion || null,
-    motivation_consent_text_version: healthGranted ? motivationConsentTextVersion || null : null,
-    // consent_timestamp — server-set. Never sent from here.
-    // country          — server-derived from request IP. Never sent, never asked.
+    motivation_consent_text_version: health ? motivationConsentTextVersion || null : null,
     utm: getUtm(),
     page_path: getPagePath(),
     hp_field: hpField || null,
     form_render_ts: typeof formRenderTs === "number" ? formRenderTs : null,
+
+    // ── Extensions: pending a schema widening. See HANDOFF-growth.md. ───────
+    motivation_other: health ? str(p.motivation_other, OTHER_MAX) : null,
+    dietary: health ? arr(p.dietary, 3) : null,
+    dietary_other: health ? str(p.dietary_other, OTHER_MAX) : null,
+    referral_source_other: str(p.referral_source_other, OTHER_MAX),
+    quantity_band: p.quantity_band ?? null,
+    channel: arr(p.channel, 2),
+    channel_other: str(p.channel_other, OTHER_MAX),
+    office_interest: p.office_interest ?? null,
+    company_name: str(p.company_name, 80),
+    company_headcount: p.company_headcount ?? null,
+    research_optin: typeof p.research_optin === "boolean" ? p.research_optin : null,
+
+    // Phone and address are inert without their own opt-in. Sending either
+    // while its consent is false would be collecting on a basis we do not have.
+    consent_sms: sms,
+    phone: sms ? str(p.phone, 24) : null,
+    sms_consent_text_version: sms ? smsConsentTextVersion || null : null,
+
+    consent_mail: mail,
+    address_line1: mail ? str(p.address_line1, 120) : null,
+    address_line2: mail ? str(p.address_line2, 120) : null,
+    address_city: mail ? str(p.address_city, 80) : null,
+    address_region: mail ? str(p.address_region, 80) : null,
+    address_postal: mail ? str(p.address_postal, 16) : null,
+    address_country: mail ? str(p.address_country, 56) : null,
+    mail_consent_text_version: mail ? mailConsentTextVersion || null : null,
   };
+}
+
+/** The same record with every extension removed. Always schema-legal. */
+function stripToCore(payload) {
+  const core = {};
+  for (const [k, v] of Object.entries(payload)) if (CORE_KEYS.has(k)) core[k] = v;
+  return core;
+}
+
+/** True when the payload carries a non-null value the strict schema rejects. */
+function hasExtensions(payload) {
+  return Object.entries(payload).some(([k, v]) => !CORE_KEYS.has(k) && v !== null && v !== false);
 }
 
 // ─── Offline queue ───────────────────────────────────────────────────────────
@@ -165,7 +229,7 @@ async function postFallback(payload) {
   return { status: RESULT.OK, via: "fallback" };
 }
 
-async function post(payload) {
+async function post(payload, { downgraded = false } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -184,6 +248,17 @@ async function post(payload) {
       return await postFallback(payload);
     }
 
+    // A 400 on a payload carrying extensions is the predictable case while the
+    // server schema is narrower than the form: it is `.strict()`, so ONE
+    // unrecognised key rejects the entire submission. Retry once with the
+    // extensions removed rather than lose every answer to a schema lag.
+    if (res.status === 400 && hasExtensions(payload)) {
+      track(EVENTS.PAYLOAD_DOWNGRADED, {
+        dropped: Object.keys(payload).filter((k) => !CORE_KEYS.has(k)).length,
+      });
+      return await post(stripToCore(payload), { downgraded: true });
+    }
+
     const result = statusToResult(res.status);
     let position = null;
     try {
@@ -192,7 +267,7 @@ async function post(payload) {
     } catch {
       /* 204, or a body we don't need */
     }
-    return { status: result, position, via: "api" };
+    return { status: result, position, via: downgraded ? "api-core" : "api" };
   } catch {
     // Network error, timeout, CORS rejection, or the route not existing at all.
     try {
