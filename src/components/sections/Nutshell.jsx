@@ -74,7 +74,7 @@ export default function Nutshell() {
   const [ref, near] = useNearViewport();
 
   return (
-    <section className="z-nutshell z-section" aria-labelledby="nutshell-title">
+    <section className="z-nutshell z-section" id="nutshell" aria-labelledby="nutshell-title">
       <h2 id="nutshell-title" className="z-visually-hidden">
         How Zuca works
       </h2>

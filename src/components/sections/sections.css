@@ -258,9 +258,11 @@
   pointer-events: none;
 }
 
-/* Name plate. The artwork's fill is #f1d4a7, DARKER than --z-surface-alt, so
-   --z-brand-ink is only 4.11:1 on it and fails. --z-brand-on-cream is the
-   variant derived for this surface: 4.56:1. */
+/* Name plate. The artwork's fill is #f1d4a7 (sampled, not guessed), DARKER than
+   --z-surface-alt, so --z-brand-ink is only 4.11:1 on it and fails.
+   --z-brand-on-cream is the variant derived for this surface: 4.56:1.
+   Emil asked for #E3001B here on 17 Aug; it measures 3.44:1 on this plate, so
+   this is that colour at the minimum darkening that clears AA. */
 .z-hero__plate-name {
   /* 6.5cqw, measured not guessed: at 7.6cqw "CHOCOLATE RASPBERRY SEA SALT"
      rendered 80px of ink into a 67px content box and spilled off the plate.
@@ -270,23 +272,176 @@
   padding: 0 4%;
 }
 
-/* Maple's name is brown in the comp — and --z-ink is 6.86:1 here. */
-[data-tone='maple'] .z-hero__plate-name { color: var(--z-ink); }
+/* Maple's burnt-orange (Emil, 17 Aug). 5.26:1 on the #f1d4a7 plate, so it is
+   used exactly as authored — no derivation needed. */
+[data-tone='maple'] .z-hero__plate-name { color: var(--z-maple); }
 
-/* Fiber pill. The artwork's pill is pure #000000. */
+/* Fiber pill. The artwork's pill is pure #000000, sampled from the PNG.
+   Both tones fail on it as authored and both use their minimum derivation:
+   #E3001B is 4.28:1 there, #903A0A only 2.80:1. */
 .z-hero__plate-fiber {
   font-size: 5.3cqw;
-  color: var(--z-brand-on-plate); /* 5.03:1 */
+  color: var(--z-brand-on-black); /* 4.50:1 */
 }
 
 [data-tone='maple'] .z-hero__plate-fiber {
-  color: var(--z-warm); /* 11.41:1 */
+  color: var(--z-maple-on-black); /* 4.51:1 */
 }
 
 /* Chips sit on white; --z-ink is 9.79:1. */
 .z-hero__plate-chip {
   font-size: 2.6cqw;
   color: var(--z-ink);
+}
+
+/* --- Flavour detail, tap to open ------------------------------------------
+   The flavour boxes that used to be their own section. TAP, not hover: this is
+   a phone-first page and hover does not exist there. */
+
+/* The trigger covers the whole stack — the union of that flavour's four
+   measured plate rectangles — so the target is enormous rather than a fiddly
+   chevron. The figure is pointer-events:none; this puts them back on for the
+   button alone. */
+.z-hero__flavour-tap {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  display: grid;
+  align-content: end;
+  justify-items: center;
+  border-radius: 12px;
+}
+
+/* The affordance. Small, because the artwork is the hero and this must not
+   compete with it — but the TARGET is the whole stack above, not this glyph,
+   so it is never a small tap target. */
+.z-hero__flavour-more {
+  display: grid;
+  place-items: center;
+  inline-size: 6.4cqw;
+  block-size: 6.4cqw;
+  font-family: var(--z-font-display);
+  font-size: 4.4cqw;
+  line-height: 1;
+  color: var(--z-accent-ink);
+  background: var(--z-brand);
+  border-radius: var(--z-radius-full);
+  /* ⚠️ CLEAR OF THE CHIPS. At translateY(38%) it sat on the chip row and
+     covered the "4g protein" chip — the affordance was hiding the content it
+     was advertising. The union box ends at the chips' baseline, so the glyph
+     has to sit fully BELOW that edge. */
+  transform: translateY(118%);
+}
+
+.z-hero__flavour-tap:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 3px;
+}
+
+.z-hero__flavour-tap[aria-expanded='true'] .z-hero__flavour-more {
+  background: var(--z-brand-dark);
+}
+
+/* ⚠️ A GRID ITEM ON ROWS 3-5, NOT AN INSERTED BLOCK. The poster's rows are
+   fixed fractions of the viewport, so an overlapping item creates no track and
+   shifts nothing — opening the panel cannot move the email field or push the
+   CTA toward the fold. Verified at 360/390/430 and desktop. */
+/* ⚠️ ABSOLUTELY POSITIONED, WITH NO GRID PLACEMENT, AND THAT IS THE POINT.
+   An abspos child of a grid container that sets no grid-row resolves against
+   the container's padding box and takes NO part in track sizing. Two earlier
+   versions did move the page: as a grid item spanning rows 3-5 it pushed the
+   artwork down 70px and the logo card 21px (min-height:0 did not help), and
+   anchored to the artwork box it drifted, because the image OVERFLOWS its row
+   at desktop — 309px of image in a 208px track — so a percentage of the
+   artwork means something different at every width.
+
+   THE INSETS ARE THE POSTER'S OWN ROW BOUNDARIES, which are proportional, so
+   one pair of numbers is correct at every width. From the grid-template-rows
+   above, as running totals of 100.1fr:
+       row 3 (gap below wordmark) starts at 11.69%
+       row 6 (JOIN THE WAITLIST)  starts at 54.85%
+   12.4% and 47% leave a small margin inside both, so the panel never covers the
+   wordmark — the brand mark — and never covers JOIN, the heading of the block
+   it exists to sell. If the row list is retuned, recompute these two numbers.
+   Verified at 360/390/430/768/1280. */
+.z-hero__flavour-panel {
+  position: absolute;
+  inset-block: 12.4% 47%;
+  inset-inline: var(--z-gutter);
+  z-index: 4;
+  max-inline-size: 34rem;
+  margin-inline: auto;
+
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: var(--z-space-2);
+  padding: var(--z-space-4);
+
+  background: var(--z-surface);
+  border: 2px solid var(--z-border);
+  border-radius: 22px;
+  box-shadow: var(--z-shadow-md);
+  text-align: center;
+  /* Safety valve only. The panel is sized to the band; if a longer description
+     ever arrives it scrolls inside itself rather than bursting the poster. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* The photo takes whatever height the band has left after the words, so the
+   panel never needs a fixed height and never overflows the artwork band. */
+.z-hero__flavour-photo {
+  display: block;
+  inline-size: auto;
+  block-size: 100%;
+  max-inline-size: 100%;
+  margin-inline: auto;
+  object-fit: contain;
+  border-radius: 14px;
+}
+
+.z-hero__flavour-name {
+  margin: 0;
+  font-family: var(--z-font-display);
+  font-size: min(2.4svh, 5vw);
+  line-height: 1.1;
+  color: var(--z-brand-ink);
+}
+
+.z-hero__flavour-body {
+  margin: 0;
+  font-size: min(1.9svh, 3.9vw);
+  line-height: 1.35;
+  color: var(--z-ink);
+}
+
+/* Corner X rather than a button in the stack. It is absolutely positioned so it
+   costs the panel no vertical room — every pixel it would have taken goes to
+   the photograph instead, which is the reason the panel exists. */
+.z-hero__flavour-close {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  inline-size: 44px;
+  block-size: 44px;
+  display: grid;
+  place-items: center;
+  font-family: var(--z-font-body);
+  font-size: var(--z-step-1);
+  line-height: 1;
+  color: var(--z-ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.z-hero__flavour-close:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 2px;
 }
 
 /* --- JOIN THE WAITLIST --------------------------------------------------- */
@@ -315,6 +470,10 @@
 .z-hero__capture {
   grid-row: 7;
   align-self: start;
+  /* Air between JOIN THE WAITLIST and the field (Emil, 17 Aug). Expressed in
+     svh so it scales with the poster rather than fighting it on a short phone.
+     Paid for by the smaller field and button below, not by the row budget. */
+  margin-block-start: 1.8svh;
   /* Inset to the artwork's plate column — NOT full bleed. A previous revision
      sized this to the file's ink bounds, which are 98.9% of the width, so the
      field and button ran to both screen edges. The gutter floor keeps it clear
@@ -326,6 +485,27 @@
   margin-inline: auto;
   display: grid;
   gap: var(--z-space-2);
+}
+
+/* Smaller field and button, HERO ONLY (Emil, 17 Aug) — the global primitives
+   stay at 48px for the real form below the fold, where there is no height
+   pressure.
+   ⚠️ 44px IS THE FLOOR, not a starting point. These are the primary CTA and the
+   only input on the first screen; WCAG 2.2 target size and every mobile
+   guideline put the comfortable minimum at 44. The request was "a little
+   smaller", and 48 -> 44 is what "a little" can mean here without making the
+   one thing the page exists for harder to hit.
+   ⚠️ font-size stays >= 16px on the input. Below that iOS zooms the whole page
+   on focus, which throws the composition off the screen mid-signup. */
+.z-hero__capture .z-input {
+  min-height: 44px;
+  padding-block: var(--z-space-2);
+}
+
+.z-hero__capture .z-btn {
+  min-height: 44px;
+  padding-block: var(--z-space-2);
+  font-size: var(--z-step-0);
 }
 
 /* --- Supporter wall ------------------------------------------------------ */
@@ -342,6 +522,10 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--z-ink);
+  /* Air between the label and the card (Emil, 17 Aug). This element is
+     align-self:end, so a bottom margin lifts IT rather than pushing the card
+     down — the gap grows without the wall moving toward the fold. */
+  margin-block-end: 1.6svh;
 }
 
 /* The wall is a contained block, not eleven floating logos. The artwork ships
@@ -452,6 +636,94 @@
   align-self: center;
 }
 
+/* ─── Taster quotes — hand-drawn speech bubbles around the h1 ─────────────
+   The "marker" treatment (Emil, 17 Aug), chosen over the cream-card version
+   because it sits in the page plane rather than on cards floating above it, and
+   because the brand has no chat UI anywhere else for a tailed bubble to belong
+   to. The starburst and cream-bubble treatments were deleted, not commented out.
+
+   ⚠️ RHYTHM: the outlines ALTERNATE red / amber down the column. Five identical
+   red outlines stacked up read as a wall rather than as five separate people
+   talking. Do not "tidy" this back to one colour.
+
+   ⚠️ WHY AMBER IS A FILL AND RED IS AN OUTLINE, rather than both being outlines:
+   --z-warm as a stroke is 1.68:1 on --z-surface-alt. That is not a threshold
+   miss, it is invisible — the line reads as a smudge at arm's length. Amber
+   earns its place as a FILL, where --z-ink on it is 5.32:1, and the alternation
+   between an outlined shape and a filled one breaks the repetition harder than
+   two outline colours would.
+
+   NO FIXED HEIGHTS ANYWHERE. Every bubble is sized by its own text, so a quote
+   that wraps to four lines at 360px grows its shape instead of spilling out.
+
+   Contrast, measured:
+     --z-ink on --z-surface-alt  8.92:1   text in an outlined quote
+     --z-ink on --z-warm         5.32:1   text in a filled quote
+     --z-brand on --z-surface-alt 4.47:1  the outline itself, a non-text
+                                          graphic, needs only 3:1
+
+   No images and no web requests: the section is CSS and one inline path. */
+
+.z-quotes {
+  display: grid;
+  gap: var(--z-space-4);
+  container-type: inline-size;
+}
+
+.z-quote {
+  position: relative;
+  margin: 0;
+  padding: var(--z-space-4) var(--z-space-5);
+  color: var(--z-ink);
+  /* Quotes never span the full column — one that reaches both edges reads as a
+     paragraph, which is the thing being replaced. */
+  max-width: min(24rem, 88%);
+  /* Slight hand-placed rotation. Kept under 2deg so the rotated corners stay
+     inside the container and nothing clips at 360px. */
+  rotate: -1.2deg;
+}
+
+.z-quote[data-side='end'] { justify-self: end; rotate: 1.4deg; }
+.z-quote[data-i='1'] { rotate: 0.9deg; }
+.z-quote[data-i='2'] { rotate: -0.6deg; }
+
+@media (prefers-reduced-motion: reduce) {
+  .z-quote { rotate: none; }
+}
+
+.z-quote__text {
+  position: relative;
+  z-index: 1;                     /* above the frame, so no stroke crosses a letter */
+  margin: 0;
+  font-family: var(--z-font-display);
+  /* 20px at 360 -> 22px on desktop. Fluid so a long quote shrinks its type
+     rather than bursting its shape. */
+  font-size: clamp(1.0625rem, 0.92rem + 1.5vw, 1.375rem);
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+/* Same path either way — one fills, one outlines. That is the alternation. */
+.z-quote__frame {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.z-quote[data-accent='red'] .z-quote__frame {
+  fill: none;
+  stroke: var(--z-brand);
+}
+
+.z-quote[data-accent='amber'] .z-quote__frame {
+  fill: var(--z-warm);
+  stroke: var(--z-warm);
+}
+
 /* ─── Nutshell — three composed blocks ──────────────────────────────────── */
 
 .z-nutshell { background: var(--z-bg); }
@@ -477,6 +749,14 @@
   isolation: isolate;
   overflow: hidden;
   padding-block: var(--z-section-y);
+  /* Clear space for the fruit row underneath (Emil, 17 Aug — the text was
+     running over the illustrations).
+     ONE custom property drives both the art's height and the padding that
+     reserves room for it, so the two cannot drift apart. Do not replace this
+     with a percentage or a cqh: the art's height would then depend on the
+     section's height, which depends on this padding, which is a cycle. */
+  --gap-art-h: clamp(88px, 26vw, 190px);
+  padding-block-end: calc(var(--z-section-y) + var(--gap-art-h));
   background: var(--z-surface-alt);
   border-block: 1px solid var(--z-border);
   text-align: center;
@@ -533,13 +813,21 @@
    were measured loading ~185ms into the page, alongside the LCP image, costing
    0.2s. Keep the URL out of the base rule. */
 
+/* ⚠️ The fruit row is a BAND AT THE BOTTOM, and the text must clear it — the
+   figure and label were running straight over the illustrations (Emil, 17 Aug).
+   Two changes, and they work together: the art keeps its own height, and the
+   section reserves that much padding beneath the text so nothing can overlap.
+   Raising the opacity (0.32 -> 0.62) made the collision much more visible, so
+   the clearance is not optional once the art is bright. */
 .z-gap__art {
   position: absolute;
   inset: auto 0 0;
-  height: 55%;
+  height: var(--gap-art-h);
   z-index: -1;
   pointer-events: none;
-  opacity: 0.32;
+  /* Brighter (Emil, 17 Aug). It is decorative and sits behind nothing now that
+     the text clears it, so it can carry real colour. */
+  opacity: 0.62;
   background-repeat: no-repeat;
   background-position: center bottom;
   background-size: contain;
@@ -575,15 +863,6 @@
   );
 }
 
-/* ─── Numbers ────────────────────────────────────────────────────────────── */
-
-.z-numbers__grid {
-  display: grid;
-  gap: var(--z-space-4);
-  list-style: none;
-  margin-top: var(--z-space-6);
-}
-
 .z-number {
   display: grid;
   gap: var(--z-space-1);
@@ -607,180 +886,6 @@
 .z-number__note {
   font-size: var(--z-step--1);
   color: var(--z-ink-muted);
-}
-
-@media (min-width: 40em) {
-  .z-numbers__grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-/* ─── How it's made (inverted band) ──────────────────────────────────────── */
-
-.z-process {
-  background: var(--z-ink-surface);
-  color: var(--z-on-ink);
-}
-
-.z-process h2 { color: var(--z-on-ink); }
-
-.z-process__lede {
-  color: var(--z-on-ink-muted);
-  font-size: var(--z-step-1);
-  margin-top: var(--z-space-4);
-}
-
-.z-process__steps {
-  display: grid;
-  gap: var(--z-space-5);
-  margin-top: var(--z-space-7);
-  list-style: none;
-  counter-reset: step;
-}
-
-.z-process__step {
-  counter-increment: step;
-  display: grid;
-  gap: var(--z-space-2);
-  padding-top: var(--z-space-4);
-  border-top: 1px solid color-mix(in srgb, var(--z-on-ink) 25%, transparent);
-}
-
-.z-process__step::before {
-  content: counter(step, decimal-leading-zero);
-  font-family: var(--z-font-display);
-  font-size: var(--z-step-1);
-  color: var(--z-warm);
-  line-height: 1;
-}
-
-.z-process__step h3 {
-  font-size: var(--z-step-2);
-  color: var(--z-on-ink);
-}
-
-.z-process__step p { color: var(--z-on-ink-muted); }
-
-@media (min-width: 48em) {
-  .z-process__steps { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
-}
-
-/* ─── Process strip (five photographic steps) ────────────────────────────── */
-/* Sits on the dark green band. All colour here comes from the photographs —
-   the tan of the milled pulp and the crimson of the raspberry are more
-   saturated than anything in the token palette, and a photograph carries no
-   contrast obligation. Amber is used only as a numeral on the dark band, where
-   it measures 6.86:1; it is never text on cream. */
-
-.z-process-strip {
-  display: grid;
-  gap: var(--z-space-5);
-  margin-top: var(--z-space-7);
-  list-style: none;
-  counter-reset: none;
-}
-
-/* Two per row from 352px up, so every phone in the test matrix gets the strip
-   rather than five stacked full-width squares. The fifth step takes the full
-   width of the last row, which reads as the finished article rather than an
-   orphan. */
-@media (min-width: 22em) {
-  .z-process-strip { grid-template-columns: repeat(2, 1fr); }
-  .z-process-step:last-child { grid-column: 1 / -1; }
-  /* Matches the width of the four tiles above it rather than being arbitrarily
-     larger. Two reasons: the strip reads as one set instead of one odd tile,
-     and it lets the browser reuse the hero's already-downloaded 360px variant
-     of this same crop. At 60% it rendered wide enough to select the 640px
-     variant instead, costing 53KB for a below-the-fold decorative tile. */
-  .z-process-step:last-child .z-process-step__media {
-    max-width: calc(50% - var(--z-space-3) / 2);
-  }
-}
-
-@media (min-width: 60em) {
-  .z-process-step:last-child { grid-column: auto; }
-  .z-process-step:last-child .z-process-step__media { max-width: none; }
-}
-
-@media (min-width: 60em) {
-  .z-process-strip {
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--z-space-4);
-  }
-}
-
-.z-process-step {
-  display: grid;
-  gap: var(--z-space-2);
-  align-content: start;
-  min-width: 0;
-}
-
-.z-process-step__media {
-  position: relative;
-  border-radius: var(--z-radius-md);
-  overflow: hidden;
-  background: color-mix(in srgb, var(--z-on-ink) 8%, transparent);
-}
-
-.z-process-step__media img {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-}
-
-
-/* Placeholder for a step with no photograph yet. Deliberately reads as an
-   empty numbered plate rather than a broken image or a fake photo. */
-.z-process-step__placeholder {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1 / 1;
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      color-mix(in srgb, var(--z-on-ink) 6%, transparent) 0 6px,
-      transparent 6px 12px
-    );
-  border: 1px dashed color-mix(in srgb, var(--z-on-ink) 30%, transparent);
-  border-radius: var(--z-radius-md);
-}
-
-.z-process-step__placeholder span {
-  font-family: var(--z-font-display);
-  font-size: var(--z-step-2);
-  color: color-mix(in srgb, var(--z-on-ink) 45%, transparent);
-}
-
-/* The step number, stamped on the corner of the plate. */
-.z-process-step__num {
-  position: absolute;
-  top: var(--z-space-2);
-  left: var(--z-space-2);
-
-  display: grid;
-  place-items: center;
-  min-width: 1.75rem;
-  height: 1.75rem;
-  padding-inline: var(--z-space-1);
-
-  font-family: var(--z-font-display);
-  font-size: var(--z-step--1);
-  line-height: 1;
-
-  color: var(--z-ink);
-  background: var(--z-warm);
-  border-radius: var(--z-radius-full);
-}
-
-.z-process-step__title {
-  font-size: var(--z-step-1);
-  color: var(--z-on-ink);
-}
-
-.z-process-step__body {
-  font-size: var(--z-step--1);
-  line-height: 1.5;
-  color: var(--z-on-ink-muted);
 }
 
 /* ─── Founders ───────────────────────────────────────────────────────────── */
@@ -895,33 +1000,6 @@
   max-width: 45rem;
   height: auto;
   margin: var(--z-space-5) auto 0;
-}
-
-/* ─── Flavors ────────────────────────────────────────────────────────────── */
-
-.z-flavors__grid {
-  display: grid;
-  gap: var(--z-space-5);
-  margin-top: var(--z-space-6);
-  list-style: none;
-}
-
-.z-flavor__media { background: var(--z-surface-alt); }
-
-.z-flavor__media img {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  object-fit: cover;
-}
-
-.z-flavor__body { padding: var(--z-space-5); display: grid; gap: var(--z-space-3); }
-
-.z-flavor__name { font-size: var(--z-step-2); }
-
-.z-flavor__pills { display: flex; flex-wrap: wrap; gap: var(--z-space-2); list-style: none; }
-
-@media (min-width: 40em) {
-  .z-flavors__grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ─── FAQ ────────────────────────────────────────────────────────────────── */

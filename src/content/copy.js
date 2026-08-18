@@ -144,6 +144,22 @@ export const hero = {
   // Shown directly under the email field. Removes the two objections that stop
   // an email being typed: what happens next, and how hard is it to leave.
   reassurance: "One email. No payment, no spam, unsubscribe in one click.",
+
+  // ⚠️ GROWTH TO CONFIRM THE WORDING. Shown in place of the live waitlist count
+  // whenever the count is unavailable. Until the count endpoint has its env
+  // vars that is EVERY visit, so this is the line most people actually read —
+  // it is not an edge case.
+  //
+  // Added by UX 17 Aug at Emil's instruction, quoting growth's own line from
+  // memory. `hero.countFallback` was referenced by HeroCapture but had never
+  // been defined, so the component silently fell through to `subhead` — which
+  // is why "Two flavors, no added sugar…" was appearing there. That line has
+  // been replaced by the taster quotes, so this key now has to carry the state
+  // on its own. If growth wrote different words, replace this string; the
+  // reference is already correct.
+  //
+  // No pre-order language: it promises an email, not an order.
+  countFallback: "You'll hear the ship date before it's public.",
 };
 
 // ─── Proof strip ─────────────────────────────────────────────────────────────
@@ -210,10 +226,17 @@ export const introLines = [
 ];
 
 // ─── Founder credentials ─────────────────────────────────────────────────────
+// ⚠️ ROLES SET BY EMIL, 17 Aug — "Emil Nordin — Founder & CEO", "Kelley Yuan —
+// Founding CMO". They replaced "Chef & Co-Founder" and "Physician &
+// Co-Founder". Growth owns this file; UX made the edit because Emil gave the
+// exact strings. Flagged in HANDOFF-ux.md. Note that Kelley's NAME was left as
+// "Kelley Yuan, MD" — Emil wrote it without the postnominal, but he was giving
+// a title, not renaming her, and the MD is load-bearing next to the clinical
+// credentials below. Confirm before changing it.
 export const founders = [
   {
     name: "Emil Nordin",
-    role: "Chef & Co-Founder",
+    role: "Founder & CEO",
     creds: [
       "Norway's Most Promising Young Chef, 2021",
       "Michelin-trained at Restaurant Kontrast (2 stars + Green Star)",
@@ -223,7 +246,7 @@ export const founders = [
   },
   {
     name: "Kelley Yuan, MD",
-    role: "Physician & Co-Founder",
+    role: "Founding CMO",
     creds: [
       "Stanford Medicine physician",
       "Stanford Sustainability Fellow",

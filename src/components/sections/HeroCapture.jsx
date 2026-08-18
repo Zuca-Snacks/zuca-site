@@ -15,8 +15,9 @@
  * empty band between JOIN THE WAITLIST and SUPPORTED BY. This section carries
  * only what the comp does not draw.
  */
-import { hero as copy, introLines, proof } from '../../content/copy.js';
+import { hero as copy, proof } from '../../content/copy.js';
 import useWaitlistCount from '../../hooks/useWaitlistCount.js';
+import TasterQuotes from './TasterQuotes.jsx';
 
 export default function HeroCapture() {
   const count = useWaitlistCount();
@@ -25,12 +26,23 @@ export default function HeroCapture() {
   return (
     <section className="z-capture z-section" id="capture" tabIndex={-1}>
       <div className="z-container z-capture__inner">
-        <p className="z-capture__tagline">{introLines[0].replace(/,$/, '')}</p>
+        {/* Was introLines[0], the credential line. Replaced by taster quotes
+            (Emil, 17 Aug). The credential claim itself is not lost — it is
+            still made once, in the hero. */}
+        <TasterQuotes slot="lede" />
 
+        {/* ⚠️ THE PAGE'S ONLY <h1>, and it stays exactly as written. */}
         <h1 className="z-capture__title">{copy.headline}</h1>
 
-        {/* Reserves its height so an arriving number cannot shift the button
-            above it; renders a static line rather than a blank when absent. */}
+        <TasterQuotes slot="coda" />
+
+        {/* Reserves its height so an arriving number cannot shift anything.
+            ⚠️ The empty state must never be blank. It no longer falls back to
+            copy.subhead — that was the "Two flavors, no added sugar…" line the
+            quotes replaced — so it uses copy.countFallback, which is growth's
+            purpose-made string for exactly this state. Until the count endpoint
+            has its env vars, THIS is the state that ships, so it is the line
+            most visitors will actually read. */}
         <div className="z-capture__count" data-has-count={hasCount ? 'true' : 'false'}>
           {hasCount ? (
             <>
@@ -38,9 +50,7 @@ export default function HeroCapture() {
               <span className="z-capture__count-word">{proof.liveLabel}</span>
             </>
           ) : (
-            <p className="z-capture__count-fallback">
-              {copy.countFallback ?? copy.subhead}
-            </p>
+            <p className="z-capture__count-fallback">{copy.countFallback}</p>
           )}
         </div>
       </div>

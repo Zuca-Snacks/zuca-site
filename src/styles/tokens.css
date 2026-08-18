@@ -24,11 +24,19 @@
 
    COMPUTED ONCE, RE-DERIVE BY HAND if the parent changes:
      --z-brand-ink       <- --z-brand    minimum darkening clearing 4.5:1 on cream
-     --z-brand-on-plate  <- --z-brand    minimum lightening clearing 4.5:1 on plate
+     --z-brand-on-black  <- --z-brand    minimum lightening clearing 4.5:1 on the
+                                         artwork's #000000 fiber pill
      --z-brand-on-cream  <- --z-brand    minimum darkening clearing 4.5:1 on the
                                          artwork name plate (#F1D4A7)
      --z-brand-dark      <- --z-brand    18% darker; hover/pressed fills only
+     --z-maple-on-black  <- --z-maple    minimum lightening clearing 4.5:1 on the
+                                         artwork's #000000 fiber pill
      --z-ink-muted       <- --gray #888888 (brand grey) darkened to clear 4.5:1
+
+   ⚠️ A DERIVED VALUE IS ONLY AS GOOD AS THE SURFACE IT WAS DERIVED AGAINST.
+   --z-brand-on-plate was correct arithmetic against #111111, a surface that did
+   not exist — the artwork's pill is #000000. Sample the real fill before
+   deriving anything for artwork; scripts/measure-plates.mjs prints all eight.
 
    DERIVED LIVE by color-mix(), these can never go stale:
      --z-shadow-sm / --z-shadow-md          <- --z-ink
@@ -92,13 +100,16 @@
      Same pattern as --z-ink-muted. */
   --z-brand-ink: #cc0018;   /* 4.61:1 on bg · 5.77:1 on surface */
 
-  /* [DERIVED from --z-brand] Red on the near-black spec plate. The brand red is
-     3.85:1 there and the plate text is below the large-text threshold, so this
-     is the minimum lightening that clears 4.5:1 — 20% toward white, same hue.
-     ⚠️ Derived value with a named parent: previously #D74975, which was derived
-     from the OLD brand red and was therefore left pointing at the wrong parent.
-     If --z-brand moves again, re-derive this too. */
-  --z-brand-on-plate: #e93349; /* 4.53:1 on --z-plate */
+  /* [DERIVED from --z-brand] Red on the artwork's fiber pill.
+     ⚠️ THE PILL IS PURE #000000, sampled out of hero-flavours.png — NOT the
+     #111111 that the retired --z-plate token claimed. The old value here
+     (#e93349) had been derived against #111111 and was 20% toward white, which
+     made it visibly pink rather than red. Re-derived 17 Aug against the real
+     surface: this is the MINIMUM lightening of --z-brand that clears 4.5:1 on
+     black — 1.3%, same hue and saturation, so it reads as the brand red.
+     ⚠️ Derived value with a named parent. Re-derive if --z-brand moves, and
+     re-sample if the artwork is re-exported with a different pill fill. */
+  --z-brand-on-black: #ea001c; /* 4.50:1 on the #000000 pill */
 
   /* [DERIVED from --z-brand] Red on the flavour artwork's cream name plate.
      That plate is #F1D4A7 — measured out of the PNG, and darker than
@@ -109,10 +120,25 @@
      re-check if the artwork is re-exported with a different plate fill. */
   --z-brand-on-cream: #bf0017;
 
-  /* [INVENTED] The near-black spec plate from the comps. Authored, not derived
-     — it is its own colour, not a shade of the brand. Was a bare #111111
-     repeated in seven rules. */
-  --z-plate: #111111;
+  /* --z-plate (#111111) was DELETED on 17 Aug. It had no users left, and it was
+     wrong: it claimed to describe the artwork's spec plate, but the artwork's
+     pill samples as pure #000000. A token that describes a surface inaccurately
+     is worse than no token, because every colour derived against it inherits
+     the error — which is exactly what happened to --z-brand-on-plate. Sample
+     the PNG (scripts/measure-plates.mjs prints the fills) rather than
+     reintroducing a constant for it. */
+
+  /* [BRAND, Emil 17 Aug] Maple's burnt-orange. Authored, not derived — it is
+     its own colour, not a shade of the brand red. 5.26:1 on the artwork's
+     #f1d4a7 name plate, so it is used there exactly as given. */
+  --z-maple: #903a0a;
+
+  /* [DERIVED from --z-maple] The same burnt-orange on the #000000 fiber pill,
+     where --z-maple itself is only 2.80:1. Minimum lightening that clears
+     4.5:1 — 11.1%, same hue and saturation.
+     ⚠️ Derived value with a named parent. Re-derive if --z-maple moves. */
+  --z-maple-on-black: #c54f0e; /* 4.51:1 on the #000000 pill */
+
   --z-accent-ink: #fffdf8;  /* [BRAND] --white on the brand red = 4.83:1 */
   --z-warm: #fdb026;        /* [BRAND] --amber — fills and dark-band text only */
 

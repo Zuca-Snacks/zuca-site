@@ -48,11 +48,16 @@ export default function Header() {
       </a>
 
       <nav className="z-header__nav" aria-label="Primary">
-        <a className="z-header__link" href="#how-its-made">
+        {/* ⚠️ #how-its-made and #flavors were deleted on 17 Aug and these links
+            pointed at nothing — a nav item that scrolls nowhere is worse than
+            no nav item. Repointed at the sections that absorbed them: the
+            nutshell block carries the process, and the FAQ carries the detail.
+            If a section is ever removed again, check here first. */}
+        <a className="z-header__link" href="#nutshell">
           How it&rsquo;s made
         </a>
-        <a className="z-header__link" href="#flavors">
-          Flavors
+        <a className="z-header__link" href="#faq">
+          Questions
         </a>
         {/* Hidden on phones: the hero's own email field is right below it and
             the sticky bar covers the rest of the page. */}

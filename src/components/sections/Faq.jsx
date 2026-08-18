@@ -24,7 +24,7 @@ const ITEMS = faq.map((item, i) => ({
 
 export default function Faq() {
   return (
-    <section className="z-section z-container z-reveal" aria-labelledby="faq-title">
+    <section className="z-section z-container z-reveal" id="faq" aria-labelledby="faq-title">
       <span className="z-section__eyebrow">Questions</span>
       <h2 id="faq-title">{sections.faq.title}</h2>
       <div className="z-faq__list">

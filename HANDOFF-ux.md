@@ -508,6 +508,56 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **🔴🔴 REGULATED CLAIM — remove every bare "no added sugar" from `copy.js`.**
+  Emil, 17 Aug: **the correct wording is "no refined sugar added."**
+  "No added sugars" is a **regulated nutrient-content claim** under 21 CFR
+  101.60(c)(2), and Zuca cannot make it if maple syrup is a sweetener — maple
+  syrup *is* an added sugar. This is not a tone preference; it is the same
+  category of problem as the pre-order language, and it is currently on the page
+  in four places, all in your file:
+    - `HEADLINES.a.subhead` — "Two flavors, no added sugar, and about 40%…"
+    - `HEADLINES.b.subhead` — "10g of fiber, 150 calories, no added sugar."
+    - `HEADLINES.c.subhead` — "150 calories. No added sugar."
+    - `faq` tree-nut answer — "6g natural sugar, no added sugar."
+  Also re-check `numbers.items` — it carried `{ value: "0g", unit: "added
+  sugar", note: "The sweetness is the fruit. Nothing is added to it." }`. The
+  section that rendered it is deleted, so it is not on the page, but the string
+  is still in `copy.js` and **"0g added sugar" is the same claim stated as a
+  number**, with a note that reinforces it. Do not let it come back with a
+  future section.
+  I did **not** edit any of these — Emil's instruction was explicit that these
+  are yours. The only place UX changed the wording is the flavour-detail panel
+  in the hero, which is my file and never said it.
+
+- **Founder roles were changed in `copy.js` by UX on 17 Aug**, at Emil's
+  instruction and with his exact strings: "Chef & Co-Founder" → **"Founder &
+  CEO"**, "Physician & Co-Founder" → **"Founding CMO"**. Flagging because it is
+  your file. Kelley's `name` was deliberately left as "Kelley Yuan, MD" — Emil
+  wrote it without the postnominal, but he was giving a title rather than
+  renaming her, and the MD does real work beside the clinical credentials.
+
+- **🔴 `hero.countFallback` — confirm the wording, it is now the default state.**
+  `HeroCapture` had always referenced `copy.countFallback`, but that key **did
+  not exist in `copy.js`**, so the `?? copy.subhead` fallback silently rendered
+  "Two flavors, no added sugar, and about 40% of your daily fiber in one bite."
+  in the count band instead. Emil replaced the paragraph copy in that section
+  with taster quotes on 17 Aug, which removed `subhead` from the section
+  entirely, so the missing key would have shipped a blank band.
+  I added the key using the line Emil quoted from memory as yours:
+  **"You'll hear the ship date before it's public."**
+  Two things for you:
+    1. **If you wrote different words, replace the string** — the reference in
+       `HeroCapture` is already correct, so it is a one-line edit in `copy.js`.
+    2. **Treat this as primary copy, not an edge case.** Until the count
+       endpoint has its env vars, the count is unavailable on *every* visit, so
+       this is the line essentially all traffic reads. It is the only social
+       proof in that band while the number is missing.
+- **The taster quotes are not yours to A/B against the count.** Five real
+  testimonials now sit above and below the `<h1>` as `<blockquote>`s. They carry
+  no attribution because we have no consented names. Do not add a linking
+  sentence joining them to a fiber or health claim — an opinion placed beside a
+  health claim reads as evidence for it.
+
 - **Your mount point is ready.** `src/components/sections/WaitlistSlot.jsx`
   renders `<section id="waitlist" class="z-waitlist-slot">`. Pass your form as
   children: `<WaitlistSlot><MyForm /></WaitlistSlot>` in `src/App.jsx`. A styled
@@ -576,6 +626,27 @@ WebP + JPEG at every needed width. Add a job entry per new image.
   migrate or delete. Nothing imports it.
 
 ### For the security agent (`sec/hardening`)
+
+- **🔴 `public/privacy.html:79` asserts a customer geography we cannot support —
+  remove the claim rather than reversing it (Emil, 17 Aug).**
+  The callout currently opens:
+  > **Most of the people on our waitlist are in Norway and the EEA.**
+
+  Emil's decision: **our own signup data doesn't support either version
+  cleanly**, so do not flip it to "most are in the US" — delete the assertion.
+  A privacy policy does not need to claim where customers live; it needs to say
+  which regimes apply and give everyone the stronger standard, which the very
+  next sentence already does.
+
+  Suggested replacement, preserving the paragraph's actual job:
+  > This policy is written primarily around the **GDPR**, which gives you the
+  > strongest set of rights, and it applies to everyone on our waitlist wherever
+  > they live. Where California law (CCPA/CPRA) adds something different, that
+  > is set out in [section 9](#california).
+
+  The second paragraph ("Everyone gets the GDPR standard, wherever they live")
+  then follows correctly and is arguably now redundant — your call.
+  Not edited by UX: the file is yours.
 
 - **A live Google Apps Script webhook URL is hardcoded** at
   `src/zuca-gate-v4.jsx:5`. It is no longer called (the file is unreferenced) but

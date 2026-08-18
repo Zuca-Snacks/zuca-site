@@ -18,7 +18,7 @@
  * JOIN THE WAITLIST is a real control, not a caption: it scrolls to the capture
  * block and focuses the email field.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
 import { ACTIVE_CTA } from '../../content/copy.js';
@@ -28,9 +28,32 @@ import { PLATES } from './platePositions.js';
    botanicals, aligned to each other inside the file. The image is the CHROME;
    HTML supplies only the WORDS, positioned over the plate rectangles measured
    by scripts/measure-plates.mjs. Nothing here rebuilds a plate or a border. */
+/* `detail` is the flavour box that used to be its own section further down the
+   page. That section is deleted; the same photo and description now surface by
+   TAPPING a flavour in the hero.
+   ⚠️ NOT hover — a phone has no hover, and this is a mobile-first page. It is a
+   disclosure button with aria-expanded, so it works by tap, by Enter/Space and
+   by screen reader alike. */
 const FLAVOURS = [
-  { tone: 'berry', name: 'Chocolate Raspberry Sea Salt' },
-  { tone: 'maple', name: 'Maple Pecan' },
+  {
+    tone: 'berry',
+    name: 'Chocolate Raspberry Sea Salt',
+    detail: {
+      slug: 'flavor-chocolate-raspberry',
+      alt: 'Zuca chocolate raspberry sea salt bites, coated in freeze-dried raspberry powder.',
+      body:
+        'Tart raspberry against dark cocoa, finished with enough sea salt to keep it from being a dessert you get bored of.',
+    },
+  },
+  {
+    tone: 'maple',
+    name: 'Maple Pecan',
+    detail: {
+      slug: 'flavor-maple-pecan',
+      alt: 'Zuca maple pecan bites, rolled in toasted pecan and maple.',
+      body: 'Toasted pecan and real maple. Warm, nutty, and gently sweet rather than sugary.',
+    },
+  },
 ];
 
 const CHIP_TEXT = ['150 kcal', '4g protein'];
@@ -56,6 +79,19 @@ const box = (r) => ({
   height: `${r.height}%`,
 });
 
+/* The tap region for a flavour: the union of its four measured rectangles, so
+   the whole stack is the target rather than a small chevron. Derived from the
+   same measurements as the text, so it tracks a re-exported artwork instead of
+   drifting off it. */
+function unionBox(tone) {
+  const rs = [PLATES[tone].name, PLATES[tone].pill, ...PLATES[tone].chips];
+  const left = Math.min(...rs.map((r) => r.left));
+  const top = Math.min(...rs.map((r) => r.top));
+  const right = Math.max(...rs.map((r) => r.left + r.width));
+  const bottom = Math.max(...rs.map((r) => r.top + r.height));
+  return { left, top, width: right - left, height: bottom - top };
+}
+
 const LOGO_ALT =
   'Supported by Stanford Mussallem Center for Biodesign, Stanford Medicine, ' +
   'A Little Bird, Strike, Cooley, Cardinal Ventures, Step Change Innovations, ' +
@@ -63,6 +99,21 @@ const LOGO_ALT =
 
 export default function Hero() {
   const [email, setEmail] = useState('');
+  /* Which flavour's detail panel is open, or null. */
+  const [open, setOpen] = useState(null);
+
+  /* Escape closes it. A disclosure is not a modal — focus is not trapped and
+     the page behind stays operable — but Escape is still the key everyone
+     reaches for, and without it a keyboard user has to tab back to the
+     trigger. */
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
 
   /* Presentational shell — POSTs nowhere. Dispatches zuca:hero-email and hands
      off to growth's real form at #waitlist, which prefills from it. */
@@ -148,10 +199,86 @@ export default function Hero() {
                   {CHIP_TEXT[i]}
                 </p>
               ))}
+
+              {/* The disclosure. Sits ABOVE the text overlays in the stacking
+                  order and is the only thing in the figure that takes a
+                  pointer event, so a tap anywhere on the stack opens it. */}
+              <button
+                type="button"
+                className="z-hero__flavour-tap"
+                style={box(unionBox(f.tone))}
+                aria-expanded={open === f.tone}
+                aria-controls={`flavour-detail-${f.tone}`}
+                onClick={() => setOpen(open === f.tone ? null : f.tone)}
+              >
+                {/* The visible "+" is decorative; the button's accessible name
+                    is this text, which says what tapping actually does. */}
+                <span className="z-visually-hidden">{`About ${f.name}`}</span>
+                <span className="z-hero__flavour-more" aria-hidden="true">
+                  +
+                </span>
+              </button>
             </figure>
           );
         })}
       </div>
+
+      {/* Detail panel.
+          ⚠️ A DIRECT CHILD OF THE POSTER, ABSOLUTELY POSITIONED, WITH NO GRID
+          PLACEMENT. That combination is what makes it inert: an abspos child of
+          a grid container that sets no grid-row resolves against the container's
+          padding box and takes no part in track sizing at all. Two earlier
+          versions did move the page — a grid item spanning rows 3-5 shifted the
+          artwork 70px, and anchoring to the artwork box drifted because the
+          image OVERFLOWS its row at desktop (309px of image in a 208px track),
+          so "a percentage of the artwork" means something different at every
+          width. Poster percentages are width-independent because the rows are.
+          Rendered only while open, so the photograph is never requested on
+          first load and cannot touch LCP. */}
+      {FLAVOURS.map((f) =>
+        open === f.tone ? (
+          <div
+            className="z-hero__flavour-panel"
+            id={`flavour-detail-${f.tone}`}
+            key={f.tone}
+            role="group"
+            aria-label={f.name}
+          >
+            <picture>
+              <source
+                type="image/avif"
+                srcSet={`/images/${f.detail.slug}-360.avif 360w, /images/${f.detail.slug}-640.avif 640w`}
+                sizes="(min-width: 35em) 320px, 68vw"
+              />
+              <source
+                type="image/webp"
+                srcSet={`/images/${f.detail.slug}-360.webp 360w, /images/${f.detail.slug}-640.webp 640w`}
+                sizes="(min-width: 35em) 320px, 68vw"
+              />
+              <img
+                className="z-hero__flavour-photo"
+                src={`/images/${f.detail.slug}-360.webp`}
+                width="640"
+                height="640"
+                alt={f.detail.alt}
+                decoding="async"
+              />
+            </picture>
+            <p className="z-hero__flavour-name">{f.name}</p>
+            <p className="z-hero__flavour-body">{f.detail.body}</p>
+            <button
+              type="button"
+              className="z-hero__flavour-close"
+              onClick={() => setOpen(null)}
+              aria-label={`Close ${f.name}`}
+            >
+              {/* The glyph is decorative; aria-label carries the real name, so
+                  a screen reader hears "Close Maple Pecan", not "times". */}
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        ) : null
+      )}
 
       {/* A heading for the capture block, not a control — the field is on this
           screen now, so there is nothing to scroll to. Kept as a <p> rather
