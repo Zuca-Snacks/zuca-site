@@ -61,6 +61,72 @@ const CHIP_TEXT = ['150 kcal', '4g protein'];
 /* Which CTA treatment to render: 'solid' | 'ghost'. */
 const CTA_STYLE = 'solid';
 
+/* Which waitlist treatment to render: 'plate' | 'marked'.
+   'plate'  — the block sits on a hand-drawn plate, the same device the flavour
+              artwork uses for its name plates, so the destination is built from
+              the poster's own vocabulary.
+   'marked' — no card. The heading is underlined with a marker scribble and an
+              arrow curves down to the field, so the composition points at it. */
+const WAITLIST_STYLE = 'plate';
+
+/* Hand-drawn plate behind the waitlist block. Same technique as the quote
+   frames: one path stretched by its box, with a non-scaling stroke so the line
+   keeps its weight whatever the block's size. */
+function PlateFrame() {
+  return (
+    <svg
+      className="z-hero__plate-frame"
+      viewBox="0 0 200 100"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M12 7 C58 2 142 3 188 8 C195 9 197 15 196 28 C195 51 197 74 193 88
+           C192 94 185 96 170 96 L58 97 C33 97 11 98 7 93 C3 86 3 58 4 34
+           C5 14 5 9 12 7 Z"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+/* Marker underline beneath JOIN THE WAITLIST, and the arrow that carries the
+   eye from the heading down to the field. Both decorative. */
+/* The rule lives INSIDE the heading and is positioned against it, so it
+   underlines the words at whatever size they render — as a sibling it took a
+   grid row of its own and drew a line ABOVE the heading instead. */
+function JoinRule() {
+  return (
+    <svg
+      className="z-hero__join-rule"
+      viewBox="0 0 200 12"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M4 8 C40 3 78 10 116 5 C142 2 170 8 196 4"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function JoinArrow() {
+  return (
+    <svg
+      className="z-hero__join-arrow"
+      viewBox="0 0 40 46"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M31 3 C36 16 30 29 19 37" vectorEffect="non-scaling-stroke" />
+      <path d="M9 30 L18 38 L28 33" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 /* The artwork's visible CONTENT column — the span of the plates themselves,
    not the file edges and not the botanicals, which bleed. The capture block is
    aligned to this so the field sits in the same column as the flavours, and the
@@ -137,7 +203,7 @@ export default function Hero() {
   return (
     /* data-cta selects the CTA treatment: 'solid' or 'ghost'. Emil is choosing
        between the two; this is the one line that changes when he does. */
-    <section className="z-hero" id="top" data-cta={CTA_STYLE}>
+    <section className="z-hero" id="top" data-cta={CTA_STYLE} data-waitlist={WAITLIST_STYLE}>
       {/* The poster column. The composition was designed at phone width, so it
           is capped and centred rather than magnified — a desktop visitor sees
           the same poster, with cream either side, not a blown-up one. The art
@@ -285,14 +351,6 @@ export default function Hero() {
         ) : null
       )}
 
-      {/* A heading for the capture block, not a control — the field is on this
-          screen now, so there is nothing to scroll to. Kept as a <p> rather
-          than an <h2>: the page's only <h1> lives below the fold, and a heading
-          here would sit before it and break the outline. */}
-      <p className="z-hero__join" id="join-label">
-        Join the waitlist
-      </p>
-
       {/* ⚠️ ONE ROW, IN FLOW: field, button, SUPPORTED BY and the logo card.
           They were four fixed-fraction grid rows, and anything taller than its
           share drew on top of the row below — which is how SUPPORTED BY ended
@@ -300,6 +358,20 @@ export default function Hero() {
           grid-template-rows in sections.css. */}
       <div className="z-hero__lower">
         <div className="z-hero__capture-group">
+          {/* Both are rendered; CSS shows the one the treatment selects. They
+              are two inline paths, so the cost of carrying both is a few bytes
+              and it keeps the choice a one-token change. */}
+          <PlateFrame />
+          <JoinArrow />
+          {/* ⚠️ IN FLOW, directly above the field. As its own fixed-fraction
+              grid row it overflowed and drew on top of the email box. Kept as a
+              <p> rather than an <h2>: the page's only <h1> lives below the fold
+              and a heading here would sit before it and break the outline. */}
+          <p className="z-hero__join" id="join-label">
+            Join the waitlist
+            <JoinRule />
+          </p>
+
           <form
             className="z-hero__capture"
             onSubmit={handleSubmit}
@@ -324,8 +396,13 @@ export default function Hero() {
             </Button>
           </form>
 
-          <p className="z-hero__supported">Supported by:</p>
         </div>
+
+        {/* A SIBLING of the capture group, not a child: the gap that separates
+            it from the button is the lower stack's gap, which is deliberately
+            larger than the JOIN -> field gap inside the group. "Separate
+            blocks, not one stack." */}
+        <p className="z-hero__supported">Supported by:</p>
 
         {/*
           One sprite, so one request. It is above the fold here — the composition

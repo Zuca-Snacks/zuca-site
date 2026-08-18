@@ -137,36 +137,33 @@
   height: 100svh;
   min-height: 640px;
   display: grid;
-  /* minmax(0, Nfr), NOT plain Nfr. A bare fr row has an automatic min-content
-     floor, so any row whose content is taller than its share silently expands
-     and pushes every band below it down — which is exactly what happened: the
-     stacks row grew from 174px to 241px and shifted the rest of the comp. */
-  /* Bands as percentages of the poster height. Started as the comp's measured
-     values; the stacks have since been grown and the band below them closed,
-     with the freed height going to the logo wall and the fruit border.
-     minmax(0, Nfr), NOT plain Nfr — a bare fr row has a min-content floor and
-     silently expands, which pushes every band below it down.
+  /* ⚠️ CONTENT ROWS ARE min-content; ONLY THE GAPS ARE FRACTIONS.
+     Every row used to be minmax(0, Nfr) — a fixed fraction of the VIEWPORT,
+     with no relationship to what it held. An audit of all five rows found FOUR
+     of them overflowing their track: the wordmark by 3px, the artwork by 101px
+     at desktop, JOIN THE WAITLIST by 7-9px, and the lower stack by 45px. Three
+     of those overflowed into gaps and were invisible; JOIN overflowed into the
+     capture block and drew on top of the email field. That is the same fault
+     that put SUPPORTED BY behind the button, and it was never one pair — it was
+     the row model.
 
-     ⚠️ EVERYTHING BELOW "JOIN THE WAITLIST" SHARES ONE ROW ON PURPOSE.
-     The field, the button, SUPPORTED BY and the logo card were four separate
-     fixed-fraction rows. Because a row is a fixed fraction of the VIEWPORT and
-     not of its content, anything taller than its share silently overflowed into
-     the row beneath and drew on top of it. That is what put SUPPORTED BY behind
-     the button: fine at 844 (10px clear), overlapping from 760 down — an
-     ordinary iPhone once browser chrome is counted.
-     Fixing only the first pair moved the collision one row down rather than
-     removing it: the label then overlapped the logo card at 680. The whole
-     lower stack is now ONE row in normal flow, where a gap is a real gap and
-     overlap is not expressible at any height. Do not split it back up. */
+     A content row now takes exactly the height of its content and cannot be
+     overlapped. The fr GAPS absorb whatever is left, in the comp's measured
+     proportions (2.5 : 9.1 : 9.0 : 4.1), so the composition's rhythm survives
+     while the collisions cannot recur. On a viewport too short to hold both,
+     the gaps collapse to zero before anything overlaps — a tight poster is a
+     far better failure than text on top of text.
+
+     ⚠️ Do not "restore" a content row to Nfr to fix spacing. Change a GAP. */
   grid-template-rows:
-    minmax(0, 2.5fr)    /* top gap                                    */
-    minmax(0, 9.2fr)    /* wordmark                                   */
-    minmax(0, 9.1fr)    /* gap  wordmark -> artwork   — was 6.0       */
-    minmax(0, 25.1fr)   /* flavour artwork                            */
-    minmax(0, 9.0fr)    /* gap  artwork -> JOIN       — was 6.0       */
-    minmax(0, 2.6fr)    /* JOIN THE WAITLIST                          */
-    minmax(0, 38.5fr)   /* LOWER STACK: field, button, SUPPORTED BY, card */
-    minmax(0, 4.1fr);   /* bottom gap                                 */
+    minmax(0, 2.5fr)    /* gap: top                                   */
+    min-content         /* WORDMARK                                   */
+    minmax(0, 9.1fr)    /* gap: wordmark -> artwork                   */
+    min-content         /* FLAVOUR ARTWORK                            */
+    minmax(0, 9.0fr)    /* gap: artwork -> waitlist block             */
+    min-content         /* WAITLIST BLOCK: JOIN, field, button,
+                           SUPPORTED BY, logo card — all in flow      */
+    minmax(0, 4.1fr);   /* gap: bottom                                */
   justify-items: center;
   align-items: center;
   text-align: center;
@@ -360,28 +357,21 @@
    fixed fractions of the viewport, so an overlapping item creates no track and
    shifts nothing — opening the panel cannot move the email field or push the
    CTA toward the fold. Verified at 360/390/430 and desktop. */
-/* ⚠️ ABSOLUTELY POSITIONED, WITH NO GRID PLACEMENT, AND THAT IS THE POINT.
-   An abspos child of a grid container that sets no grid-row resolves against
-   the container's padding box and takes NO part in track sizing. Two earlier
-   versions did move the page: as a grid item spanning rows 3-5 it pushed the
-   artwork down 70px and the logo card 21px (min-height:0 did not help), and
-   anchored to the artwork box it drifted, because the image OVERFLOWS its row
-   at desktop — 309px of image in a 208px track — so a percentage of the
-   artwork means something different at every width.
-
-   THE INSETS ARE THE POSTER'S OWN ROW BOUNDARIES, which are proportional, so
-   one pair of numbers is correct at every width. From the grid-template-rows
-   above, as running totals of 100.1fr:
-       row 3 (gap below wordmark) starts at 11.69%
-       row 6 (JOIN THE WAITLIST)  starts at 54.85%
-   12.4% and 47% leave a small margin inside both, so the panel never covers the
-   wordmark — the brand mark — and never covers JOIN, the heading of the block
-   it exists to sell. If the row list is retuned, recompute these two numbers.
-   Verified at 360/390/430/768/1280. */
+/* ⚠️ AN ABSOLUTELY POSITIONED GRID ITEM. Both halves matter:
+   - grid-row 3/6 means its containing block is that grid AREA, so it tracks the
+     bands between the wordmark and the waitlist block automatically, at every
+     width, with no magic percentages to keep in sync.
+   - position:absolute means it takes NO part in track sizing, so opening it
+     cannot move anything.
+   Earlier versions got one or the other. As a normal-flow grid item it pushed
+   the artwork down 70px; anchored to the artwork box with percentages it
+   drifted, because the artwork's size relative to its surroundings changes with
+   width. This is the combination that does both jobs. */
 .z-hero__flavour-panel {
   position: absolute;
-  inset-block: 12.4% 47%;
-  inset-inline: var(--z-gutter);
+  grid-row: 3 / 6;
+  grid-column: 1;
+  inset: var(--z-space-2) var(--z-gutter);
   z-index: 4;
   max-inline-size: 34rem;
   margin-inline: auto;
@@ -459,8 +449,11 @@
    large-text threshold on cream at 3.85:1. */
 /* Heading for the capture block below it, not a scroll trigger — the field is
    now on the first screen, so there is nothing to scroll to. */
+/* ⚠️ NO grid-row. It is the heading of the waitlist block and sits IN FLOW
+   directly above the field, so the two cannot collide. As its own fixed-
+   fraction row it overflowed by 7-9px and drew over the email box. */
 .z-hero__join {
-  grid-row: 6;
+  position: relative;
   font-family: var(--z-font-display);
   font-size: min(3.4svh, 7.4vw);
   line-height: 1;
@@ -473,7 +466,7 @@
 /* The LOWER STACK — field, button, SUPPORTED BY and the logo card, in flow.
    See the grid-template-rows note above for why these are not four rows. */
 .z-hero__lower {
-  grid-row: 7;
+  grid-row: 6;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -487,25 +480,99 @@
    TAPERS — everything here is narrower than the flavour artwork above it, so
    the composition narrows toward the bottom instead of widening. */
 .z-hero__capture-group {
+  position: relative;
   display: grid;
   justify-items: center;
-  /* The gap between the button and SUPPORTED BY — "separate blocks, not one
-     stack". A real gap in normal flow, which is also why they cannot collide. */
-  gap: clamp(1.4rem, 3.8svh, 2.6rem);
-  width: 100%;
+  /* Narrower than the flavour artwork above, so the composition tapers. */
+  width: min(17.5rem, calc(100% - 2 * var(--z-gutter)));
+  /* JOIN -> field. Tighter than the lower stack's gap, because the heading
+     belongs to the field beneath it. */
+  gap: var(--z-space-3);
+}
+
+/* ── Treatment A · PLATE ──────────────────────────────────────────────────
+   The waitlist block sits on the same device the artwork uses for its flavour
+   name plates — a hand-drawn plate, not a rectangle — so the destination is
+   built out of the poster's own vocabulary rather than bolted on. */
+.z-hero[data-waitlist='plate'] .z-hero__capture-group {
+  width: min(20rem, calc(100% - 2 * var(--z-gutter)));
+  padding: var(--z-space-5) var(--z-space-5) var(--z-space-6);
+}
+
+.z-hero__plate-frame {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  z-index: -1;
+  fill: var(--z-surface);
+  stroke: var(--z-ink);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 6px 0 color-mix(in srgb, var(--z-ink) 14%, transparent));
+}
+
+.z-hero[data-waitlist='plate'] .z-hero__join {
+  color: var(--z-brand-ink);
+}
+
+/* ── Treatment B · MARKED UP ──────────────────────────────────────────────
+   No card at all. The heading gets a marker rule and an arrow curves down to
+   the field, so the composition points at the destination instead of boxing
+   it. Lighter than the plate and sits in the page plane with the artwork. */
+/* Only the selected treatment's marks are shown. */
+.z-hero[data-waitlist='plate'] .z-hero__join-rule,
+.z-hero[data-waitlist='plate'] .z-hero__join-arrow,
+.z-hero[data-waitlist='marked'] .z-hero__plate-frame { display: none; }
+
+.z-hero[data-waitlist='marked'] .z-hero__capture-group {
+  width: min(19rem, calc(100% - 2 * var(--z-gutter)));
+  padding-block-end: var(--z-space-2);
+}
+
+/* Positioned against the heading it underlines, so it costs the block no
+   height and tracks the words at any size. */
+.z-hero__join-rule {
+  position: absolute;
+  inset-inline: 2%;
+  inset-block-start: 100%;
+  block-size: 0.42rem;
+  fill: none;
+  stroke: var(--z-brand);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* Sits beside the field rather than above it, so it costs the block no height
+   — the poster's rows are tight and an arrow is not worth a band. */
+.z-hero__join-arrow {
+  position: absolute;
+  inset-block-start: 2.1rem;
+  inset-inline-end: -0.35rem;
+  inline-size: 2.2rem;
+  block-size: 2.6rem;
+  fill: none;
+  stroke: var(--z-brand);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.z-hero[data-waitlist='marked'] .z-hero__capture .z-input {
+  background: transparent;
+  border-width: 2px;
+  border-color: var(--z-ink);
 }
 
 .z-hero__capture {
   display: grid;
   justify-items: center;
   gap: var(--z-space-3);
-  /* Narrower than the plate column above it. --z-content-inset is the artwork's
-     own margin; this insets a good deal further so the taper is visible rather
-     than notional. */
-  width: min(
-    17.5rem,
-    calc(100% - 2 * var(--z-content-inset, 10%) - 2 * var(--z-space-6))
-  );
+  /* The GROUP carries the width; the form fills it. Sizing the form separately
+     is what clipped the placeholder inside the plate — two competing width
+     constraints, the inner one winning and leaving the field too narrow for
+     "you@example.com". One owner for the width, and it is the group. */
+  width: 100%;
 }
 
 /* Shorter and less tall than the global primitive, HERO ONLY — the real form
