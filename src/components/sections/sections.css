@@ -852,8 +852,11 @@
      ONE custom property drives both the art's height and the padding that
      reserves room for it, so the two cannot drift apart. Do not replace this
      with a percentage or a cqh: the art's height would then depend on the
-     section's height, which depends on this padding, which is a cycle. */
-  --gap-art-h: clamp(88px, 26vw, 190px);
+     section's height, which depends on this padding, which is a cycle.
+     Scaled up on 18 Aug (was clamp(88px, 26vw, 190px)). No re-export needed:
+     the source measures 93.4% mean saturation, so it has plenty of colour —
+     it was small and dim, not desaturated. */
+  --gap-art-h: clamp(124px, 38vw, 280px);
   padding-block-end: calc(var(--z-section-y) + var(--gap-art-h));
   background: var(--z-surface-alt);
   border-block: 1px solid var(--z-border);
@@ -952,7 +955,16 @@
   );
 }
 
-.z-art--tree { opacity: 0.26; }
+/* ⚠️ THIS IS NOT A GAP, IT IS AN OPACITY PROBLEM — diagnosed 18 Aug before
+   changing anything, because the obvious fixes were both wrong:
+     - NOT baked-in transparent padding: the asset has 0px of transparency below
+       the trees, and its bottom rows are 42% opaque.
+     - NOT a CSS offset: the layer is inset:auto 0 0 with background-position
+       center bottom, and the rendered image bottom measures 1px from the footer.
+   The trees already rest on the green. At 0.26 they were so nearly transparent
+   where they met a fully saturated block that the eye read the fade as a gap.
+   The fix is presence, not position. */
+.z-art--tree { opacity: 0.55; }
 
 .is-in .z-art--tree {
   background-image: image-set(

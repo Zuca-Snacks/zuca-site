@@ -64,6 +64,10 @@ const BLOCKS = [
       'United States, mostly fruit and vegetables. Rotting food waste accounts for ' +
       '8% of US greenhouse gas emissions. That waste contains nutrients most people ' +
       'do not get enough of, and yet 95% of Americans do not get enough fiber.',
+    /* ⚠️ The hidden text equivalent already said "do not get enough fiber" while
+       the ARTWORK still read "fiber-deficient". The 18 Aug re-export brings the
+       picture into line with it, so the two now say the same thing. If the image
+       is ever re-exported again, check this string still matches what it says. */
   },
 ];
 
