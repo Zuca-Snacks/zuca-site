@@ -23,7 +23,9 @@
  *                       400 the user reads as "the form is broken".
  *
  * Added by UX, both defaulted so growth's existing call sites work untouched:
- *   show       boolean  whether the field is revealed (default false)
+ *   show       boolean  whether the field is revealed. ⚠️ REQUIRED IN PRACTICE:
+ *                       omitting it renders an invisible, inert field with no
+ *                       visual tell. Dev builds warn; see the note in the body.
  *   hint       node     optional helper text
  *   error      node     optional error message
  *   announceFrom number characters remaining at which the counter starts being
@@ -60,16 +62,21 @@
  * start and enters a polite live region only near the limit — a region that
  * updates on every keystroke is unusable with a screen reader running.
  *
- * ⚠️ PRIVACY — READ BEFORE WIRING THIS TO `motivation`.
- * `motivation` is special-category health data under GDPR Art 9, which is why
- * it already sits behind its own consent line. An enum is bounded; a free-text
- * box is not, and next to a health question it invites people to type a
- * diagnosis — which lands unstructured special-category data in a spreadsheet.
- * ⚠️ The schema now ACCEPTS `motivation_other`, which makes this more urgent
- * rather than less: the guardrail has to be a decision, not an absence.
- * `referral_source_other` carries none of that risk.
- * Flagged in HANDOFF-ux.md and escalated. This primitive is safe to render;
- * WHERE it is rendered is a legal question, not a UI one.
+ * ⚠️⚠️ NEVER WIRE THIS TO `motivation`. RULED BY EMIL, 18 Aug — not a
+ * preference, not a flag, a prohibition.
+ * `motivation` is special-category health data under GDPR Art 9. An enum is
+ * bounded and minimisable; a free-text box beside a health question invites
+ * people to type detailed medical information, which is far more sensitive than
+ * picking from a list and much harder to justify or minimise. The health-
+ * motivation question is CHIPS ONLY.
+ * `motivation_other` is being deleted from the schema entirely.
+ *
+ * Where this primitive IS allowed:
+ *   referral_source_other · channel_other — no health dimension, no restriction.
+ *   dietary_other — allowed but CAPPED SHORT, with microcopy asking for
+ *     allergen NAMES only, never medical detail. Pass an explicit short
+ *     maxLength; do not rely on the 120 default, which exists to match the
+ *     server rather than to be appropriate here.
  */
 import { forwardRef } from 'react';
 
@@ -80,7 +87,7 @@ const OtherInput = forwardRef(function OtherInput(
     value = '',
     onChange,
     maxLength = 120,
-    show = false,
+    show,
     hint,
     error,
     announceFrom = 20,
@@ -93,6 +100,7 @@ const OtherInput = forwardRef(function OtherInput(
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const countId = `${id}-count`;
+  const isShown = show === true;
   const remaining = maxLength - value.length;
   /* ⚠️ RELATIVE TO THE CAP, not a flat number. A flat 20 meant that with
      maxLength={20} the field announced from the very first character — the
@@ -108,13 +116,29 @@ const OtherInput = forwardRef(function OtherInput(
     if (onChange) onChange(e.target.value.slice(0, maxLength));
   }
 
-  if (!show && !reserveSpace) return null;
+  /* ⚠️ A CONSUMER THAT FORGETS `show` GETS A SILENTLY UNREACHABLE FIELD.
+     This is the cost of the always-rendered design that makes the reveal
+     shift-free: `show` defaults to false, so an omitted prop renders a field
+     that is present, inert and invisible. It has NO visual tell, and lint,
+     build and presence-based tests all stay green — growth shipped every
+     free-text box in that state and it went unnoticed for a while.
+     So the omission is made loud in development. Not a runtime guard: it costs
+     nothing in production and never changes behaviour. */
+  if (import.meta.env?.DEV && show === undefined) {
+    console.warn(
+      `<OtherInput id="${id}"> was rendered without a \`show\` prop, so it is ` +
+        `invisible and inert. Pass show={isOtherSelected}. This is not a ` +
+        `styling issue — the field cannot be reached at all.`
+    );
+  }
+
+  if (!isShown && !reserveSpace) return null;
 
   return (
     <div
       className={`z-other ${className}`.trim()}
-      data-show={show ? 'true' : 'false'}
-      inert={!show}
+      data-show={isShown ? 'true' : 'false'}
+      inert={!isShown}
     >
       <label className="z-other__label" htmlFor={id}>
         {label}

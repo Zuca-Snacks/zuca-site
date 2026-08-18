@@ -2,8 +2,15 @@
  * App — the landing page shell.
  *
  * Section order is the one specified in the brief:
- *   hero -> proof -> what it is -> how it's made -> founders -> flavors -> FAQ
- *   -> waitlist -> footer, with the sticky CTA overlaid on mobile.
+ *   hero -> quotes+h1 -> nutshell -> 95% -> founders -> FAQ -> waitlist
+ *   -> footer, with the sticky CTA overlaid on mobile.
+ *
+ * Four sections were DELETED on 17 Aug (Emil), not hidden:
+ *   ProofStrip  — the three traction bullets above the 95% block.
+ *   Numbers     — "What's actually in one".
+ *   HowItsMade  — the nutshell section's process image now covers it.
+ *   Flavors     — the hero covers it. Its photo-and-description boxes were not
+ *                 lost: they are now a tap-to-open panel on the hero artwork.
  *
  * The waitlist form is growth's and mounts EXACTLY ONCE, inside <WaitlistSlot>.
  * The hero's email field is a presentational shell that POSTs nowhere — it
@@ -24,12 +31,10 @@ import WaitlistForm from './components/waitlist/WaitlistForm.jsx';
 
 import Header from './components/sections/Header.jsx';
 import Hero from './components/sections/Hero.jsx';
-import ProofStrip from './components/sections/ProofStrip.jsx';
+import HeroCapture from './components/sections/HeroCapture.jsx';
+import Nutshell from './components/sections/Nutshell.jsx';
 import FiberGap from './components/sections/FiberGap.jsx';
-import Numbers from './components/sections/Numbers.jsx';
-import HowItsMade from './components/sections/HowItsMade.jsx';
 import Founders from './components/sections/Founders.jsx';
-import Flavors from './components/sections/Flavors.jsx';
 import Faq from './components/sections/Faq.jsx';
 import WaitlistSlot from './components/sections/WaitlistSlot.jsx';
 import Footer from './components/sections/Footer.jsx';
@@ -55,12 +60,10 @@ export default function App() {
 
       <main id="main">
         <Hero />
-        <ProofStrip />
+        <HeroCapture />
+        <Nutshell />
         <FiberGap />
-        <Numbers />
-        <HowItsMade />
         <Founders />
-        <Flavors />
         <Faq />
         {/* The one and only waitlist form on the page. */}
         <WaitlistSlot>

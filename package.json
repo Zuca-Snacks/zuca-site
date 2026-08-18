@@ -11,7 +11,8 @@
     "security:test": "node scripts/attack-waitlist.mjs",
     "security:test:sheet": "node scripts/test-apps-script.mjs",
     "security:headers": "node scripts/check-headers.mjs",
-    "build:consent": "node scripts/build-consent-registry.mjs"
+    "build:consent": "node scripts/build-consent-registry.mjs",
+    "audit:hero": "node scripts/audit-hero-rows.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

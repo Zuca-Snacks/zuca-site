@@ -134,6 +134,72 @@ and the sticky bar, all unchanged.
 - **`$25/ton` is absent**, as required. It was already cut on merge.
 - **No price figures**, no pre-order language, no new allergen assertions.
 
+## R3.8 ⚠️ `--z-cta` vs `--z-accent` — which red/green goes where
+
+**Emil's ruling, 18 Aug.** There are now two tokens and they mean different
+things. Getting this wrong is how the green leaked site-wide the first time.
+
+**Green means go, red means Zuca.** Scope is by the element's JOB, not by how
+prominent you want it to look.
+
+| Role | Token | Applies to |
+|---|---|---|
+| **Advance** | `--z-cta` `#2A571E` | hero CTA, sticky-bar CTA, growth's Continue/submit buttons, **progress bar completed segments** |
+| **Utility** | ink tokens, no colour | Back, Skip, dismiss, the skip link |
+| **Identity** | `--z-accent` `#E3001B` | wordmark, JOIN heading, badges, the flavour `+`, headings |
+
+Button variants encode that, so pick by job and not by emphasis:
+
+| Variant | Job | Looks like |
+|---|---|---|
+| `.z-btn` | forward / submit, full emphasis | `--z-cta`, filled |
+| `.z-btn--secondary` | forward / submit, lower emphasis | `--z-cta`, outline |
+| `.z-btn--ghost` | **utility** — Back, Skip, dismiss | ink, neutral |
+
+⚠️ **Do not reach for `--secondary` just because a button should look quieter.**
+If it does not move the person forward, it is `--ghost`.
+
+⚠️ **Completed progress segments are GREEN, not red.** I originally reasoned a
+progress bar is an indicator rather than a button so the green should not reach
+it; Emil ruled the other way and the reasoning is better — completed segments
+represent progress toward the same goal the CTA drives at. Green buttons above a
+red progress bar read as two different systems.
+
+`--z-accent-dark` was **deleted** — it was the green hover and had exactly one
+user. Hover/pressed is `--z-cta-dark`. Ink on the CTA is `--z-cta-ink` (8.33:1),
+kept separate from `--z-accent-ink` so the two can diverge if either fill moves.
+
+## R3.7 ⚠️ THE HERO ROW MODEL — read before touching the poster grid
+
+**Content rows are `min-content`. Only GAP rows are fractions.** Run
+`npm run audit:hero` after any change to the poster grid.
+
+Every poster row used to be `minmax(0, Nfr)` — a fixed fraction of the
+*viewport*, with no relationship to what it held. An element taller than its
+share does not expand its row; it silently overflows and paints on top of
+whatever is beneath. An audit on 17–18 Aug found **four of five rows
+overflowing**:
+
+| row | overflow | visible? |
+|---|---|---|
+| wordmark | +3px | no — landed in a gap |
+| artwork | +101px (desktop) | no — landed in gaps |
+| JOIN THE WAITLIST | +7–9px | **yes — drew over the email field** |
+| lower stack | +45px (desktop) | no |
+
+Three were harmless only by luck. That is the danger: the fault was present in
+four places and announced itself in one, on short viewports, on a real phone —
+never in the 844-high simulator everything was being checked at.
+
+`npm run audit:hero` (needs `npm run preview`) checks nine viewports from
+360×844 down to 390×640 and out to 1280×900, for three things: no in-flow grid
+child exceeds its own track, no two hero elements share screen space, and the
+CTA stays above the fold. It has been verified to FAIL when a content row is
+given a fraction again — a guard that cannot fail is not a guard.
+
+⚠️ If spacing needs changing, change a **gap**. Do not give a content row a
+fraction to make it fit.
+
 ## R3.0 STANDING RULES (Emil, 16 Aug) — do not re-ask
 
 **Contrast.** Never alter a brand colour to pass AA. Route around it, as with
@@ -508,6 +574,139 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **✅ SHIPPED: `OtherInput` and `Progress`** in `src/components/ui/`, exported
+  from the barrel. **Both take your existing prop signatures**, so adopting them
+  is a swap of the import line — delete `src/components/waitlist/primitives.jsx`
+  and import from `../ui`. Two notes:
+    - `OtherInput` adds an optional **`show`** prop. Use it instead of
+      conditionally rendering: the field always occupies its box and `show`
+      toggles visibility, so revealing it shifts nothing. Conditional rendering
+      moves the Continue button out from under a thumb already travelling.
+      **You must clear `value` when "Other" is deselected** — hidden is inert,
+      not unsubmitted.
+    - `onChange` still receives the already-truncated **value**, not the event,
+      exactly as your stand-in did. The counter is now announced near the cap
+      (yours was `aria-hidden` with no live region, so a screen-reader user hit
+      the limit with no warning). It stays silent until the last quarter of the
+      allowance so it does not chatter on every keystroke.
+    - `Progress` keeps `{ step, total, label }`. Internally it does **not** rely
+      on `role="progressbar"` to announce: a progressbar's `aria-valuenow`
+      changing is not reliably spoken unless focus is inside it, and in a
+      four-screen form focus is on the fields. The announcement is a polite live
+      region and the visible bar is `aria-hidden`, so it announces exactly once.
+
+- **✅ WITHDRAWN — the contract DOES have the fields.** I raised this as a
+  blocker off `AGENTS_BRIEF.md`, which is the frozen contract doc; security's
+  shipped validator has moved past it. Verified against `sec/hardening`:
+  `motivation_other`, `referral_source_other`, `dietary_other` and
+  `channel_other` all exist as `safeString(120)`, and a `superRefine` pairs each
+  one with its parent so orphaned free text is rejected by construction.
+  Two consequences already applied to `OtherInput`:
+  **`maxLength` defaults to 120 to match `safeString(120)`** — a tighter client
+  cap would silently truncate valid answers, a looser one produces a 400 the
+  user reads as a broken form — and the "clear the value when Other is
+  deselected" warning is now a hard requirement, because the pairing rule turns
+  a stale value into a rejected submit.
+  ⚠️ Lesson worth keeping: `AGENTS_BRIEF.md` is frozen and the validator is not.
+  **Check the shipped validator, not the brief, before calling something a
+  contract gap.**
+
+- **🔴🔴 RULED (Emil, 18 Aug) — `OtherInput` MUST NEVER BE WIRED TO
+  `motivation`. Delete `motivation_other` entirely.**
+  The health-motivation question is **chips only**. A free-text box beside a
+  health question invites people to type detailed medical information, which is
+  far more sensitive than picking from a list and much harder to minimise or
+  justify under GDPR Art 9. This is a prohibition, not a preference — it does
+  not become acceptable because the schema currently accepts the field.
+  Three actions:
+    1. **Growth** — remove the `motivation_other` field and its `OtherInput`
+       from step 2. The "Other" chip on that question stays; it just does not
+       open a text box.
+    2. **Security** — delete `motivation_other` from the validator and from the
+       `superRefine` pairing list.
+    3. **`dietary_other` stays, but capped short**, with microcopy asking for
+       **allergen names only, never medical detail**. Pass an explicit short
+       `maxLength` — do NOT rely on `OtherInput`'s 120 default, which exists to
+       match `safeString(120)` on the server, not because it is appropriate
+       here. The microcopy string is growth's; the constraint is not optional.
+  `referral_source_other` and `channel_other` are unrestricted — no health
+  dimension.
+  Recorded at the top of `OtherInput.jsx` so it travels with the component.
+
+- **🟡 `EYEBROW` — RESOLVED.** Emil confirmed "WHAT TASTERS SAY" on 18 Aug. It
+  now lives in `copy.js` as `sections.quotes.eyebrow`, stored in sentence case
+  and uppercased in CSS (an all-caps string can be spelled out letter by letter
+  by a screen reader). The guardrail still stands: it must remain a LABEL and
+  must not connect the quotes to a benefit.
+
+- **🟡 SUPERSEDED — `EYEBROW` placeholder note below is resolved, kept for
+  history.**
+  Emil asked for a small label above the taster quotes so the boundary between
+  the `<h1>` and the testimonials is explicit rather than implied. It currently
+  reads **"What tasters say"**, which is mine and is a placeholder. The string
+  is yours; move it into `copy.js` and word it properly.
+  ⚠️ Whatever it becomes, it must stay a LABEL. It may not connect the quotes to
+  a benefit — "Why people love the fiber" turns five taste opinions into
+  evidence for a health claim, which is the thing the guardrails forbid.
+
+- **🔴 `proof.liveLabel` was rendering without its number in the sticky bar.**
+  The bar printed `${count} ${proof.liveLabel}` with an empty count, so it read
+  "10g fiber per bite / already on the waitlist" — a dangling fragment, on every
+  visit, since the count endpoint has no env vars yet. Fixed by falling back to
+  `hero.countFallback`, so the second line always has content and the bar still
+  never resizes under the user's thumb. ⚠️ `liveLabel` is a sentence fragment
+  that only means anything after a numeral; never render it on its own.
+
+- **🔴🔴 REGULATED CLAIM — remove every bare "no added sugar" from `copy.js`.**
+  Emil, 17 Aug: **the correct wording is "no refined sugar added."**
+  "No added sugars" is a **regulated nutrient-content claim** under 21 CFR
+  101.60(c)(2), and Zuca cannot make it if maple syrup is a sweetener — maple
+  syrup *is* an added sugar. This is not a tone preference; it is the same
+  category of problem as the pre-order language, and it is currently on the page
+  in four places, all in your file:
+    - `HEADLINES.a.subhead` — "Two flavors, no added sugar, and about 40%…"
+    - `HEADLINES.b.subhead` — "10g of fiber, 150 calories, no added sugar."
+    - `HEADLINES.c.subhead` — "150 calories. No added sugar."
+    - `faq` tree-nut answer — "6g natural sugar, no added sugar."
+  Also re-check `numbers.items` — it carried `{ value: "0g", unit: "added
+  sugar", note: "The sweetness is the fruit. Nothing is added to it." }`. The
+  section that rendered it is deleted, so it is not on the page, but the string
+  is still in `copy.js` and **"0g added sugar" is the same claim stated as a
+  number**, with a note that reinforces it. Do not let it come back with a
+  future section.
+  I did **not** edit any of these — Emil's instruction was explicit that these
+  are yours. The only place UX changed the wording is the flavour-detail panel
+  in the hero, which is my file and never said it.
+
+- **Founder roles were changed in `copy.js` by UX on 17 Aug**, at Emil's
+  instruction and with his exact strings: "Chef & Co-Founder" → **"Founder &
+  CEO"**, "Physician & Co-Founder" → **"Founding CMO"**. Flagging because it is
+  your file. Kelley's `name` was deliberately left as "Kelley Yuan, MD" — Emil
+  wrote it without the postnominal, but he was giving a title rather than
+  renaming her, and the MD does real work beside the clinical credentials.
+
+- **🔴 `hero.countFallback` — confirm the wording, it is now the default state.**
+  `HeroCapture` had always referenced `copy.countFallback`, but that key **did
+  not exist in `copy.js`**, so the `?? copy.subhead` fallback silently rendered
+  "Two flavors, no added sugar, and about 40% of your daily fiber in one bite."
+  in the count band instead. Emil replaced the paragraph copy in that section
+  with taster quotes on 17 Aug, which removed `subhead` from the section
+  entirely, so the missing key would have shipped a blank band.
+  I added the key using the line Emil quoted from memory as yours:
+  **"You'll hear the ship date before it's public."**
+  Two things for you:
+    1. **If you wrote different words, replace the string** — the reference in
+       `HeroCapture` is already correct, so it is a one-line edit in `copy.js`.
+    2. **Treat this as primary copy, not an edge case.** Until the count
+       endpoint has its env vars, the count is unavailable on *every* visit, so
+       this is the line essentially all traffic reads. It is the only social
+       proof in that band while the number is missing.
+- **The taster quotes are not yours to A/B against the count.** Five real
+  testimonials now sit above and below the `<h1>` as `<blockquote>`s. They carry
+  no attribution because we have no consented names. Do not add a linking
+  sentence joining them to a fiber or health claim — an opinion placed beside a
+  health claim reads as evidence for it.
+
 - **Your mount point is ready.** `src/components/sections/WaitlistSlot.jsx`
   renders `<section id="waitlist" class="z-waitlist-slot">`. Pass your form as
   children: `<WaitlistSlot><MyForm /></WaitlistSlot>` in `src/App.jsx`. A styled
@@ -576,6 +775,27 @@ WebP + JPEG at every needed width. Add a job entry per new image.
   migrate or delete. Nothing imports it.
 
 ### For the security agent (`sec/hardening`)
+
+- **🔴 `public/privacy.html:79` asserts a customer geography we cannot support —
+  remove the claim rather than reversing it (Emil, 17 Aug).**
+  The callout currently opens:
+  > **Most of the people on our waitlist are in Norway and the EEA.**
+
+  Emil's decision: **our own signup data doesn't support either version
+  cleanly**, so do not flip it to "most are in the US" — delete the assertion.
+  A privacy policy does not need to claim where customers live; it needs to say
+  which regimes apply and give everyone the stronger standard, which the very
+  next sentence already does.
+
+  Suggested replacement, preserving the paragraph's actual job:
+  > This policy is written primarily around the **GDPR**, which gives you the
+  > strongest set of rights, and it applies to everyone on our waitlist wherever
+  > they live. Where California law (CCPA/CPRA) adds something different, that
+  > is set out in [section 9](#california).
+
+  The second paragraph ("Everyone gets the GDPR standard, wherever they live")
+  then follows correctly and is arguably now redundant — your call.
+  Not edited by UX: the file is yours.
 
 - **A live Google Apps Script webhook URL is hardcoded** at
   `src/zuca-gate-v4.jsx:5`. It is no longer called (the file is unreferenced) but

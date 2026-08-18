@@ -4,20 +4,60 @@
    Never hardcode a hex value or a px font-size anywhere else in the codebase.
 
    ─────────────────────────────────────────────────────────────────────────────
-   SOURCE OF TRUTH: https://zucainvestor.netlify.app/
-   Values below were read out of that page's :root block directly, not
-   eyedropped from a screenshot. Provenance is marked on every line:
-       [BRAND]    taken verbatim from the investor site
-       [INVENTED] no equivalent existed on the site; chosen here
-   The brief's token NAMES are all preserved; only the values changed.
+   SOURCES OF TRUTH — two, and the red comes from the second:
+     - Surfaces, ink, amber, green, radius, type scale: https://zucainvestor.netlify.app/
+       read out of that page's :root block, not eyedropped.
+     - THE RED: #E3001B, confirmed by Emil 17 Aug as the canonical Zuca red.
+       This supersedes the investor site's #CC1850. The comps and the original
+       site both use #E3001B.
+   Provenance is marked on every line:
+       [BRAND]    taken verbatim from a source above
+       [DERIVED]  computed from a [BRAND] value; the parent is always named
+       [INVENTED] no equivalent existed; chosen here
 
-   ACCESSIBILITY NOTE
-   Ten real brand pairings fail WCAG AA. They have NOT been silently altered —
-   the brand values are used as-is and every failure is documented in
-   HANDOFF-ux.md with a suggested accessible variant awaiting Emil's approval.
-   Where a failing pair would have carried body text, the layer below reaches
-   for a different *real brand color* that passes (e.g. red-dark instead of red
-   on cream) rather than inventing a new one.
+   ─────────────────────────────────────────────────────────────────────────────
+   DERIVED-VALUE REGISTER — WHAT MOVES IF A PARENT MOVES
+   A derived colour outlives the value it came from without announcing it. That
+   happened three times: the plate red, --z-brand-dark and the input focus glow
+   were each computed from #CC1850 and each was found by accident, in a
+   different round. This register exists so it does not happen a fourth time.
+
+   COMPUTED ONCE, RE-DERIVE BY HAND if the parent changes:
+     --z-brand-ink       <- --z-brand    minimum darkening clearing 4.5:1 on cream
+     --z-brand-on-black  <- --z-brand    minimum lightening clearing 4.5:1 on the
+                                         artwork's #000000 fiber pill
+     --z-brand-on-cream  <- --z-brand    minimum darkening clearing 4.5:1 on the
+                                         artwork name plate (#F1D4A7)
+     --z-brand-dark      <- --z-brand    18% darker; hover/pressed fills only
+     --z-cta-dark        <- --z-cta      18% darker; hover/pressed fills only
+     --z-maple-on-black  <- --z-maple    minimum lightening clearing 4.5:1 on the
+                                         artwork's #000000 fiber pill
+     --z-ink-muted       <- --gray #888888 (brand grey) darkened to clear 4.5:1
+
+   ⚠️ A DERIVED VALUE IS ONLY AS GOOD AS THE SURFACE IT WAS DERIVED AGAINST.
+   --z-brand-on-plate was correct arithmetic against #111111, a surface that did
+   not exist — the artwork's pill is #000000. Sample the real fill before
+   deriving anything for artwork; scripts/measure-plates.mjs prints all eight.
+
+   DERIVED LIVE by color-mix(), these can never go stale:
+     --z-shadow-sm / --z-shadow-md          <- --z-ink
+     input focus glow      (ui.css)         <- --z-focus
+     invalid focus glow    (ui.css)         <- --z-danger
+     ghost button hover    (ui.css)         <- --z-ink
+     sticky bar shadow     (sections.css)   <- --z-ink
+     process step rules and placeholder     <- --z-on-ink
+
+   RULE: never hand-copy a token's channels into an rgb()/rgba(). Use
+   color-mix(in srgb, var(--token) N%, transparent). There are now ZERO colour
+   literals outside this file.
+   ─────────────────────────────────────────────────────────────────────────────
+
+   ACCESSIBILITY
+   Brand values are never altered to pass AA. Where a brand colour fails in a
+   role, a DERIVED variant of the same hue is used for that role only, with the
+   minimum change that clears the threshold — see --z-brand-ink,
+   --z-brand-on-plate and --z-ink-muted. If a parent moves, re-derive the child;
+   do not freeze it. The full pairing table lives in HANDOFF-ux.md.
    ========================================================================== */
 
 :root {
@@ -38,11 +78,96 @@
   --z-border-strong: #8a7250; /* [INVENTED] control edges, needs 3:1 */
 
   /* ---- Brand ------------------------------------------------------------- */
-  --z-brand: #cc1850;       /* [BRAND] --red — identity + CTA fill */
-  --z-brand-dark: #a3112d;  /* [BRAND] --red-dark — hover, and red text on cream */
-  --z-accent: #cc1850;      /* [BRAND] primary CTA is --red on the real site,
-                                so accent intentionally equals brand */
-  --z-accent-ink: #fffdf8;  /* [BRAND] --white on red = 5.42:1 */
+  /* [BRAND] Canonical Zuca red (Emil, 17 Aug). This supersedes #CC1850, which
+     came from the investor site; the comps and the original site both use this
+     one and Emil has confirmed it is the brand red of record. */
+  --z-brand: #e3001b;       /* identity, wordmark, CTA fill */
+  /* [DERIVED from --z-brand] HOVER AND PRESSED FILLS ONLY. It is not a text
+     colour — that job belongs to --z-brand-ink, and the two were previously
+     conflated in one token whose comment read "hover, and red text on cream".
+     18% darker than the brand red: enough to read as a state change (ΔL 0.059)
+     without becoming a different colour. White on it is 6.67:1.
+     ⚠️ Derived value: it was #A3112D, taken from the investor palette and left
+     stale when the brand red moved — the same failure as the old plate red.
+     If --z-brand moves again, re-derive this too. */
+  --z-brand-dark: #ba0016;
+  /* [BRAND] Accent equals brand: it is an IDENTITY colour, not an action one.
+     ⚠️ It was briefly #2A571E (green) when the CTA changed. That leaked green
+     into everything reading --z-accent, including things that are not buttons.
+     Emil's ruling, 18 Aug: the action colour gets its OWN token (--z-cta) and
+     --z-accent goes back to red. If you want the green, you want --z-cta. */
+  --z-accent: #e3001b;
+
+  /* [DERIVED from --z-brand] The brand red is 3.85:1 on cream, which fails AA
+     for body-sized text. This is the MINIMUM darkening that clears 4.5:1 — 10%
+     darker, same hue. Use it wherever red is text at body size; use --z-brand
+     itself for the wordmark, CTA fills and any large display text.
+     ⚠️ Derived value: if --z-brand moves, re-derive this rather than keeping it.
+     Same pattern as --z-ink-muted. */
+  --z-brand-ink: #cc0018;   /* 4.61:1 on bg · 5.77:1 on surface */
+
+  /* [DERIVED from --z-brand] Red on the artwork's fiber pill.
+     ⚠️ THE PILL IS PURE #000000, sampled out of hero-flavours.png — NOT the
+     #111111 that the retired --z-plate token claimed. The old value here
+     (#e93349) had been derived against #111111 and was 20% toward white, which
+     made it visibly pink rather than red. Re-derived 17 Aug against the real
+     surface: this is the MINIMUM lightening of --z-brand that clears 4.5:1 on
+     black — 1.3%, same hue and saturation, so it reads as the brand red.
+     ⚠️ Derived value with a named parent. Re-derive if --z-brand moves, and
+     re-sample if the artwork is re-exported with a different pill fill. */
+  --z-brand-on-black: #ea001c; /* 4.50:1 on the #000000 pill */
+
+  /* [DERIVED from --z-brand] Red on the flavour artwork's cream name plate.
+     That plate is #F1D4A7 — measured out of the PNG, and darker than
+     --z-surface-alt — where --z-brand is 3.44:1 and even --z-brand-ink is only
+     4.11:1. This is the minimum darkening that clears 4.5:1 on it: 16% darker,
+     same hue, 4.56:1.
+     ⚠️ Derived value with a named parent. Re-derive if --z-brand moves, and
+     re-check if the artwork is re-exported with a different plate fill. */
+  --z-brand-on-cream: #bf0017;
+
+  /* --z-plate (#111111) was DELETED on 17 Aug. It had no users left, and it was
+     wrong: it claimed to describe the artwork's spec plate, but the artwork's
+     pill samples as pure #000000. A token that describes a surface inaccurately
+     is worse than no token, because every colour derived against it inherits
+     the error — which is exactly what happened to --z-brand-on-plate. Sample
+     the PNG (scripts/measure-plates.mjs prints the fills) rather than
+     reintroducing a constant for it. */
+
+  /* [BRAND, Emil 17 Aug] Maple's burnt-orange. Authored, not derived — it is
+     its own colour, not a shade of the brand red. 5.26:1 on the artwork's
+     #f1d4a7 name plate, so it is used there exactly as given. */
+  --z-maple: #903a0a;
+
+  /* [DERIVED from --z-maple] The same burnt-orange on the #000000 fiber pill,
+     where --z-maple itself is only 2.80:1. Minimum lightening that clears
+     4.5:1 — 11.1%, same hue and saturation.
+     ⚠️ Derived value with a named parent. Re-derive if --z-maple moves. */
+  --z-maple-on-black: #c54f0e; /* 4.51:1 on the #000000 pill */
+
+  --z-accent-ink: #fffdf8;  /* [BRAND] --white on the brand red = 4.82:1.
+                               ⚠️ Ink for RED-BACKED things only — badges, the
+                               checkbox tick, the flavour "+". The CTA has its
+                               own ink because it is no longer red. */
+
+  /* ---- Primary action ----------------------------------------------------
+     [BRAND, Emil 18 Aug] THE ONE COLOUR A PRIMARY ACTION IS EVER FILLED WITH:
+     hero button, sticky bar, growth's form buttons. Deliberately separate from
+     --z-accent so that "the thing you click" is one consistent colour site-wide
+     WITHOUT the green reaching anything that is not a button.
+     ⚠️ If you are colouring something that is not a button, you do not want
+     this token. The progress bar, for instance, correctly uses --z-accent. */
+  --z-cta: #2a571e;         /* --z-cta-ink on it = 8.33:1 */
+
+  /* [DERIVED from --z-cta] Hover and pressed fills. 18% darker, same hue — the
+     same treatment --z-brand-dark gets from --z-brand. --z-cta-ink on it is
+     10.36:1.
+     ⚠️ Derived value with a named parent. Re-derive if --z-cta moves. */
+  --z-cta-dark: #224719;
+
+  /* [BRAND] White, as --z-accent-ink is, but named for its own surface so the
+     two can diverge if either fill ever changes. 8.33:1 on --z-cta. */
+  --z-cta-ink: #fffdf8;
   --z-warm: #fdb026;        /* [BRAND] --amber — fills and dark-band text only */
 
   /* ---- Status ------------------------------------------------------------ */
@@ -50,7 +175,12 @@
   --z-danger: #b3261e;      /* [INVENTED] no error color on the site; kept
                                 distinct from the pink-red brand so an error
                                 never reads as a CTA */
-  --z-focus: #cc1850;       /* [BRAND] --red, 4.33:1 on bg (needs 3:1) */
+  /* [BRAND] follows --z-brand. 3.85:1 on cream, which is what matters: every
+     focus ring is drawn with outline-offset, so the ring sits ON THE PAGE with
+     cream either side of it, not on the control. That is why it survived the
+     CTA turning green — red on green is only 1.73:1 and would have failed if
+     the ring hugged the button. ⚠️ Do not remove outline-offset from .z-btn. */
+  --z-focus: #e3001b;
 
   /* ---- Inverted band ----------------------------------------------------- */
   --z-ink-surface: #1a3a1a; /* [BRAND] --green — the deep green band */
@@ -99,10 +229,16 @@
   --z-radius-full: 999px;/* [INVENTED] */
 
   /* ---- Shadow ------------------------------------------------------------ */
-  /* [INVENTED] none on the site; tinted with the brand brown, not neutral grey,
-     so shadows sit correctly on cream. */
-  --z-shadow-sm: 0 1px 2px rgb(82 65 40 / 0.08), 0 2px 6px rgb(82 65 40 / 0.06);
-  --z-shadow-md: 0 4px 12px rgb(82 65 40 / 0.10), 0 12px 32px rgb(82 65 40 / 0.12);
+  /* [DERIVED from --z-ink] Tinted with the brand brown, not neutral grey, so
+     shadows sit correctly on cream. Uses color-mix rather than hand-copied
+     channels — rgb(82 65 40 / …) was --z-ink's channels typed out, which is the
+     same staleness trap that left three reds pointing at a retired parent. */
+  --z-shadow-sm:
+    0 1px 2px color-mix(in srgb, var(--z-ink) 8%, transparent),
+    0 2px 6px color-mix(in srgb, var(--z-ink) 6%, transparent);
+  --z-shadow-md:
+    0 4px 12px color-mix(in srgb, var(--z-ink) 10%, transparent),
+    0 12px 32px color-mix(in srgb, var(--z-ink) 12%, transparent);
 
   /* ---- Motion ------------------------------------------------------------ */
   --z-ease: cubic-bezier(0.16, 1, 0.3, 1); /* [INVENTED] */

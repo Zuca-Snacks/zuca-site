@@ -136,6 +136,30 @@ const ART = [
      BELOW the fold, so they are encoded small and cheap — decoration must never
      compete with the LCP element for bandwidth. */
   { name: 'art-fruit-row', src: 'art-src/art-fruit-row.png', widths: [720] },
+  /* "In a nutshell" section. Composed blocks with text and arrows baked in, so
+     they carry a visually-hidden text equivalent in the markup — see
+     Nutshell.jsx. All three are below the fold and lazy. */
+  { name: 'nutshell-flow', src: 'art-src/nutshell-flow-wide.png', widths: [420, 780, 1090] },
+  { name: 'process-steps', src: 'art-src/process-steps-wide.png', widths: [420, 780, 1107] },
+  { name: 'problem-cycle', src: 'art-src/problem-cycle-wide.png', widths: [420, 780, 1114] },
+  /* Hero comp assets. The two botanical clusters sit behind their own flavour
+     stack and are ABOVE the fold, so they are kept deliberately small. The
+     fruit clusters and the logo wall are below it. */
+  /* Complete flavour stacks — plates, chips, photo, borders and botanicals all
+     baked in, plates left EMPTY. Live text is overlaid on them using the plate
+     rectangles measured by scripts/measure-plates.mjs. Above the fold, and the
+     left one is the LCP element. */
+  /* ONE combined artwork. Replaced the two separate stacks on 17 Aug: they are
+     aligned to each other inside the file now, so they cannot drift apart. */
+  { name: 'hero-flavours', src: 'art-src/hero-flavours.png', widths: [420, 780, 1218] },
+  { name: 'hero-art-left', src: 'art-src/hero-art-left.png', widths: [340] },
+  { name: 'hero-art-right', src: 'art-src/hero-art-right.png', widths: [340] },
+  { name: 'hero-fruit-left', src: 'art-src/hero-fruit-left.png', widths: [340] },
+  { name: 'hero-fruit-right', src: 'art-src/hero-fruit-right.png', widths: [360] },
+  /* Supporter wall. Canva's SVG export was 21 embedded base64 PNGs — 99% of a
+     670KB file, i.e. a raster in an SVG wrapper, 4.8x the flat PNG for no extra
+     sharpness. The PNG is the correct source. */
+  { name: 'logos-supported-by', src: 'art-src/logos-supported-by.png', widths: [640, 968] },
   { name: 'art-berries', src: 'art-src/art-berries.png', widths: [720] },
   { name: 'art-tree-growth', src: 'art-src/art-tree-growth.png', widths: [720] },
 ];

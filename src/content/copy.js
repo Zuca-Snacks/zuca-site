@@ -266,6 +266,18 @@ export const sections = {
   faq: {
     title: "The questions everyone asks.",
   },
+  /* Labels the taster-quote group so the boundary between the <h1> and the
+     testimonials is explicit rather than implied. CONFIRMED BY EMIL 18 Aug —
+     no longer the UX placeholder it shipped as.
+     Stored in sentence case and uppercased in CSS: a screen reader may spell
+     out an all-caps string letter by letter, and the visual result is
+     identical either way.
+     ⚠️ It must stay a LABEL. It may not connect the quotes to a benefit —
+     "Why people love the fiber" turns five taste opinions into evidence for a
+     health claim, which the guardrails forbid. */
+  quotes: {
+    eyebrow: "What tasters say",
+  },
 };
 
 // ─── Intro gate (organic visitors only) ──────────────────────────────────────
@@ -276,10 +288,17 @@ export const introLines = [
 ];
 
 // ─── Founder credentials ─────────────────────────────────────────────────────
+// ⚠️ ROLES SET BY EMIL, 17 Aug — "Emil Nordin — Founder & CEO", "Kelley Yuan —
+// Founding CMO". They replaced "Chef & Co-Founder" and "Physician &
+// Co-Founder". Growth owns this file; UX made the edit because Emil gave the
+// exact strings. Flagged in HANDOFF-ux.md. Note that Kelley's NAME was left as
+// "Kelley Yuan, MD" — Emil wrote it without the postnominal, but he was giving
+// a title, not renaming her, and the MD is load-bearing next to the clinical
+// credentials below. Confirm before changing it.
 export const founders = [
   {
     name: "Emil Nordin",
-    role: "Chef & Co-Founder",
+    role: "Founder & CEO",
     creds: [
       "Norway's Most Promising Young Chef, 2021",
       "Michelin-trained at Restaurant Kontrast (2 stars + Green Star)",
@@ -289,7 +308,7 @@ export const founders = [
   },
   {
     name: "Kelley Yuan, MD",
-    role: "Physician & Co-Founder",
+    role: "Founding CMO",
     creds: [
       "Stanford Medicine physician",
       "Stanford Sustainability Fellow",
