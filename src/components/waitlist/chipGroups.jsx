@@ -47,9 +47,7 @@ export function ChipRadioGroup({ legend, name, options, value, onChange, hint, o
           );
         })}
       </div>
-      {other && value === "other" ? (
-        <OtherInput {...other} />
-      ) : null}
+      {other ? <OtherInput {...other} show={value === "other"} /> : null}
     </ChipGroup>
   );
 }
@@ -83,9 +81,7 @@ export function ChipMultiGroup({ legend, options, values, onChange, max, hint, d
           );
         })}
       </div>
-      {other && values.includes("other") ? (
-        <OtherInput {...other} />
-      ) : null}
+      {other ? <OtherInput {...other} show={values.includes("other")} /> : null}
     </ChipGroup>
   );
 }

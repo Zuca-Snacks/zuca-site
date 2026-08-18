@@ -6,6 +6,16 @@
 // Each field is here because it answers a decision Zuca has to make. If a
 // field stops answering a decision, delete it: every extra tap costs signups.
 
+/**
+ * Art 9 minimisation: the dietary box is capped far shorter than the others.
+ * "sesame" and "low FODMAP" fit; a medical history does not. Distinct constant
+ * on purpose — referral_source_other and channel_other stay at 120, and
+ * lowering the shared value would quietly truncate both.
+ * 60 matches security's cap exactly, so nothing the server would accept is
+ * silently cut short here.
+ */
+export const DIETARY_OTHER_MAX = 60;
+
 /** Which flavor to produce first. Lowest-friction question, so it opens step 2. */
 export const FLAVOR = {
   key: "flavor",
@@ -66,11 +76,12 @@ export const MOTIVATION = {
     { value: "family_health", label: "Feeding my family better" },
     { value: "other", label: "Something else" },
   ],
-  // Selecting `other` reveals a capped free-text box; the string travels as
-  // `motivation_other`. Health-adjacent, so it is gated by the same Art 9
-  // opt-in as the enum values themselves.
-  otherKey: "motivation_other",
-  otherLabel: "What's drawing you to it?",
+  // ⚠️ NO FREE TEXT HERE, DELIBERATELY (Emil, 18 Aug 2026).
+  // The `other` chip stays — it is a contract enum value — but it opens no
+  // text box. A free-text field beside a health question invites detailed
+  // medical disclosure, and Art 9 data you did not ask for is far harder to
+  // justify and to minimise than a chip selection from a fixed list. A chip
+  // says "gut health"; a box gets a diagnosis. Do not add `otherKey` back.
 };
 
 /** Where demand clusters — shipping zones, and which cities to seed retail in. */
@@ -203,8 +214,13 @@ export const DIETARY = {
     { value: "low_sugar", label: "Watching sugar" },
     { value: "other", label: "Something else" },
   ],
+  // Free text stays here, because an unlisted allergen has no chip and the
+  // whole point of the field is catching the one we did not think of. It is
+  // capped much shorter than the others and the label asks for a NAME, not a
+  // history — the cap is the enforcement, the wording is the invitation.
   otherKey: "dietary_other",
-  otherLabel: "What should we know?",
+  otherLabel: "Which allergen? Just the name — no medical details.",
+  otherMax: DIETARY_OTHER_MAX,
 };
 
 /** Office channel. A yes here is worth many consumer signups. */
@@ -286,8 +302,11 @@ export const ADDRESS = {
   ],
 };
 
-/** Max length for every `*_other` free-text box. Enforced client and server. */
+/** Default cap for a `*_other` box. Matches the server's safeString(120). */
 export const OTHER_MAX = 120;
+
+/** Per-field override, where a shorter cap is itself a data-minimisation control. */
+export const otherMaxFor = (def) => def.otherMax ?? OTHER_MAX;
 
 export const STEP2_FIELDS = [FLAVOR, INTENT, PRICE_BAND, MOTIVATION, ZIP, REFERRAL_SOURCE, IS_CLINICIAN];
 

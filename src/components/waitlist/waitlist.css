@@ -91,65 +91,10 @@
   margin-bottom: var(--z-space-3);
 }
 
-/* ─── Progress ───────────────────────────────────────────────────────────── */
-
-.zw-progress {
-  margin-bottom: var(--z-space-5);
-}
-
-.zw-progress-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--z-space-3);
-  margin-bottom: var(--z-space-2);
-}
-
-.zw-progress-step {
-  font-size: var(--z-step--1);
-  font-weight: 700;
-  color: var(--z-brand-ink);
-  /* "1 of 4" is three words the eye reads as one token — never let it wrap. */
-  white-space: nowrap;
-  flex: 0 0 auto;
-}
-
-.zw-progress-label {
-  font-size: var(--z-step--1);
-  color: var(--z-ink-muted);
-  text-align: right;
-  min-inline-size: 0;
-}
-
-.zw-progress-track {
-  block-size: 0.25rem;
-  background: var(--z-surface-alt);
-  border-radius: var(--z-radius-full);
-  overflow: hidden;
-}
-
-.zw-progress-fill {
-  display: block;
-  block-size: 100%;
-  background: var(--z-brand);
-  border-radius: var(--z-radius-full);
-  transition: inline-size var(--z-dur) var(--z-ease);
-}
-
-/* ─── "Other" free text ──────────────────────────────────────────────────── */
-
-.zw-other {
-  margin-top: var(--z-space-3);
-  position: relative;
-}
-
-.zw-count {
-  display: block;
-  font-size: var(--z-step--1);
-  color: var(--z-ink-muted);
-  text-align: right;
-  margin-top: var(--z-space-1);
-}
+/* Progress and the "Other" free-text box are styled by src/components/ui/
+   (z-progress, z-other). Their rules used to live here and were removed when
+   this form adopted the shared primitives — a dead rule that still names a
+   token reads as a live styling decision. */
 
 /* Conditional follow-ups sit indented under the answer that revealed them, so
    the dependency is visible rather than implied by proximity alone. */
