@@ -13,8 +13,8 @@
 import sharp from 'sharp';
 
 const FILES = {
-  berry: '/Users/emilnordin/Desktop/zuca-comp/hero-flavour-left.png',
-  maple: '/Users/emilnordin/Desktop/zuca-comp/hero-flavour-right.png',
+  berry: 'art-src/hero-flavour-left.png',
+  maple: 'art-src/hero-flavour-right.png',
 };
 
 /** Connected-component bounding boxes for pixels passing `test`. */

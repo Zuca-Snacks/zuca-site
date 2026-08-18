@@ -143,8 +143,8 @@ const ART = [
      baked in, plates left EMPTY. Live text is overlaid on them using the plate
      rectangles measured by scripts/measure-plates.mjs. Above the fold, and the
      left one is the LCP element. */
-  { name: 'hero-flavour-left', src: 'art-src/hero-flavour-left.png', widths: [340, 503] },
-  { name: 'hero-flavour-right', src: 'art-src/hero-flavour-right.png', widths: [340, 527] },
+  { name: 'hero-flavour-left', src: 'art-src/hero-flavour-left.png', widths: [340, 606] },
+  { name: 'hero-flavour-right', src: 'art-src/hero-flavour-right.png', widths: [340, 657] },
   { name: 'hero-art-left', src: 'art-src/hero-art-left.png', widths: [340] },
   { name: 'hero-art-right', src: 'art-src/hero-art-right.png', widths: [340] },
   { name: 'hero-fruit-left', src: 'art-src/hero-fruit-left.png', widths: [340] },

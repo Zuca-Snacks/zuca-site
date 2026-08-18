@@ -6,70 +6,78 @@
  *
  * Measured programmatically rather than eyeballed, so the overlaid text tracks
  * the artwork at every viewport width and survives a re-export at a different
- * size. If the artwork changes, re-run the script and paste the new block.
+ * size. If the artwork changes, RE-RUN the script — the percentages shift even
+ * when the layout looks identical, and stale ones slide the text off its plate.
+ *
+ * ⚠️ The artwork must ship with the plates EMPTY. A re-export on 17 Aug arrived
+ * with the words baked into the plates; rendering the live overlay on top of it
+ * prints every label twice, and dropping the overlay makes the words invisible
+ * to a screen reader and unable to reflow. Empty plates are load-bearing.
+ * The detection catches this: sampling a grid inside a filled plate returns
+ * several colours instead of one.
  */
 export const PLATES = {
   "berry": {
     "image": {
-      "w": 503,
-      "h": 526
+      "w": 606,
+      "h": 634
     },
     "name": {
-      "left": 28.23,
-      "top": 0.76,
-      "width": 45.13,
-      "height": 23.57
+      "left": 28.05,
+      "top": 0.63,
+      "width": 45.54,
+      "height": 23.82
     },
     "pill": {
-      "left": 20.87,
-      "top": 24.52,
-      "width": 61.63,
-      "height": 13.12
+      "left": 20.79,
+      "top": 24.61,
+      "width": 61.88,
+      "height": 13.09
     },
     "chips": [
       {
-        "left": 20.28,
-        "top": 38.21,
-        "width": 26.84,
-        "height": 6.84
+        "left": 20.13,
+        "top": 38.17,
+        "width": 27.06,
+        "height": 7.1
       },
       {
-        "left": 47.71,
-        "top": 38.21,
-        "width": 35.39,
-        "height": 6.84
+        "left": 47.69,
+        "top": 38.17,
+        "width": 35.64,
+        "height": 7.1
       }
     ]
   },
   "maple": {
     "image": {
-      "w": 527,
-      "h": 549
+      "w": 657,
+      "h": 671
     },
     "name": {
-      "left": 38.9,
-      "top": 0.73,
-      "width": 43.26,
-      "height": 22.59
+      "left": 38.05,
+      "top": 0.6,
+      "width": 43.38,
+      "height": 23.25
     },
     "pill": {
-      "left": 32.07,
-      "top": 23.86,
-      "width": 58.82,
-      "height": 12.2
+      "left": 31.05,
+      "top": 24.44,
+      "width": 59.06,
+      "height": 12.22
     },
     "chips": [
       {
-        "left": 31.31,
-        "top": 36.61,
-        "width": 25.81,
-        "height": 6.56
+        "left": 30.44,
+        "top": 37.26,
+        "width": 25.88,
+        "height": 7
       },
       {
-        "left": 57.69,
-        "top": 36.61,
-        "width": 33.78,
-        "height": 6.56
+        "left": 56.62,
+        "top": 37.26,
+        "width": 34.09,
+        "height": 7
       }
     ]
   }

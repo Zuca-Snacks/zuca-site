@@ -111,9 +111,29 @@
    Everything that used to live in them now sits below the fold in <HeroCapture>.
    ------------------------------------------------------------------------- */
 
+/* The section is the cream ground; the POSTER inside it is the composition.
+   Splitting them is what caps the design without stretching it. */
 .z-hero {
+  --z-header-h: 72px;
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  background: var(--z-bg);
+}
+
+/* Below the header at tablet and up, so the nav cannot clip the name plate —
+   at 1280 the uncapped poster put it at y39, above the hero's own top edge. */
+@media (min-width: 48em) {
+  .z-hero { min-height: calc(100svh - var(--z-header-h)); }
+}
+
+.z-hero__poster {
   position: relative;
   isolation: isolate;
+  width: 100%;
+  /* Capped: the composition was drawn at phone width. Past ~560px it stops
+     growing and centres instead of magnifying. */
+  max-width: 560px;
   height: 100svh;
   min-height: 640px;
   display: grid;
@@ -121,24 +141,32 @@
      floor, so any row whose content is taller than its share silently expands
      and pushes every band below it down — which is exactly what happened: the
      stacks row grew from 174px to 241px and shifted the rest of the comp. */
+  /* Bands as percentages of the poster height. Started as the comp's measured
+     values; the stacks have since been grown and the band below them closed,
+     with the freed height going to the logo wall and the fruit border.
+     minmax(0, Nfr), NOT plain Nfr — a bare fr row has a min-content floor and
+     silently expands, which pushes every band below it down. */
   grid-template-rows:
-    minmax(0, 2.5fr)    /* top gap            */
-    minmax(0, 9.2fr)    /* wordmark           */
-    minmax(0, 5.8fr)    /* gap                */
-    minmax(0, 20.6fr)   /* flavour stacks     */
-    minmax(0, 17.9fr)   /* gap                */
-    minmax(0, 2.6fr)    /* JOIN THE WAITLIST  */
-    minmax(0, 19.2fr)   /* gap                */
-    minmax(0, 1.2fr)    /* SUPPORTED BY       */
-    minmax(0, 17.8fr)   /* logo wall          */
-    minmax(0, 3.2fr);   /* bottom gap         */
+    minmax(0, 2.5fr)    /* top gap                                    */
+    minmax(0, 9.2fr)    /* wordmark                                   */
+    minmax(0, 6.0fr)    /* gap                                        */
+    minmax(0, 25.1fr)   /* flavour stacks   — was 20.6, +20.9%        */
+    minmax(0, 6.0fr)    /* gap              — was 17.9, closed        */
+    minmax(0, 2.6fr)    /* JOIN THE WAITLIST                          */
+    minmax(0, 16.0fr)   /* capture block    — was 19.2                */
+    minmax(0, 2.0fr)    /* SUPPORTED BY     — was 1.2, more air above */
+    minmax(0, 20.0fr)   /* logo wall        — was 17.8, room to breathe */
+    minmax(0, 10.6fr);  /* bottom gap       — was 3.2, fruit border    */
   justify-items: center;
   align-items: center;
   text-align: center;
-  background: var(--z-bg);
-  /* The art and fruit bleed past both edges; without this they extend the
-     document and give the page a horizontal scrollbar. */
+  /* The art and fruit bleed past the poster's edges; without this they extend
+     the document and give the page a horizontal scrollbar. */
   overflow: hidden;
+}
+
+@media (min-width: 48em) {
+  .z-hero__poster { height: calc(100svh - var(--z-header-h)); }
 }
 
 /* --- Wordmark ------------------------------------------------------------ */
@@ -190,10 +218,13 @@
   align-self: center;
   width: 100%;
   display: grid;
-  /* 43% each: the artwork includes the botanicals, which bleed well past the
-     plates, so the IMAGE is much wider than the 103px plate stack it contains
-     (the fiber pill is 61.6% of the image). */
-  grid-template-columns: repeat(2, 43%);
+  /* 52% each — the ceiling, and +20.9% on the previous 43%. The boxes overlap
+     by 16px at 390px, which is safe ONLY because the right-hand artwork carries
+     a 10.6% transparent margin on its inner edge: measured, the visible art
+     still keeps a ~5px gap. The LEFT artwork has no margin at all (ink runs to
+     x501 of 503), so going wider collides real pixels. Do not increase without
+     re-measuring the ink bounds. */
+  grid-template-columns: repeat(2, 52%);
   justify-content: space-between;
 }
 

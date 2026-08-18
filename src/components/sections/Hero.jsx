@@ -32,14 +32,14 @@ const FLAVOURS = [
   {
     tone: 'berry',
     slug: 'hero-flavour-left',
-    widths: [340, 503],
+    widths: [340, 606],
     name: 'Chocolate Raspberry Sea Salt',
     lcp: true,
   },
   {
     tone: 'maple',
     slug: 'hero-flavour-right',
-    widths: [340, 527],
+    widths: [340, 657],
     name: 'Maple Pecan',
     lcp: false,
   },
@@ -81,8 +81,14 @@ export default function Hero() {
 
   return (
     <section className="z-hero" id="top">
-      {/* No separate botanical layers: they are baked into the flavour-stack
-          artwork. Keeping both loaded the same illustrations twice. */}
+      {/* The poster column. The composition was designed at phone width, so it
+          is capped and centred rather than magnified — a desktop visitor sees
+          the same poster, with cream either side, not a blown-up one. The art
+          bleeds to the POSTER's edges, not the viewport's, which is why it
+          lives in here. */}
+      <div className="z-hero__poster">
+        {/* No separate botanical layers: they are baked into the flavour-stack
+            artwork. Keeping both loaded the same illustrations twice. */}
       <span className="z-hero__fruit z-hero__fruit--left" aria-hidden="true" />
       <span className="z-hero__fruit z-hero__fruit--right" aria-hidden="true" />
 
@@ -202,6 +208,7 @@ export default function Hero() {
           decoding="async"
         />
       </picture>
+      </div>
     </section>
   );
 }
