@@ -560,11 +560,21 @@ WebP + JPEG at every needed width. Add a job entry per new image.
       four-screen form focus is on the fields. The announcement is a polite live
       region and the visible bar is `aria-hidden`, so it announces exactly once.
 
-- **🔴 THERE IS NO CONTRACT FIELD FOR THE "OTHER" FREE TEXT.** `AGENTS_BRIEF.md`
-  defines `motivation` (enum array) and `referral_source` (enum) — neither has a
-  companion text field, and the brief says unknown keys are rejected. So
-  `OtherInput` can be rendered today but its value **cannot be sent** until the
-  contract gains a field. That is an Emil + security decision, not a UI one.
+- **✅ WITHDRAWN — the contract DOES have the fields.** I raised this as a
+  blocker off `AGENTS_BRIEF.md`, which is the frozen contract doc; security's
+  shipped validator has moved past it. Verified against `sec/hardening`:
+  `motivation_other`, `referral_source_other`, `dietary_other` and
+  `channel_other` all exist as `safeString(120)`, and a `superRefine` pairs each
+  one with its parent so orphaned free text is rejected by construction.
+  Two consequences already applied to `OtherInput`:
+  **`maxLength` defaults to 120 to match `safeString(120)`** — a tighter client
+  cap would silently truncate valid answers, a looser one produces a 400 the
+  user reads as a broken form — and the "clear the value when Other is
+  deselected" warning is now a hard requirement, because the pairing rule turns
+  a stale value into a rejected submit.
+  ⚠️ Lesson worth keeping: `AGENTS_BRIEF.md` is frozen and the validator is not.
+  **Check the shipped validator, not the brief, before calling something a
+  contract gap.**
 
 - **🔴 PRIVACY — do not wire `OtherInput` to `motivation` without a ruling.**
   `motivation` is special-category health data under GDPR Art 9, which is why it

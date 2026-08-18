@@ -15,7 +15,12 @@
  *                       <Input>, which forwards the event like a plain
  *                       <input>. Kept different on purpose: it is the shape
  *                       growth already codes against.
- *   maxLength  number   hard character cap (default 80)
+ *   maxLength  number   hard character cap (default 120)
+ *                       ⚠️ 120 MATCHES THE SERVER. security's validator defines
+ *                       every *_other field as safeString(120), so a tighter
+ *                       client default would silently truncate answers the API
+ *                       would have accepted, and a looser one would produce a
+ *                       400 the user reads as "the form is broken".
  *
  * Added by UX, both defaulted so growth's existing call sites work untouched:
  *   show       boolean  whether the field is revealed (default false)
@@ -37,8 +42,11 @@
  *
  * ⚠️ HIDDEN MEANS INERT, BUT NOT UNSUBMITTED. `inert` takes it out of the tab
  * order, the a11y tree and pointer events in one attribute — but the value is
- * still in the form. The caller MUST clear `value` when "Other" is deselected,
- * or a stale answer is submitted for a chip the user turned off.
+ * still in the form. The caller MUST clear `value` when "Other" is deselected.
+ * This is not a tidiness point: security's validator pairs every *_other field
+ * with its parent in a superRefine, so an orphaned free-text value — one whose
+ * chip is no longer selected — is REJECTED, and the user gets a failed submit
+ * for a box they cannot see.
  *
  * ⚠️ THE CAP IS ENFORCED TWICE. `maxLength` stops typing and pasting; the slice
  * in the handler stops anything that sets the value another way, so `onChange`
@@ -56,9 +64,12 @@
  * `motivation` is special-category health data under GDPR Art 9, which is why
  * it already sits behind its own consent line. An enum is bounded; a free-text
  * box is not, and next to a health question it invites people to type a
- * diagnosis. There is also NO field in the waitlist contract to send it in.
- * Both flagged in HANDOFF-ux.md. This primitive is safe to render; WHERE it is
- * rendered is a legal question, not a UI one.
+ * diagnosis — which lands unstructured special-category data in a spreadsheet.
+ * ⚠️ The schema now ACCEPTS `motivation_other`, which makes this more urgent
+ * rather than less: the guardrail has to be a decision, not an absence.
+ * `referral_source_other` carries none of that risk.
+ * Flagged in HANDOFF-ux.md and escalated. This primitive is safe to render;
+ * WHERE it is rendered is a legal question, not a UI one.
  */
 import { forwardRef } from 'react';
 
@@ -68,7 +79,7 @@ const OtherInput = forwardRef(function OtherInput(
     label,
     value = '',
     onChange,
-    maxLength = 80,
+    maxLength = 120,
     show = false,
     hint,
     error,
