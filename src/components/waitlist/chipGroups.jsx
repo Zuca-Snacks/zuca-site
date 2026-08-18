@@ -17,8 +17,7 @@
  * change to ui.css was needed here.
  */
 import Chip, { ChipGroup } from '../ui/Chip.jsx';
-// Temporary — moves to ../ui/ with OtherInput. See stepPrimitives.jsx.
-import { OtherInput } from './stepPrimitives.jsx';
+import { OtherInput } from '../ui/index.js';
 
 /** Single-choice chips. Radio semantics, so a screen reader announces 1 of N. */
 export function ChipRadioGroup({ legend, name, options, value, onChange, hint, other }) {
@@ -49,12 +48,7 @@ export function ChipRadioGroup({ legend, name, options, value, onChange, hint, o
         })}
       </div>
       {other && value === "other" ? (
-        <OtherInput
-          label={other.label}
-          value={other.value}
-          onChange={other.onChange}
-          maxLength={other.maxLength}
-        />
+        <OtherInput {...other} />
       ) : null}
     </ChipGroup>
   );
@@ -90,12 +84,7 @@ export function ChipMultiGroup({ legend, options, values, onChange, max, hint, d
         })}
       </div>
       {other && values.includes("other") ? (
-        <OtherInput
-          label={other.label}
-          value={other.value}
-          onChange={other.onChange}
-          maxLength={other.maxLength}
-        />
+        <OtherInput {...other} />
       ) : null}
     </ChipGroup>
   );

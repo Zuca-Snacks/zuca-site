@@ -22,10 +22,7 @@ import Field from "../ui/Field.jsx";
 import Checkbox from "../ui/Checkbox.jsx";
 import Select from "../ui/Select.jsx";
 import { ChipMultiGroup, ChipRadioGroup } from "./chipGroups.jsx";
-// ⚠️ NOT YET IN src/components/ui/. UX is building both to these exact
-// signatures; the moment they land, change these two imports and delete
-// stepPrimitives.jsx. Everything else here is on UX's primitives already.
-import { OtherInput, Progress } from "./stepPrimitives.jsx";
+import { OtherInput, Progress } from "../ui/index.js";
 import {
   ADDRESS, CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, FLAVOR, INTENT,
   IS_CLINICIAN, MOTIVATION, OFFICE_INTEREST, OTHER_MAX, PHONE, PRICE_BAND,
@@ -179,7 +176,12 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   }
 
   const s = SCREENS[screen];
+  // `id` is REQUIRED by ui/OtherInput — it derives the character-counter's id
+  // from it for aria-describedby. Omitting it produced a live reference to
+  // "undefined-count", which points at nothing: the counter is rendered but a
+  // screen reader is told to read an element that does not exist.
   const otherProps = (def, val, key) => ({
+    id: `${key}-${uid}`,
     label: def.otherLabel,
     value: val,
     maxLength: OTHER_MAX,
