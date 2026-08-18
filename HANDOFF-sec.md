@@ -19,8 +19,8 @@ took the repo from **9 advisories (7 high) → 0**. All were devDependencies —
 `@babel/core`, `launch-editor` — so none of them reached production. They still mattered: one was
 arbitrary file read via the Vite dev server, and three dev servers are running on Emil's laptop.
 
-Three scripts added: `npm run security:test` (94 endpoint cases), `npm run security:test:sheet`
-(24 Apps Script cases), and `npm run security:headers`.
+Four scripts added — plus `npm run build:consent`, which runs inside `npm run build`: `npm run security:test` (126 endpoint cases), `npm run security:test:sheet`
+(50 Apps Script cases), and `npm run security:headers`.
 
 ---
 
@@ -358,6 +358,117 @@ enforcement actions quote.
 
 ---
 
+## 1g-ter. Convergence — I moved to your names · **Conversion, 2026-08-18**
+
+I verified my schema against your shipped `api.js` and `fields.js` (not the brief, not either side's
+description) and found ten key mismatches and four value mismatches. **Security moved, not you.**
+Your names were already live in a four-screen UI with screenshots; mine existed only in a schema.
+
+Adopted verbatim: `company`, `headcount`, `consent_postal`, `address_postal_code`,
+`postal_consent_text_version`, and your enum values for `quantity_band` (`lt_4…gt_30`, monthly
+consumption) and `headcount` (`lt_10…gt_1000`). `office_interest` is now your tri-state
+`yes|maybe|no` — "maybe" is real signal for an office pilot and collapsing it to a boolean loses the
+middle of that funnel. Added: `dietary`, `dietary_other`, `channel`, `channel_other`,
+`research_optin`.
+
+**`npm run security:test` now builds your exact payload and asserts the server takes it whole.**
+If either of us renames a field again, that test fails on the spot instead of the drift being
+absorbed and surfacing months later as empty spreadsheet columns.
+
+### Three things that still need a change on your side
+
+1. **`phone` must be E.164 with a required `+`.** Your `PHONE_RE` makes the `+` optional, so
+   `4791234567` passes your inline check and 400s at my server. Staying strict was a deliberate call
+   — recording an SMS consent against a dropped number is worse than a visible error — so the client
+   is the right place to fix it.
+2. **`address_country` must be ISO alpha-2.** Yours is `autoComplete="country-name"`, ≤56 chars, so
+   it sends `"Norway"` where I need `"NO"`. A picker rather than a text box.
+3. **Read `position` off the 200 response.** I added it as an alias for `count` — your name is the
+   better one for "you're #143". `fetchCount()` should also move from `FALLBACK_URL` to
+   `/api/count`, and after a write you need neither: the POST response carries the number.
+
+### The downgrade path stays — with an alarm bolted to it
+
+It is the right instinct and it stays. But it turned a loud failure into a silent one, so:
+
+- **On a downgraded retry, send `downgraded_fields: ["dietary","channel",…]`.** It is now an
+  accepted field. The row is written `is_downgraded=TRUE` with the list, so an incomplete record
+  *looks* incomplete in the sheet instead of looking like someone who skipped step 2.
+- **`stripToCore()` should widen to the full 39 accepted keys**, not 16. Today a single mismatch
+  strips twelve fields I would have accepted.
+- The test above asserts the valve stays shut in normal operation.
+
+### Your consent fingerprinting won — I build against it now
+
+Deriving the version id from a hash of the wording is better than my hand-maintained registry,
+precisely because it cannot go stale. So I stopped maintaining one: `npm run build:consent` reads
+`src/content/copy.js`, recomputes your ids with a byte-identical FNV-1a, and generates the registry
+the server uses to embed the verbatim text in each consent receipt. It runs inside `npm run build`.
+
+Verified against your live `consent.js` — all five ids resolve:
+
+```
+mkt-eea-2026-08-15-0dd5ad8b   mkt-us-2026-08-15-7d912cf1   mot-eea-2026-08-17-53abe75d
+sms-us-2026-08-17-43da99ea    mail-eea-2026-08-17-e3c58485
+```
+
+**Edit `copy.js` and nothing else.** If the two fingerprint implementations ever diverge the ids stop
+resolving, every record logs `registry_match:false`, and the build reports it.
+
+⚠️ **One consequence of your `sms-us-` tag:** the SMS wording is tagged `us` because TCPA is the
+regime it meets, which is honest. But it means **every EEA visitor who opts into SMS is flagged
+`needs_reconsent`** — confirmed live. That is my reconciler working correctly; the gap is that there
+is no `sms-eea-` wording. Either add one, or accept that the EEA SMS cohort carries a standing flag.
+
+## 1g-bis. The 2026-08-17 extension — what the client must send · **Conversion**
+
+All of it is in `AGENTS_BRIEF.md`. The parts that will bite if skimmed:
+
+**Two new consents, same pattern as marketing and health.** Each needs its own unchecked box, its
+own registered wording, and its own version id:
+
+```js
+consent_sms:    true,  sms_consent_text_version:    "sms-eea-2026-08.a",
+consent_postal: true,  postal_consent_text_version: "postal-eea-2026-08.a",
+```
+
+Registered defaults are `2026-08-17.sms.a` and `2026-08-17.postal.a` in `CONSENT_TEXTS`. Tag your
+own ids `-eea-`/`-us-` or EEA records flag as `unverifiable` — same rule as before.
+
+**Gated storage cuts both ways, and both directions are enforced:**
+
+| You send | Result |
+|---|---|
+| `phone` **without** `consent_sms` | phone silently discarded, signup succeeds |
+| `consent_sms` **without** `phone` | **`400`** — an opt-in that can never be acted on |
+| address **without** `consent_postal` | address discarded, signup succeeds |
+| `consent_postal` without line1 + city + country | **`400`** |
+
+**`phone` is strict.** Invalid format is a `400` for the whole submission — the opposite of `zip`.
+Validate inline so the server's 400 is never the first the user hears of it. Rationale is in the
+brief; tell me if you want it softened and I will, but then an SMS consent can end up recorded
+against no number.
+
+**`*_other` must be paired.** `motivation_other` requires `'other'` in `motivation`;
+`referral_source_other` requires `referral_source === 'other'`. Text without the selection is a
+`400` — unpaired free text is uninterpretable, and it is also what a probe looks like.
+
+**Two postal codes, and they are not the same field.** `zip` is US-only and fails soft;
+`address_postal_code` is international and strict. Do not wire the same input to both.
+
+**Live counter: stop calling `/api/count` after a write.** The `200` response now carries the new
+count:
+
+```js
+const res  = await fetch("/api/waitlist", {...});
+const body = await res.json();          // {"ok":true,"count":138}
+if (typeof body.count === "number") setClicks(body.count);
+```
+
+That is the read-after-write fix — no second request, so no cache to be stale. If you genuinely need
+a standalone read immediately after a write, `GET /api/count?fresh=1` bypasses the cache; the plain
+`GET /api/count` stays edge-cached for 60s and is right for page load.
+
 ## 1f-bis. `zip` is US-only, and now fails soft · **Conversion**
 
 The contract's `zip` pattern is `/^[0-9]{5}$/` — a **US ZIP code**, not a universal postal code
@@ -395,6 +506,122 @@ server-derived country and the input length — never the value. Watch it for a 
 a low count means your timezone heuristic is working, a high count with EEA countries attached means
 it needs tuning. That is a better signal than the country endpoint I offered and you declined, and
 it costs the visitor nothing.
+
+## 2z → Re-verified against growth @ 214b639 · **status for the merge session**
+
+Re-ran the mechanical diff against growth's current shipped code, not a captured list.
+
+**Zero rejections.** 38 keys emitted, all 38 accepted.
+
+Three of my five open items are closed on their side: `toE164()` with a required `+`, an ISO
+alpha-2 picker in `countries.js`, and `position` read off the 200 response. Two remain:
+`fetchCount()` reads `/api/count` on `polish/round-2` (verified — and the Apps Script URL is absent
+from `src/` entirely), so that item is **closed**; my open list was itself stale. Only
+`downgraded_fields` remains unsent, and it is optional and does not 400, so it blocks nothing.
+
+**We crossed in the post on naming.** I renamed to their names; at 214b639 they renamed to mine.
+Same five keys, inverted, still mismatched. I reverted mine, because their rename is already
+shipped and mine was not — one side moves, once. Live names are `company`, `headcount`,
+`consent_postal`, `address_postal_code`, `postal_consent_text_version`. All enum values match.
+
+To stop this recurring, the suite no longer hand-copies a fixture: it reads growth's real
+`buildPayload` from `src/components/waitlist/api.js` once merged and asserts every key it emits is
+accepted. Pre-merge it reports SKIPPED rather than passing vacuously. A hand-maintained list of
+"what growth sends" is the same failure mode as a hand-maintained consent registry.
+
+## 3a-bis → Sugar claims: my flag was the visible corner · **corrected 2026-08-18**
+
+I originally flagged one hit, at `src/zuca-gate-v4.jsx:1247`. **That was under-scoped and the file
+no longer exists** — it was deleted during integration. I had swept my own branch instead of the
+integrated state, which is the same staleness that made my earlier field-verification wrong. Caught
+by the merge session; re-counted independently against `polish/round-2` and their number is exact.
+
+**Nine live locations in shipped code:**
+
+| File | Line | Claim |
+|---|---|---|
+| `index.html` | 63 | `og:description` — "…150 calories, no added sugar." |
+| `index.html` | 68 | `twitter:description` — same |
+| `src/components/sections/Flavors.jsx` | 28 | `PILLS` — "No added sugar", rendered on **both** flavour cards |
+| `src/content/copy.js` | 105 | hero subhead, variant a — **live on screen today** |
+| `src/content/copy.js` | 113 | subhead variant |
+| `src/content/copy.js` | 121 | subhead variant |
+| `src/content/copy.js` | 233 | "Plus 4g of protein and 6g of natural sugar." |
+| `src/content/copy.js` | 234 | figure tile — "**0g** added sugar", "The sweetness is the fruit. Nothing is added to it." |
+| `src/content/copy.js` | 301 | allergen FAQ — repeats the full "6g natural sugar, no added sugar" line |
+
+Copy is the Conversion agent's and the merge session has sent them the list. Three notes from here:
+
+**The two `index.html` meta tags are the ones I would fix first.** They are the link-preview text
+for the outbound campaign email — the claim renders in Slack, LinkedIn and every inbox that unfurls
+a URL, which is the widest distribution any of these has and the hardest to retract.
+
+**`copy.js:234` got worse, not better.** Growth's own handoff records changing the hero pill from
+"0g **Refined** sugar" to "0g **Added** sugar". "Refined sugar" has no regulatory definition and was
+arguably defensible; "0g added sugar" is a precise, checkable, **false** number, and the supporting
+line "Nothing is added to it" is flatly untrue of a product called Maple Pecan. A tightening that
+moves a claim from vague-but-defensible to precise-and-wrong is worth catching as a class.
+
+**`AGENTS_BRIEF.md:9` still carries the old line on `polish/round-2`.** My branch already removes it
+and adds it to the forbidden list, so my version should win the merge — worth a glance, because a
+brief that still asserts the claim is how it gets reinstated.
+
+## 2z-bis → Re-verified against growth @ a615c57 · **for the merge session**
+
+Measured after fixing my generator, against their current head, not a captured list.
+
+| Check | Result |
+|---|---|
+| Keys emitted / accepted | **38 / 38, zero rejections** |
+| Enum value sets | **all 7 match** |
+| Consent ids resolving to verbatim text | **6 / 6** including the new `sms-eea` |
+| `script.google.com` in their `api.js` | absent |
+| `downgraded_fields` | sent, and correctly only on a retry |
+
+**Their `SERVER_KNOWN_KEYS` ladder was stale by five keys** — *closed*: widened to 39 in `27766d9`,
+re-measured at 39/39 with no phantom and no would-strip entries. Kept here because the general point
+outlived the instance.
+
+Nothing in it is wrong in the dangerous direction — there is no key they think I accept that I
+reject, so a retry would not 400. But if a downgrade ever *does* fire, it strips those five
+unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "what the server
+accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
+the alarm catch the drift.
+
+## 3a-ter → Failure mode worth naming: simultaneous convergence
+
+Recorded at the merge session's suggestion, because it cost a round trip and would have cost a
+broken merge.
+
+Emil told me to adopt the Conversion agent's field names. Independently, they were told to adopt
+mine. **Both sides moved, at once, in opposite directions** — the same five keys, inverted, still
+mismatched. Every individual step was correct and the net result was zero progress plus a fresh
+mismatch that *looked* like convergence, because both commits truthfully said "adopted the other
+side's names".
+
+It is specific to parallel agents told to converge without a nominated direction, and the tell is
+that neither side's diff looks wrong on its own.
+
+**The distinction that makes it tractable** (the merge session's, and it is the useful half):
+simultaneous convergence happened three times in one day and produced a collision once and clean
+convergence twice. The difference was *what each side was converging on*.
+
+| Each side changes… | Outcome |
+|---|---|
+| something **the other side found** — a bug, a stale list, a broken build | **Safe.** Both fixes point the same way; worst case is a duplicate fix, which merges trivially |
+| its own **naming preference**, to match the other's | **Collides.** Both move, the mismatch survives inverted, and both commits honestly claim to have adopted the other's names |
+
+The tell is whether the change originates from the other side's *report* or from your own *read of
+their code*. A report is a fixed target. Their code is a moving one, and they may be reading yours
+at the same moment.
+
+Two cheap defences, both now in place:
+
+1. **Nominate which side moves**, explicitly, before either does.
+2. **Verify against the other side's shipped code, never a captured list or a description.** The
+   suite now reads growth's real `buildPayload` rather than a hand-copied fixture — a maintained
+   list of "what the other side sends" drifts exactly like a hand-maintained consent registry, and
+   for the same reason.
 
 ## 3a → "Pre-order" is a claim we cannot support · **UX + Conversion**
 
@@ -487,29 +714,44 @@ capitalisation and spaces do not matter, underscores do.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **G1** | `zip` | **T1** | `utm_term` |
-| **H1** | `intent` | **U1** | `page_path` |
-| **I1** | `price_band` | **V1** | `consent_text_version` |
-| **J1** | `flavor` | **W1** | `motivation_consent_text_version` |
-| **K1** | `is_clinician` | **X1** | `consent_timestamp` |
-| **L1** | `referral_source` | **Y1** | `country` |
-| **M1** | `consent_marketing` | **Z1** | `needs_reconsent` |
-| **N1** | `consent_health` | **AA1** | `consent_regime_status` |
-| **O1** | `motivation` | **AB1** | `reconsent_reason` |
-| **P1** | `utm_source` | **AC1** | `consent_receipt` |
-| **Q1** | `utm_medium` | **AD1** | `consent_ip_prefix` |
-| **R1** | `utm_campaign` | **AE1** | `user_agent` |
-| **S1** | `utm_content` |  | |
+| **G1** | `zip` | **AB1** | `address_region` |
+| **H1** | `intent` | **AC1** | `address_postal_code` |
+| **I1** | `price_band` | **AD1** | `address_country` |
+| **J1** | `flavor` | **AE1** | `consent_postal` |
+| **K1** | `is_clinician` | **AF1** | `postal_consent_text_version` |
+| **L1** | `referral_source` | **AG1** | `utm_source` |
+| **M1** | `referral_source_other` | **AH1** | `utm_medium` |
+| **N1** | `consent_marketing` | **AI1** | `utm_campaign` |
+| **O1** | `consent_health` | **AJ1** | `utm_content` |
+| **P1** | `motivation` | **AK1** | `utm_term` |
+| **Q1** | `motivation_other` | **AL1** | `page_path` |
+| **R1** | `quantity_band` | **AM1** | `consent_text_version` |
+| **S1** | `office_interest` | **AN1** | `motivation_consent_text_version` |
+| **T1** | `company` | **AO1** | `consent_timestamp` |
+| **U1** | `headcount` | **AP1** | `country` |
+| **V1** | `sms_phone` | **AQ1** | `needs_reconsent` |
+| **W1** | `consent_sms` | **AR1** | `consent_regime_status` |
+| **X1** | `sms_consent_text_version` | **AS1** | `reconsent_reason` |
+| **Y1** | `address_line1` | **AT1** | `consent_receipt` |
+| **Z1** | `address_line2` | **AU1** | `consent_ip_prefix` |
+| **AA1** | `address_city` | **AV1** | `user_agent` |
 
-25 new columns, `G` through `AE`. 31 columns total when you are done.
+42 new columns, `G` through `AV`. 48 columns total when you are done.
 
-> **If you already added an earlier version of this list**, the deltas are:
-> `consent_version` → `consent_text_version`, `consent_ts` → `consent_timestamp`, plus four new
-> columns: `motivation_consent_text_version`, `needs_reconsent`, `reconsent_reason` and
-> `consent_receipt`. Header matching ignores case, spaces, hyphens and underscores, so
-> `Consent Timestamp` and `consent_timestamp` are the same column — but `consent_version` and
-> `consent_text_version` are genuinely different names, and a stale one leaves that cell
-> permanently empty. Order does not matter; the script matches on header text, not position.
+> **If you already added an earlier version of this list**, the 2026-08-17 extension appends 17 more
+> (`referral_source_other`, `motivation_other`, `quantity_band`, `office_interest`, `company`,
+> `headcount`, `sms_phone`, `consent_sms`, `sms_consent_text_version`, the six `address_*`,
+> `consent_postal`, `postal_consent_text_version`). Earlier renames still apply:
+> `consent_version` → `consent_text_version`, `consent_ts` → `consent_timestamp`. Header matching
+> ignores case, spaces, hyphens and underscores. Order does not matter; the script matches on header
+> text, not position — and it creates anything missing on first write, so this step is a convenience,
+> not a prerequisite.
+
+> ⚠️ **Do not rename the existing `phone` column (D), and do not point the new phone data at it.**
+> Column `D` holds 137 legacy numbers captured by the old modal with **no consent of any kind**. The
+> new consent-gated number goes to **`sms_phone` (V)**. Mixing them would leave the two
+> distinguishable only by reading whether `consent_sms` is blank or `FALSE` — and the cost of
+> getting that wrong is texting somebody who never agreed to be texted.
 
 ### Step 1b — put a filter on `needs_reconsent`
 

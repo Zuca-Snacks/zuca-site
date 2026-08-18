@@ -48,7 +48,20 @@ export default async function handler(req, res) {
 
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Cache-Control', CACHE);
+  // `?fresh=1` bypasses every cache in the path.
+  //
+  // The counter is edge-cached for 60s, which is right for the 99% of reads
+  // that just render a number on a page — but wrong for the one read that
+  // matters most, immediately after a signup, where a stale value shows the
+  // person their own submission did not count. The query string is part of the
+  // cache key, so this is a genuinely separate entry rather than a hint the CDN
+  // may ignore.
+  //
+  // Prefer the `count` now returned in the POST /api/waitlist response: it
+  // needs no second request at all. This exists for clients that cannot use it.
+  const fresh = /[?&]fresh=1(&|$)/.test(req.url || '');
+  res.setHeader('Cache-Control', fresh ? 'no-store, max-age=0' : CACHE);
+  if (fresh) res.setHeader('CDN-Cache-Control', 'no-store');
 
   if (!SHEETS_WEBHOOK_URL) {
     console.log(JSON.stringify({ evt: 'count.unconfigured' }));

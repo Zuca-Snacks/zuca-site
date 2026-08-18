@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/build-consent-registry.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "security:test": "node scripts/attack-waitlist.mjs",
     "security:test:sheet": "node scripts/test-apps-script.mjs",
-    "security:headers": "node scripts/check-headers.mjs"
+    "security:headers": "node scripts/check-headers.mjs",
+    "build:consent": "node scripts/build-consent-registry.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
