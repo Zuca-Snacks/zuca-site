@@ -29,7 +29,7 @@
      --z-brand-on-cream  <- --z-brand    minimum darkening clearing 4.5:1 on the
                                          artwork name plate (#F1D4A7)
      --z-brand-dark      <- --z-brand    18% darker; hover/pressed fills only
-     --z-accent-dark     <- --z-accent   18% darker; hover/pressed fills only
+     --z-cta-dark        <- --z-cta      18% darker; hover/pressed fills only
      --z-maple-on-black  <- --z-maple    minimum lightening clearing 4.5:1 on the
                                          artwork's #000000 fiber pill
      --z-ink-muted       <- --gray #888888 (brand grey) darkened to clear 4.5:1
@@ -91,22 +91,12 @@
      stale when the brand red moved — the same failure as the old plate red.
      If --z-brand moves again, re-derive this too. */
   --z-brand-dark: #ba0016;
-  /* [BRAND, Emil 17 Aug] PRIMARY CTA FILL. Accent no longer equals brand: the
-     red is still the identity — wordmark, JOIN THE WAITLIST, plate text — and
-     the green is the ACTION. Emil chose it after seeing both side by side.
-     ⚠️ This is a SITE-WIDE token. Every .z-btn primary uses it, so the sticky
-     bar and growth's waitlist form turn green too. That is deliberate: one
-     action colour, used consistently, is the point. Do not special-case the
-     hero.
-     White on it is 8.33:1; on cream it is 6.65:1, so it also works as ghost
-     text and as a border. */
-  --z-accent: #2a571e;
-
-  /* [DERIVED from --z-accent] Hover and pressed fills for the primary button.
-     18% darker, same hue — the same treatment --z-brand-dark gets. White on it
-     is 10.36:1.
-     ⚠️ Derived value with a named parent. Re-derive if --z-accent moves. */
-  --z-accent-dark: #224719;
+  /* [BRAND] Accent equals brand: it is an IDENTITY colour, not an action one.
+     ⚠️ It was briefly #2A571E (green) when the CTA changed. That leaked green
+     into everything reading --z-accent, including things that are not buttons.
+     Emil's ruling, 18 Aug: the action colour gets its OWN token (--z-cta) and
+     --z-accent goes back to red. If you want the green, you want --z-cta. */
+  --z-accent: #e3001b;
 
   /* [DERIVED from --z-brand] The brand red is 3.85:1 on cream, which fails AA
      for body-sized text. This is the MINIMUM darkening that clears 4.5:1 — 10%
@@ -155,7 +145,29 @@
      ⚠️ Derived value with a named parent. Re-derive if --z-maple moves. */
   --z-maple-on-black: #c54f0e; /* 4.51:1 on the #000000 pill */
 
-  --z-accent-ink: #fffdf8;  /* [BRAND] --white on the brand red = 4.83:1 */
+  --z-accent-ink: #fffdf8;  /* [BRAND] --white on the brand red = 4.82:1.
+                               ⚠️ Ink for RED-BACKED things only — badges, the
+                               checkbox tick, the flavour "+". The CTA has its
+                               own ink because it is no longer red. */
+
+  /* ---- Primary action ----------------------------------------------------
+     [BRAND, Emil 18 Aug] THE ONE COLOUR A PRIMARY ACTION IS EVER FILLED WITH:
+     hero button, sticky bar, growth's form buttons. Deliberately separate from
+     --z-accent so that "the thing you click" is one consistent colour site-wide
+     WITHOUT the green reaching anything that is not a button.
+     ⚠️ If you are colouring something that is not a button, you do not want
+     this token. The progress bar, for instance, correctly uses --z-accent. */
+  --z-cta: #2a571e;         /* --z-cta-ink on it = 8.33:1 */
+
+  /* [DERIVED from --z-cta] Hover and pressed fills. 18% darker, same hue — the
+     same treatment --z-brand-dark gets from --z-brand. --z-cta-ink on it is
+     10.36:1.
+     ⚠️ Derived value with a named parent. Re-derive if --z-cta moves. */
+  --z-cta-dark: #224719;
+
+  /* [BRAND] White, as --z-accent-ink is, but named for its own surface so the
+     two can diverge if either fill ever changes. 8.33:1 on --z-cta. */
+  --z-cta-ink: #fffdf8;
   --z-warm: #fdb026;        /* [BRAND] --amber — fills and dark-band text only */
 
   /* ---- Status ------------------------------------------------------------ */

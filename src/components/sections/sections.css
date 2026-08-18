@@ -803,6 +803,15 @@
   stroke-linejoin: round;
 }
 
+/* Attribution, rendered only when a quote actually has one. */
+.z-quote__cite {
+  margin-block-start: var(--z-space-1);
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+.z-quote__cite cite { font-style: normal; }
+
 .z-quote[data-accent='red'] .z-quote__frame {
   fill: none;
   stroke: var(--z-brand);

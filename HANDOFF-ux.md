@@ -134,6 +134,27 @@ and the sticky bar, all unchanged.
 - **`$25/ton` is absent**, as required. It was already cut on merge.
 - **No price figures**, no pre-order language, no new allergen assertions.
 
+## R3.8 ⚠️ `--z-cta` vs `--z-accent` — which red/green goes where
+
+**Emil's ruling, 18 Aug.** There are now two tokens and they mean different
+things. Getting this wrong is how the green leaked site-wide the first time.
+
+| Token | Value | Means | Used for |
+|---|---|---|---|
+| `--z-cta` | `#2A571E` | **the thing you click** | primary buttons only — hero CTA, sticky bar, growth's form buttons |
+| `--z-accent` | `#E3001B` | **brand identity** | wordmark, JOIN heading, badges, the flavour `+`, the progress bar |
+
+The point of splitting them is that a primary action is **one consistent colour
+everywhere** without green reaching anything that is not a button.
+
+⚠️ **If you are colouring something that is not a button, you do not want
+`--z-cta`.** The step indicator is the worked example: it is an indicator, so it
+uses `--z-accent` and stays red even though it sits inside a form.
+
+`--z-accent-dark` was **deleted** — it was the green hover and had exactly one
+user. Hover/pressed is `--z-cta-dark`. Ink on the CTA is `--z-cta-ink` (8.33:1),
+kept separate from `--z-accent-ink` so the two can diverge if either fill moves.
+
 ## R3.7 ⚠️ THE HERO ROW MODEL — read before touching the poster grid
 
 **Content rows are `min-content`. Only GAP rows are fractions.** Run
@@ -576,12 +597,27 @@ WebP + JPEG at every needed width. Add a job entry per new image.
   **Check the shipped validator, not the brief, before calling something a
   contract gap.**
 
-- **🔴 PRIVACY — do not wire `OtherInput` to `motivation` without a ruling.**
-  `motivation` is special-category health data under GDPR Art 9, which is why it
-  already sits behind its own consent line. An enum is bounded; a free-text box
-  is not, and beside a health question it invites people to type a diagnosis —
-  which lands unstructured special-category data in the sheet. Attaching it to
-  `referral_source` carries none of that risk. Flagging, not deciding.
+- **🔴🔴 RULED (Emil, 18 Aug) — `OtherInput` MUST NEVER BE WIRED TO
+  `motivation`. Delete `motivation_other` entirely.**
+  The health-motivation question is **chips only**. A free-text box beside a
+  health question invites people to type detailed medical information, which is
+  far more sensitive than picking from a list and much harder to minimise or
+  justify under GDPR Art 9. This is a prohibition, not a preference — it does
+  not become acceptable because the schema currently accepts the field.
+  Three actions:
+    1. **Growth** — remove the `motivation_other` field and its `OtherInput`
+       from step 2. The "Other" chip on that question stays; it just does not
+       open a text box.
+    2. **Security** — delete `motivation_other` from the validator and from the
+       `superRefine` pairing list.
+    3. **`dietary_other` stays, but capped short**, with microcopy asking for
+       **allergen names only, never medical detail**. Pass an explicit short
+       `maxLength` — do NOT rely on `OtherInput`'s 120 default, which exists to
+       match `safeString(120)` on the server, not because it is appropriate
+       here. The microcopy string is growth's; the constraint is not optional.
+  `referral_source_other` and `channel_other` are unrestricted — no health
+  dimension.
+  Recorded at the top of `OtherInput.jsx` so it travels with the component.
 
 - **🟡 `EYEBROW` — RESOLVED.** Emil confirmed "WHAT TASTERS SAY" on 18 Aug. It
   now lives in `copy.js` as `sections.quotes.eyebrow`, stored in sentence case

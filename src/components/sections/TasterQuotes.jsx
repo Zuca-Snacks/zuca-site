@@ -19,10 +19,10 @@
  * that is what they are. Do not restyle them into decorative text and do not
  * reword them; a testimonial that has been tidied up is no longer a testimonial.
  *
- * ⚠️ NO ATTRIBUTIONS. There is no <cite> and no "— Name, Title" line because we
- * do not have consented names. Inventing one, or inferring it from the event,
- * would be fabricating a person. If Emil supplies real names the markup already
- * has the slot: a <footer><cite> inside each blockquote.
+ * ⚠️ NO ATTRIBUTIONS — CONFIRMED, not an oversight. Emil ruled on 18 Aug that
+ * these ship unattributed; he will supply names when he can confirm who said
+ * what. Every quote carries a `cite` slot, empty and in place, which renders a
+ * <footer><cite> only once it has a value. Filling one is a string edit.
  *
  * ⚠️ CLAIM GUARDRAIL: these are opinions about taste, held by the speaker, and
  * they stay that way. Do not add a linking sentence that converts a taster's
@@ -38,15 +38,26 @@ import { sections } from '../../content/copy.js';
 /* ⚠️ ORDER IS LOAD-BEARING: two of these open "I can't believe", and Emil asked
    that they never sit next to each other. "How has no one thought of this
    before?" separates them. Do not re-sort this array. */
+/* ⚠️ `cite` IS THE ATTRIBUTION SLOT, AND IT IS DELIBERATELY EMPTY.
+   Emil, 18 Aug: the quotes ship unattributed and he will fill these in when he
+   can confirm who said what. Left in place rather than removed so filling one
+   is a string, not a refactor — but each renders NOTHING until it has a value.
+   An empty <cite> in every blockquote would be markup that announces an author
+   who does not exist.
+   ⚠️ Put a real, consented name here or leave it null. Do not infer one from
+   the event ("a physician at the Vituity symposium") — that is fabricating a
+   person, and beside a fiber product an inferred clinician reads as clinical
+   endorsement, which is the exact claim the guardrails forbid. */
 const QUOTES = [
-  { text: 'Can’t. Stop. Eating them!!!', side: 'start' },
-  { text: 'These are dangerously addictive.', side: 'end' },
-  { text: 'I can’t believe this is upcycled fruit.', side: 'start' },
-  { text: 'How has no one thought of this before?', side: 'end' },
+  { text: 'Can’t. Stop. Eating them!!!', side: 'start', cite: null },
+  { text: 'These are dangerously addictive.', side: 'end', cite: null },
+  { text: 'I can’t believe this is upcycled fruit.', side: 'start', cite: null },
+  { text: 'How has no one thought of this before?', side: 'end', cite: null },
   {
     text:
       'I can’t believe this is made from food that otherwise would have been thrown away.',
     side: 'start',
+    cite: null,
   },
 ];
 
@@ -92,6 +103,11 @@ function Bubble({ q, i }) {
       {/* The <p> carries the quote. It is above the frame in stacking order so
           the outline can never sit over a letter. */}
       <p className="z-quote__text">{q.text}</p>
+      {q.cite && (
+        <footer className="z-quote__cite">
+          — <cite>{q.cite}</cite>
+        </footer>
+      )}
     </blockquote>
   );
 }

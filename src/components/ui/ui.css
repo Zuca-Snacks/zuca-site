@@ -8,8 +8,10 @@
 /* ─── Button ─────────────────────────────────────────────────────────────── */
 
 .z-btn {
-  --btn-bg: var(--z-accent);
-  --btn-ink: var(--z-accent-ink);
+  /* Primary buttons are the ACTION colour, not the identity colour. See
+     --z-cta in tokens.css for why these are separate tokens. */
+  --btn-bg: var(--z-cta);
+  --btn-ink: var(--z-cta-ink);
   --btn-border: transparent;
 
   position: relative;
@@ -44,9 +46,9 @@
     transform var(--z-dur-fast) var(--z-ease);
 }
 
-/* Primary is the ACTION colour (--z-accent), so its hover is the accent's
-   dark, not the brand's. These were the same token until the CTA went green. */
-.z-btn:hover:not(:disabled) { --btn-bg: var(--z-accent-dark); }
+/* Primary is the ACTION colour, so its hover is the CTA's dark, not the
+   brand's. These were one token until the CTA stopped being red. */
+.z-btn:hover:not(:disabled) { --btn-bg: var(--z-cta-dark); }
 
 /* Press feedback — cheap, transform-only. */
 .z-btn:active:not(:disabled) { transform: scale(0.97); }
@@ -578,6 +580,8 @@
   transition: background var(--z-dur) var(--z-ease);
 }
 
+/* ⚠️ --z-accent (brand red), NOT --z-cta. A progress bar is an indicator, not
+   a button, and the green is reserved for things you click. */
 .z-progress__seg[data-state='done'] { background: var(--z-accent); }
 
 @media (prefers-reduced-motion: reduce) {

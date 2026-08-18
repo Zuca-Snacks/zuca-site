@@ -60,16 +60,21 @@
  * start and enters a polite live region only near the limit — a region that
  * updates on every keystroke is unusable with a screen reader running.
  *
- * ⚠️ PRIVACY — READ BEFORE WIRING THIS TO `motivation`.
- * `motivation` is special-category health data under GDPR Art 9, which is why
- * it already sits behind its own consent line. An enum is bounded; a free-text
- * box is not, and next to a health question it invites people to type a
- * diagnosis — which lands unstructured special-category data in a spreadsheet.
- * ⚠️ The schema now ACCEPTS `motivation_other`, which makes this more urgent
- * rather than less: the guardrail has to be a decision, not an absence.
- * `referral_source_other` carries none of that risk.
- * Flagged in HANDOFF-ux.md and escalated. This primitive is safe to render;
- * WHERE it is rendered is a legal question, not a UI one.
+ * ⚠️⚠️ NEVER WIRE THIS TO `motivation`. RULED BY EMIL, 18 Aug — not a
+ * preference, not a flag, a prohibition.
+ * `motivation` is special-category health data under GDPR Art 9. An enum is
+ * bounded and minimisable; a free-text box beside a health question invites
+ * people to type detailed medical information, which is far more sensitive than
+ * picking from a list and much harder to justify or minimise. The health-
+ * motivation question is CHIPS ONLY.
+ * `motivation_other` is being deleted from the schema entirely.
+ *
+ * Where this primitive IS allowed:
+ *   referral_source_other · channel_other — no health dimension, no restriction.
+ *   dietary_other — allowed but CAPPED SHORT, with microcopy asking for
+ *     allergen NAMES only, never medical detail. Pass an explicit short
+ *     maxLength; do not rely on the 120 default, which exists to match the
+ *     server rather than to be appropriate here.
  */
 import { forwardRef } from 'react';
 
