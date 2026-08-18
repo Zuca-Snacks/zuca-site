@@ -225,6 +225,8 @@ export default async function handler(req, res) {
   const country = deriveCountry(req);
   const consent = resolveConsentText(data.consent_text_version, 'marketing');
   const healthConsent = resolveConsentText(data.motivation_consent_text_version, 'health');
+  const smsConsent = resolveConsentText(data.sms_consent_text_version, 'sms');
+  const postalConsent = resolveConsentText(data.postal_consent_text_version, 'postal');
   const ipPrefix = ip.includes(':')
     ? ip.split(':').slice(0, 3).join(':')
     : ip.split('.').slice(0, 3).join('.') + '.0';
@@ -236,6 +238,8 @@ export default async function handler(req, res) {
     country,
     marketingVersion: data.consent_text_version,
     healthVersion: data.consent_health ? data.motivation_consent_text_version : null,
+    smsVersion: data.consent_sms ? data.sms_consent_text_version : null,
+    postalVersion: data.consent_postal ? data.postal_consent_text_version : null,
   });
 
   if (reconciliation.needs_reconsent) {
@@ -263,6 +267,12 @@ export default async function handler(req, res) {
   if (data.consent_health && !healthConsent.registry_match) {
     audit('consent.health_text_version_unresolved', { handle, version: healthConsent.version });
   }
+  if (data.consent_sms && !smsConsent.registry_match) {
+    audit('consent.sms_text_version_unresolved', { handle, version: smsConsent.version });
+  }
+  if (data.consent_postal && !postalConsent.registry_match) {
+    audit('consent.postal_text_version_unresolved', { handle, version: postalConsent.version });
+  }
 
   // 11. Build the record. Bot signals and the honeypot are dropped here — they
   //     are inputs to a decision already made, and storing them would put
@@ -282,6 +292,34 @@ export default async function handler(req, res) {
     flavor: data.flavor,
     is_clinician: data.is_clinician,
     referral_source: data.referral_source,
+    referral_source_other: data.referral_source_other,
+    motivation_other: data.consent_health ? data.motivation_other : null,
+
+    quantity_band: data.quantity_band,
+    office_interest: data.office_interest,
+    company: data.company,
+    headcount: data.headcount,
+
+    // Phone and postal address are each stored ONLY behind their own opt-in,
+    // the same rule already applied to `motivation`. Someone typing an address
+    // into a form is not the same as consenting to us keeping it, and a home
+    // address is the most identifying thing this form collects — it is also
+    // what turns a list leak from embarrassing into dangerous (SECURITY.md S2).
+    // Column is `sms_phone`, not `phone`: the sheet's existing `phone` column
+    // holds legacy numbers captured without any consent, and the two must not
+    // be mixed. See COLUMNS in server/apps-script/Code.gs.
+    sms_phone: data.consent_sms ? data.phone : null,
+    consent_sms: data.consent_sms,
+    sms_consent_text_version: data.consent_sms ? smsConsent.version : null,
+
+    address_line1: data.consent_postal ? data.address_line1 : null,
+    address_line2: data.consent_postal ? data.address_line2 : null,
+    address_city: data.consent_postal ? data.address_city : null,
+    address_region: data.consent_postal ? data.address_region : null,
+    address_postal_code: data.consent_postal ? data.address_postal_code : null,
+    address_country: data.consent_postal ? data.address_country : null,
+    consent_postal: data.consent_postal,
+    postal_consent_text_version: data.consent_postal ? postalConsent.version : null,
     consent_marketing: data.consent_marketing,
     utm: data.utm,
     page_path: data.page_path,
@@ -309,24 +347,27 @@ export default async function handler(req, res) {
     // its own, but the sentence the person actually read still means exactly
     // what it meant.
     consent_receipt: JSON.stringify({
-      schema: 'zuca.consent.v2',
-      // Two consents, recorded symmetrically and independently. The previous
-      // shape embedded a hardcoded health wording and no health version at all,
-      // which meant a copy change would have silently attached the OLD text to
-      // NEW records — evidence that is confidently wrong, which is worse than
-      // evidence that is missing.
-      marketing: {
-        granted: data.consent_marketing,
-        version: consent.version,
-        text: consent.text,
-        registry_match: consent.registry_match,
-      },
-      health: {
-        granted: data.consent_health,
-        version: data.consent_health ? healthConsent.version : null,
-        text: data.consent_health ? healthConsent.text : null,
-        registry_match: data.consent_health ? healthConsent.registry_match : null,
-      },
+      schema: 'zuca.consent.v3',
+      // Four consents, recorded symmetrically and independently. Built from a
+      // table rather than four hand-copied blocks: the v1 receipt hardcoded the
+      // health wording and recorded no version for it, and that class of bug
+      // comes from duplicating the shape by hand each time a consent is added.
+      ...Object.fromEntries(
+        [
+          ['marketing', data.consent_marketing, consent],
+          ['health', data.consent_health, healthConsent],
+          ['sms', data.consent_sms, smsConsent],
+          ['postal', data.consent_postal, postalConsent],
+        ].map(([name, granted, resolved]) => [
+          name,
+          {
+            granted,
+            version: granted ? resolved.version : null,
+            text: granted ? resolved.text : null,
+            registry_match: granted ? resolved.registry_match : null,
+          },
+        ])
+      ),
       timestamp: consentTimestamp,
       country,
       regime: isEea(country) ? 'eea' : 'other',
@@ -364,6 +405,8 @@ export default async function handler(req, res) {
     return send(res, 200, { ok: true });
   }
 
+  let newCount = null;
+
   try {
     const upstream = await fetch(SHEETS_WEBHOOK_URL, {
       method: 'POST',
@@ -383,13 +426,35 @@ export default async function handler(req, res) {
       audit('forward.failed', { handle, status: upstream.status });
       return send(res, 500, { ok: false, error: 'server' });
     }
+
+    // The sheet reports its row count after the append. Returning it here is
+    // what makes the live counter correct immediately: the client updates from
+    // this response instead of issuing a follow-up GET that an edge cache would
+    // happily answer with a number from before this very write.
+    try {
+      const body = await upstream.json();
+      if (Number.isFinite(body?.count)) newCount = Math.max(0, Math.trunc(body.count));
+    } catch {
+      // A count we cannot read is not worth failing a successful signup over.
+    }
   } catch (err) {
     audit('forward.error', { handle, reason: err.name });
     return send(res, 500, { ok: false, error: 'server' });
   }
 
-  audit('accepted', { handle, has_health_consent: data.consent_health });
-  return send(res, 200, { ok: true });
+  audit('accepted', {
+    handle,
+    country,
+    consents: [
+      data.consent_marketing && 'marketing',
+      data.consent_health && 'health',
+      data.consent_sms && 'sms',
+      data.consent_postal && 'postal',
+    ].filter(Boolean),
+  });
+  // `count` is additive: the contract's 200 shape is `{"ok":true}` and any
+  // client ignoring the extra key behaves exactly as before.
+  return send(res, 200, newCount === null ? { ok: true } : { ok: true, count: newCount });
 }
 
 /**

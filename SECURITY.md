@@ -20,6 +20,11 @@
 > *(Minor discrepancy worth checking: the live counter reads **136**, you said **127**. A nine-row
 > gap in a list about to be emailed is worth reconciling before anyone sends anything.)*
 
+> **Revision 3 — 2026-08-17.** Contract extended: quantity band, office-snack path, phone with SMS
+> consent, postal address with its own opt-in, `*_other` free text per enum. Two new consequences
+> for this document — **the blast radius of a list leak has changed materially (§4.1)**, and there
+> is now a recommendation for the auto-response email (§10).
+
 ---
 
 ## 1. What this system actually is
@@ -192,6 +197,40 @@ string before it is forwarded. Sheet-side, the hardened Apps Script in
 gate before the data lands.
 
 **Proof.** §6, case 6.
+
+### 4.1 The extension changes what a leak costs
+
+Worth stating before the fixes, because it re-prices every finding above.
+
+Until now the worst case for a list leak was: name, email, phone (legacy, ungated), and a
+health-adjacent motivation. As of the 2026-08-17 extension the sheet can also hold **home postal
+addresses**, **consent-gated phone numbers**, and **employer name and size**.
+
+| | Before | After |
+|---|---|---|
+| Identify a person | email, sometimes a name | + home address, phone, employer |
+| Reach them offline | no | **yes — post and SMS** |
+| Infer something sensitive | health motivation | + health motivation *and* where they sleep |
+
+That combination — name, home address, phone, and a statement about someone's digestive health, for
+~137 mostly Norwegian people — is a materially different asset from an email list. It is the shape
+of data that supports stalking and targeted fraud, not just spam. Under GDPR Art 34 a breach of it
+would very likely require notifying **every affected individual**, not merely Datatilsynet.
+
+Nothing about S1, S2 or S3 becomes newly exploitable. What changes is the cost when they land, and
+therefore how much the owner actions in §9 are worth. **Items 3, 4 and 9 (rotate the webhook, audit
+for formula payloads, lock down sheet sharing) were already the right call; they are now the
+difference between an embarrassing leak and a reportable one.**
+
+Two controls added with the extension, both structural rather than reactive:
+
+- **Consent-gated storage.** Phone and address are written only behind their own opt-in. Someone who
+  types an address and does not tick the box leaves nothing behind to leak. The cheapest data to
+  protect is data you never stored.
+- **A separate `sms_phone` column.** The existing `phone` column holds 137 legacy numbers captured
+  with no consent at all. Writing consent-gated numbers into it would make the two distinguishable
+  only by reading a neighbouring cell, and the failure mode of getting that wrong is texting
+  somebody who never agreed to be texted.
 
 ### S3 — The write credential is published and cannot be un-published
 
@@ -836,3 +875,118 @@ Ranked by urgency. **Items 1–3 must be settled before a single email is sent.*
    code actually does, which is the hard part and the part I can verify. They are not a substitute
    for review by a lawyer. **Cooley already advises Zuca — send them these two pages and the health-
    claim list in `HANDOFF-sec.md` together.** The health claims are the more urgent of the two.
+
+## 10. The auto-response email — recommendation and tradeoffs
+
+You asked for a recommendation rather than an implementation, so this is analysis. Nothing in this
+section is built yet.
+
+### 10.1 Apps Script is the wrong tool, and your instinct on why is right
+
+Apps Script's `MailApp`/`GmailApp` sends **as the account that owns the script** — today
+`chefemilnordin@gmail.com`, the account you are migrating away from. There is no way to make it send
+as `emil@zucasnacks.com` short of transferring script ownership to that account, which just moves
+the problem.
+
+Three further reasons, any one of which would be disqualifying on its own:
+
+- **Quota.** 100 recipients/day on a consumer account, 1,500 on Workspace. A launch announcement to
+  137 people plus a campaign would hit that.
+- **No bounce or complaint handling.** Nothing tells you an address is dead, so hard bounces
+  accumulate and your sender reputation degrades invisibly.
+- **`@gmail.com` cannot pass DMARC alignment for `zucasnacks.com`.** The whole DKIM/SPF/DMARC setup
+  you are about to publish would be bypassed by the one system sending the most mail.
+
+### 10.2 Recommendation
+
+**A dedicated email service, sending from a subdomain, with the auto-response as a confirmed
+opt-in.** Three separable decisions:
+
+**(a) Which provider.** I would pick **Resend** or **Postmark**.
+
+| | Resend | Postmark | AWS SES | Apps Script |
+|---|---|---|---|---|
+| Deliverability | good | **best in class** | good, needs warmup | poor |
+| Setup effort | lowest | low | high | n/a |
+| Cost at your volume | free → ~$20/mo | ~$15/mo | ~$1/mo | free |
+| Bounce/complaint handling | yes | **yes, excellent** | manual | **no** |
+| Separates transactional from bulk | yes | **yes, enforced** | manual | no |
+| Sends as `emil@zucasnacks.com` | yes | yes | yes | **no** |
+
+**Resend** if you value setup speed and cost. **Postmark** if deliverability into physician inboxes
+is the priority — it is stricter about what it will send, which is precisely why its reputation
+holds. Either is defensible. **SES** is cheapest and I would not recommend it here: it is the most
+operational work, and you do not have an ops person.
+
+**(b) Separate the sending domains.** This matters more than the provider choice.
+
+- Transactional (auto-response, confirmations): `mail.zucasnacks.com`
+- Marketing (the outbound campaign): `news.zucasnacks.com`
+
+If the cold campaign draws complaints — and cold campaigns do — reputation damage is contained to
+the subdomain that earned it. Your confirmation emails keep arriving. Sharing one domain means a bad
+week on the campaign silently stops people receiving the email that proves they signed up.
+
+**(c) Make the auto-response a confirmed opt-in (double opt-in).** The strongest recommendation
+here, and it costs one extra click.
+
+The email contains a confirmation link; consent is not treated as complete until it is clicked. That
+converts your Art 7(1) evidence from *"our server recorded a ticked box"* into *"the person
+demonstrably controls this mailbox and acted twice"*. Given §5.4 — where the existing ~127 records
+have no demonstrable consent at all — this is the difference between building the same problem again
+and not.
+
+**Tradeoff, stated honestly: 10–30% never click, so your list shrinks.** That is a real cost and you
+should decide it deliberately. My view is it is worth paying: a smaller list you can lawfully email
+beats a larger one you cannot, and unconfirmed addresses are disproportionately typos and spamtraps
+that damage deliverability anyway.
+
+### 10.3 How it interacts with the DNS work already on your list
+
+This is the part that changes the DNS blocker, so read it before doing item 4.
+
+- **SPF has a hard limit of 10 DNS lookups**, and exceeding it makes the record fail — not degrade,
+  fail. `include:_spf.google.com` already consumes several. Adding an ESP include to the root domain
+  risks tipping over it.
+  **Using a subdomain sidesteps this entirely:** `mail.zucasnacks.com` gets its own SPF record with
+  its own budget, and the root record stays as it is. Another reason for (b).
+- **DKIM does not conflict.** The ESP gives you CNAMEs on its own selector; Google's lives at
+  `google._domainkey`. Both coexist. Do item 5 (enable Workspace DKIM) regardless — it covers mail
+  Emil sends by hand.
+- **DMARC at the root covers subdomains** unless you set `sp=` or publish a subdomain record. With
+  relaxed alignment, mail from `mail.zucasnacks.com` aligns with `zucasnacks.com`. So publish DMARC
+  first at `p=none` (item 4), add the ESP, confirm the aggregate reports show it passing, and only
+  then tighten to `p=quarantine`. **Tightening before the ESP is verified would send your own
+  confirmation emails to spam.**
+- **Order matters:** DMARC `p=none` → Workspace DKIM → ESP subdomain + its SPF/DKIM → two weeks of
+  clean reports → `p=quarantine` → `p=reject`.
+
+### 10.4 Security requirements for whatever you pick
+
+- **The API key is server-side only.** Same rule as `SHEETS_WEBHOOK_URL`: never a `VITE_` prefix,
+  never in the bundle. Add `RESEND_API_KEY` (or equivalent) to `.env.example` when you choose.
+- **Never render user input as HTML.** The confirmation email will greet people by name, and a name
+  is attacker-controlled. Escape it, or send plain text. This was in the original engagement brief
+  and it still applies.
+- **Send from a real, monitored mailbox.** `hello@` or `emil@`, not `no-reply@` — someone replying
+  to a confirmation is a customer, and CAN-SPAM plus general decency want that reply to arrive
+  somewhere.
+- **The auto-response must stay transactional.** A message confirming a signup is lawful everywhere,
+  including the EEA, *because* it is not marketing. Add product promotion to it and it becomes a
+  marketing email subject to §5.2 — and then it needs prior consent it may not have. Confirm the
+  signup, link the privacy policy, offer the confirmation click, stop.
+- **Unsubscribe in every message**, including a `List-Unsubscribe` header, not just a footer link.
+- **Rate limit it.** The send is triggered by a public endpoint. It is already behind the waitlist
+  rate limiter, but if the ESP is called on every accepted signup then a burst that passes the
+  limiter is a burst of email. Cap sends independently.
+
+### 10.5 What I would do, in order
+
+1. Publish DMARC `p=none` (already item 4).
+2. Enable Workspace DKIM (already item 5).
+3. Pick Resend or Postmark. Verify `mail.zucasnacks.com`, publish its SPF and DKIM records.
+4. Send the auto-response as a confirmed opt-in from `emil@zucasnacks.com` via that subdomain.
+5. Watch DMARC aggregate reports for two weeks.
+6. Only then `p=quarantine`, and set up `news.zucasnacks.com` separately for the campaign.
+
+Steps 1 and 2 are on your list already and block nothing else here. Step 3 is roughly an hour.

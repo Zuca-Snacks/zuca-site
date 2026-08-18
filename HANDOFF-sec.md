@@ -19,8 +19,8 @@ took the repo from **9 advisories (7 high) → 0**. All were devDependencies —
 `@babel/core`, `launch-editor` — so none of them reached production. They still mattered: one was
 arbitrary file read via the Vite dev server, and three dev servers are running on Emil's laptop.
 
-Three scripts added: `npm run security:test` (94 endpoint cases), `npm run security:test:sheet`
-(24 Apps Script cases), and `npm run security:headers`.
+Three scripts added: `npm run security:test` (129 endpoint cases), `npm run security:test:sheet`
+(40 Apps Script cases), and `npm run security:headers`.
 
 ---
 
@@ -358,6 +358,55 @@ enforcement actions quote.
 
 ---
 
+## 1g-bis. The 2026-08-17 extension — what the client must send · **Conversion**
+
+All of it is in `AGENTS_BRIEF.md`. The parts that will bite if skimmed:
+
+**Two new consents, same pattern as marketing and health.** Each needs its own unchecked box, its
+own registered wording, and its own version id:
+
+```js
+consent_sms:    true,  sms_consent_text_version:    "sms-eea-2026-08.a",
+consent_postal: true,  postal_consent_text_version: "postal-eea-2026-08.a",
+```
+
+Registered defaults are `2026-08-17.sms.a` and `2026-08-17.postal.a` in `CONSENT_TEXTS`. Tag your
+own ids `-eea-`/`-us-` or EEA records flag as `unverifiable` — same rule as before.
+
+**Gated storage cuts both ways, and both directions are enforced:**
+
+| You send | Result |
+|---|---|
+| `phone` **without** `consent_sms` | phone silently discarded, signup succeeds |
+| `consent_sms` **without** `phone` | **`400`** — an opt-in that can never be acted on |
+| address **without** `consent_postal` | address discarded, signup succeeds |
+| `consent_postal` without line1 + city + country | **`400`** |
+
+**`phone` is strict.** Invalid format is a `400` for the whole submission — the opposite of `zip`.
+Validate inline so the server's 400 is never the first the user hears of it. Rationale is in the
+brief; tell me if you want it softened and I will, but then an SMS consent can end up recorded
+against no number.
+
+**`*_other` must be paired.** `motivation_other` requires `'other'` in `motivation`;
+`referral_source_other` requires `referral_source === 'other'`. Text without the selection is a
+`400` — unpaired free text is uninterpretable, and it is also what a probe looks like.
+
+**Two postal codes, and they are not the same field.** `zip` is US-only and fails soft;
+`address_postal_code` is international and strict. Do not wire the same input to both.
+
+**Live counter: stop calling `/api/count` after a write.** The `200` response now carries the new
+count:
+
+```js
+const res  = await fetch("/api/waitlist", {...});
+const body = await res.json();          // {"ok":true,"count":138}
+if (typeof body.count === "number") setClicks(body.count);
+```
+
+That is the read-after-write fix — no second request, so no cache to be stale. If you genuinely need
+a standalone read immediately after a write, `GET /api/count?fresh=1` bypasses the cache; the plain
+`GET /api/count` stays edge-cached for 60s and is right for page load.
+
 ## 1f-bis. `zip` is US-only, and now fails soft · **Conversion**
 
 The contract's `zip` pattern is `/^[0-9]{5}$/` — a **US ZIP code**, not a universal postal code
@@ -487,29 +536,44 @@ capitalisation and spaces do not matter, underscores do.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **G1** | `zip` | **T1** | `utm_term` |
-| **H1** | `intent` | **U1** | `page_path` |
-| **I1** | `price_band` | **V1** | `consent_text_version` |
-| **J1** | `flavor` | **W1** | `motivation_consent_text_version` |
-| **K1** | `is_clinician` | **X1** | `consent_timestamp` |
-| **L1** | `referral_source` | **Y1** | `country` |
-| **M1** | `consent_marketing` | **Z1** | `needs_reconsent` |
-| **N1** | `consent_health` | **AA1** | `consent_regime_status` |
-| **O1** | `motivation` | **AB1** | `reconsent_reason` |
-| **P1** | `utm_source` | **AC1** | `consent_receipt` |
-| **Q1** | `utm_medium` | **AD1** | `consent_ip_prefix` |
-| **R1** | `utm_campaign` | **AE1** | `user_agent` |
-| **S1** | `utm_content` |  | |
+| **G1** | `zip` | **AB1** | `address_region` |
+| **H1** | `intent` | **AC1** | `address_postal_code` |
+| **I1** | `price_band` | **AD1** | `address_country` |
+| **J1** | `flavor` | **AE1** | `consent_postal` |
+| **K1** | `is_clinician` | **AF1** | `postal_consent_text_version` |
+| **L1** | `referral_source` | **AG1** | `utm_source` |
+| **M1** | `referral_source_other` | **AH1** | `utm_medium` |
+| **N1** | `consent_marketing` | **AI1** | `utm_campaign` |
+| **O1** | `consent_health` | **AJ1** | `utm_content` |
+| **P1** | `motivation` | **AK1** | `utm_term` |
+| **Q1** | `motivation_other` | **AL1** | `page_path` |
+| **R1** | `quantity_band` | **AM1** | `consent_text_version` |
+| **S1** | `office_interest` | **AN1** | `motivation_consent_text_version` |
+| **T1** | `company` | **AO1** | `consent_timestamp` |
+| **U1** | `headcount` | **AP1** | `country` |
+| **V1** | `sms_phone` | **AQ1** | `needs_reconsent` |
+| **W1** | `consent_sms` | **AR1** | `consent_regime_status` |
+| **X1** | `sms_consent_text_version` | **AS1** | `reconsent_reason` |
+| **Y1** | `address_line1` | **AT1** | `consent_receipt` |
+| **Z1** | `address_line2` | **AU1** | `consent_ip_prefix` |
+| **AA1** | `address_city` | **AV1** | `user_agent` |
 
-25 new columns, `G` through `AE`. 31 columns total when you are done.
+42 new columns, `G` through `AV`. 48 columns total when you are done.
 
-> **If you already added an earlier version of this list**, the deltas are:
-> `consent_version` → `consent_text_version`, `consent_ts` → `consent_timestamp`, plus four new
-> columns: `motivation_consent_text_version`, `needs_reconsent`, `reconsent_reason` and
-> `consent_receipt`. Header matching ignores case, spaces, hyphens and underscores, so
-> `Consent Timestamp` and `consent_timestamp` are the same column — but `consent_version` and
-> `consent_text_version` are genuinely different names, and a stale one leaves that cell
-> permanently empty. Order does not matter; the script matches on header text, not position.
+> **If you already added an earlier version of this list**, the 2026-08-17 extension appends 17 more
+> (`referral_source_other`, `motivation_other`, `quantity_band`, `office_interest`, `company`,
+> `headcount`, `sms_phone`, `consent_sms`, `sms_consent_text_version`, the six `address_*`,
+> `consent_postal`, `postal_consent_text_version`). Earlier renames still apply:
+> `consent_version` → `consent_text_version`, `consent_ts` → `consent_timestamp`. Header matching
+> ignores case, spaces, hyphens and underscores. Order does not matter; the script matches on header
+> text, not position — and it creates anything missing on first write, so this step is a convenience,
+> not a prerequisite.
+
+> ⚠️ **Do not rename the existing `phone` column (D), and do not point the new phone data at it.**
+> Column `D` holds 137 legacy numbers captured by the old modal with **no consent of any kind**. The
+> new consent-gated number goes to **`sms_phone` (V)**. Mixing them would leave the two
+> distinguishable only by reading whether `consent_sms` is blank or `FALSE` — and the cost of
+> getting that wrong is texting somebody who never agreed to be texted.
 
 ### Step 1b — put a filter on `needs_reconsent`
 

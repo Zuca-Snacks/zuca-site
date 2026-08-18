@@ -60,9 +60,35 @@ var COLUMNS = [
   'flavor',
   'is_clinician',
   'referral_source',
+  'referral_source_other',
   'consent_marketing',
   'consent_health',
   'motivation',
+  'motivation_other',
+
+  // ── Extension 2026-08-17 ───────────────────────────────────────────────
+  'quantity_band',
+  'office_interest',
+  'company',
+  'headcount',
+  // NOT 'phone'. The existing sheet already has a `phone` column holding 137
+  // legacy numbers captured by the old modal with no consent of any kind.
+  // Writing consent-gated numbers into that same column would make the two
+  // indistinguishable except by a blank-vs-FALSE reading of `consent_sms` —
+  // and the failure mode of getting that wrong is texting somebody who never
+  // agreed to be texted. Separate column, separate meaning.
+  'sms_phone',
+  'consent_sms',
+  'sms_consent_text_version',
+  'address_line1',
+  'address_line2',
+  'address_city',
+  'address_region',
+  'address_postal_code',
+  'address_country',
+  'consent_postal',
+  'postal_consent_text_version',
+
   'utm_source',
   'utm_medium',
   'utm_campaign',
@@ -128,6 +154,15 @@ var CELL_MAX_DEFAULT = 500;
 var CELL_MAX = { consent_receipt: 4000, user_agent: 250 };
 
 /**
+ * Columns Sheets would otherwise mangle. A leading "+" makes sanitizeCell_ add
+ * its apostrophe anyway, but these are listed explicitly so the intent survives
+ * a future edit to the formula guard: a phone number silently reformatted into
+ * a number, or a postal code losing its leading zero, is data loss that looks
+ * like data.
+ */
+var FORCE_TEXT = ['phone', 'sms_phone', 'address_postal_code', 'zip'];
+
+/**
  * Neutralize spreadsheet formula injection and cell-breaking characters.
  *
  * The leading apostrophe forces Sheets to treat the value as text. It is not
@@ -139,6 +174,11 @@ function sanitizeCell_(value, column) {
   if (typeof value === 'number') return value;
 
   var limit = (column && CELL_MAX[column]) || CELL_MAX_DEFAULT;
+  if (column && FORCE_TEXT.indexOf(column) !== -1) {
+    var forced = String(value).replace(/[\r\n\t]/g, ' ').trim();
+    if (forced === '') return '';
+    return /^['=+\-@]/.test(forced) ? "'" + forced : "'" + forced;
+  }
   var s = String(value).replace(/[\r\n\t]/g, ' ').trim();
   if (s.length > limit) s = s.slice(0, limit);
   return /^[=+\-@]/.test(s) ? "'" + s : s;
@@ -302,6 +342,30 @@ function doPost(e) {
       motivation: payload.consent_health && payload.motivation
         ? [].concat(payload.motivation).join('|')
         : '',
+      referral_source_other: payload.referral_source_other,
+      // Same consent gate as `motivation` itself: the free-text answer to a
+      // health question is health data, and re-checked here rather than trusted
+      // because this is the last gate before it lands somewhere a human opens.
+      motivation_other: payload.consent_health ? payload.motivation_other : '',
+
+      quantity_band: payload.quantity_band,
+      office_interest: payload.office_interest,
+      company: payload.company,
+      headcount: payload.headcount,
+
+      sms_phone: payload.consent_sms ? payload.phone : '',
+      consent_sms: payload.consent_sms,
+      sms_consent_text_version: payload.sms_consent_text_version,
+
+      address_line1: payload.consent_postal ? payload.address_line1 : '',
+      address_line2: payload.consent_postal ? payload.address_line2 : '',
+      address_city: payload.consent_postal ? payload.address_city : '',
+      address_region: payload.consent_postal ? payload.address_region : '',
+      address_postal_code: payload.consent_postal ? payload.address_postal_code : '',
+      address_country: payload.consent_postal ? payload.address_country : '',
+      consent_postal: payload.consent_postal,
+      postal_consent_text_version: payload.postal_consent_text_version,
+
       utm_source: utm.source,
       utm_medium: utm.medium,
       utm_campaign: utm.campaign,
@@ -359,7 +423,11 @@ function doPost(e) {
       sheet.getRange(row, index.timestamp).setNumberFormat('yyyy-mm-dd hh:mm:ss').setValue(new Date());
     }
 
-    return json_({ ok: true });
+    // Return the post-write count. This is what lets the caller update the
+    // live counter without a follow-up GET, which is the only way to be
+    // certain the number reflects the write that just happened rather than a
+    // cached value from before it.
+    return json_({ ok: true, count: Math.max(0, sheet.getLastRow() - 1) });
   } catch (err) {
     return json_({ ok: false, error: 'server' });
   } finally {

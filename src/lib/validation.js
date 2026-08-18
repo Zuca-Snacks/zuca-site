@@ -46,6 +46,24 @@ export const CONSENT_TEXTS = {
     regime: 'global',
     text: 'Store my reason for interest so you can tailor what you send me.',
   },
+  '2026-08-17.sms.a': {
+    purpose: 'sms',
+    regime: 'global',
+    text: 'Text me about my order and when pre-orders open. Message rates may apply. Reply STOP to opt out.',
+  },
+  '2026-08-17.postal.a': {
+    purpose: 'postal',
+    regime: 'global',
+    text: 'Post me samples and product news at the address above.',
+  },
+};
+
+/** The four consent purposes, and the field each one gates. */
+export const CONSENT_PURPOSES = {
+  marketing: { flag: 'consent_marketing', version: 'consent_text_version', gates: null },
+  health: { flag: 'consent_health', version: 'motivation_consent_text_version', gates: 'motivation' },
+  sms: { flag: 'consent_sms', version: 'sms_consent_text_version', gates: 'phone' },
+  postal: { flag: 'consent_postal', version: 'postal_consent_text_version', gates: 'address' },
 };
 
 /**
@@ -132,10 +150,27 @@ const US_TOKENS = new Set(['us', 'usa', 'canspam']);
  * wording shown to someone in Texas — over-protects them and breaks nothing, so
  * flagging it would only add noise to the column that matters.
  */
-export function reconcileConsentRegime({ country, marketingVersion, healthVersion }) {
+export function reconcileConsentRegime({
+  country,
+  marketingVersion,
+  healthVersion,
+  smsVersion,
+  postalVersion,
+}) {
   const inEea = isEea(country);
-  const marketing = consentRegime(marketingVersion);
-  const health = healthVersion ? consentRegime(healthVersion) : null;
+
+  // Every consent granted is assessed, not just the first two. A postal opt-in
+  // taken under US wording from someone in Oslo is the same defect as a
+  // marketing one, and there is now more than one way to acquire it.
+  const present = [
+    ['marketing', marketingVersion],
+    ['health', healthVersion],
+    ['sms', smsVersion],
+    ['postal', postalVersion],
+  ].filter(([, v]) => v);
+
+  const regimes = {};
+  for (const [name, version] of present) regimes[name] = consentRegime(version);
 
   // Two distinct failures, both of which put a record in the queue.
   //
@@ -154,14 +189,19 @@ export function reconcileConsentRegime({ country, marketingVersion, healthVersio
   const unverifiable = [];
 
   if (inEea) {
-    if (marketing === 'us') mismatched.push('marketing');
-    else if (marketing === 'unknown') unverifiable.push('marketing');
-
-    if (health === 'us') mismatched.push('health');
-    else if (health === 'unknown') unverifiable.push('health');
+    for (const [name] of present) {
+      if (regimes[name] === 'us') mismatched.push(name);
+      else if (regimes[name] === 'unknown') unverifiable.push(name);
+    }
   }
 
-  const base = { country, marketing_regime: marketing, health_regime: health };
+  const base = {
+    country,
+    regimes,
+    // Retained for readability of existing records and dashboards.
+    marketing_regime: regimes.marketing ?? consentRegime(marketingVersion),
+    health_regime: regimes.health ?? null,
+  };
 
   if (mismatched.length) {
     return {
@@ -371,9 +411,57 @@ export const MOTIVATIONS = [
 export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_browsing'];
 export const PRICE_BANDS = ['lt_24', '24_29', '30_35', '36_42', 'gt_42'];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
+/**
+ * How many 12-packs per month. Proposed values — the Conversion agent owns the
+ * labels shown to a user and may rename these before merge; tell me and I will
+ * change the enum. Do not add a free-text escape: these bands are exhaustive.
+ */
+export const QUANTITY_BANDS = ['qty_1', 'qty_2_3', 'qty_4_6', 'qty_7_12', 'qty_12_plus'];
+
+/** Company size, for the office-snack path. Bands, not a number — a headcount
+ *  typed as free text is unusable for segmentation and more identifying. */
+export const HEADCOUNTS = ['hc_1_10', 'hc_11_50', 'hc_51_200', 'hc_201_1000', 'hc_gt_1000'];
+
 export const REFERRAL_SOURCES = [
   'doctor', 'friend', 'instagram', 'tiktok', 'event', 'search', 'email', 'other',
 ];
+
+/**
+ * E.164. Strict, deliberately — unlike `zip`, which fails soft.
+ *
+ * The difference is intent. A postal-code field rendered by a wrong region
+ * guess is a field the visitor never asked to see; a phone number is something
+ * they chose to type, and silently discarding it while recording an SMS consent
+ * against nothing would be worse than telling them it is wrong. The client must
+ * validate inline so this 400 is never the first the user hears of it. See
+ * HANDOFF-sec.md if that tradeoff should be revisited.
+ */
+const phoneSchema = z
+  .string()
+  .max(32, { message: 'too_long' })
+  .transform((v) => normalizeText(v).replace(/[\s\-().]/g, ''))
+  .refine((v) => !FORBIDDEN_CHARS.test(v), { message: 'illegal_chars' })
+  .refine((v) => /^\+[1-9]\d{7,14}$/.test(v), { message: 'invalid_phone' });
+
+/**
+ * A real mailing address postal code — international, so NOT the same thing as
+ * the `zip` field. `zip` is a US-only shipping-region signal that fails soft;
+ * this one is part of an address someone expects post to arrive at, so it
+ * accepts Norwegian `0150`, UK `SW1A 1AA` and Brazilian `01000-000` alike.
+ * Two fields, two purposes, deliberately not merged.
+ */
+const postalCodeSchema = z
+  .string()
+  .max(16, { message: 'too_long' })
+  .transform((v) => normalizeText(v))
+  .refine((v) => /^[A-Za-z0-9][A-Za-z0-9 -]{1,14}$/.test(v), { message: 'invalid_postal_code' });
+
+/** ISO 3166-1 alpha-2, supplied by the user. Distinct from `country`, which the
+ *  server derives from the request IP and the client may not set. */
+const addressCountrySchema = z
+  .string()
+  .transform((v) => normalizeText(v).toUpperCase())
+  .refine((v) => /^[A-Z]{2}$/.test(v), { message: 'invalid_country' });
 
 const utmSchema = z
   .object({
@@ -462,6 +550,50 @@ export const waitlistSchema = z
     // of the record should match the shape of the claim it supports.
     motivation_consent_text_version: consentVersionField(),
 
+    // ── Extension 2026-08-17 ────────────────────────────────────────────────
+    // Purely additive. No existing field changed shape; the 137 rows already in
+    // the sheet keep their meaning, and every new column is appended.
+
+    quantity_band: optionalEnum(QUANTITY_BANDS),
+
+    // Office-snack path. `company` is free text and therefore goes through the
+    // same normalise → reject-control-chars → length-cap path as every other
+    // free-text field, and is formula-sanitised before it reaches a cell.
+    office_interest: z.boolean().nullish().transform((v) => (v === undefined ? null : v)),
+    company: safeString(120).nullish().transform((v) => v || null),
+    headcount: optionalEnum(HEADCOUNTS),
+
+    // A free-text escape for every enum that offers "Other". Only two enums do
+    // — MOTIVATIONS and REFERRAL_SOURCES — and the pairing is enforced below in
+    // `superRefine`: text without the matching "other" selection is a client
+    // bug or a probe, and text that arrives when a real enum value was chosen
+    // would be silently unreadable data.
+    motivation_other: safeString(200).nullish().transform((v) => v || null),
+    referral_source_other: safeString(120).nullish().transform((v) => v || null),
+
+    // SMS. Strict phone format — see phoneSchema for why this one does not
+    // fail soft the way `zip` does.
+    phone: z.union([phoneSchema, z.literal(''), z.null()]).optional().transform((v) => v || null),
+    consent_sms: z.boolean().optional().default(false),
+    sms_consent_text_version: consentVersionField(),
+
+    // Postal. A home address is the most identifying thing on this form, so it
+    // is stored only behind its own opt-in — see the gating in api/waitlist.js.
+    address_line1: safeString(120).nullish().transform((v) => v || null),
+    address_line2: safeString(120).nullish().transform((v) => v || null),
+    address_city: safeString(80).nullish().transform((v) => v || null),
+    address_region: safeString(80).nullish().transform((v) => v || null),
+    address_postal_code: z
+      .union([postalCodeSchema, z.literal(''), z.null()])
+      .optional()
+      .transform((v) => v || null),
+    address_country: z
+      .union([addressCountrySchema, z.literal(''), z.null()])
+      .optional()
+      .transform((v) => v || null),
+    consent_postal: z.boolean().optional().default(false),
+    postal_consent_text_version: consentVersionField(),
+
     intent: optionalEnum(INTENTS),
     price_band: optionalEnum(PRICE_BANDS),
     flavor: optionalEnum(FLAVORS),
@@ -476,7 +608,28 @@ export const waitlistSchema = z
     hp_field: z.string().max(256).nullish(),
     form_render_ts: z.number().int().positive().nullish(),
   })
-  .strict(); // Reject unknown keys outright.
+  .strict() // Reject unknown keys outright.
+  .superRefine((d, ctx) => {
+    // An "other" free-text box only means something next to an "other"
+    // selection. Text without the selection is a client bug or a probe; a
+    // selection is what makes the text interpretable at all.
+    if (d.motivation_other && !(d.motivation ?? []).includes('other')) {
+      ctx.addIssue({ code: 'custom', path: ['motivation_other'], message: 'other_not_selected' });
+    }
+    if (d.referral_source_other && d.referral_source !== 'other') {
+      ctx.addIssue({ code: 'custom', path: ['referral_source_other'], message: 'other_not_selected' });
+    }
+
+    // A consent is a claim about something. Claiming SMS consent with no phone,
+    // or postal consent with no address, records an opt-in that can never be
+    // acted on and cannot be evidenced against anything.
+    if (d.consent_sms && !d.phone) {
+      ctx.addIssue({ code: 'custom', path: ['consent_sms'], message: 'sms_consent_without_phone' });
+    }
+    if (d.consent_postal && !(d.address_line1 && d.address_city && d.address_country)) {
+      ctx.addIssue({ code: 'custom', path: ['consent_postal'], message: 'postal_consent_without_address' });
+    }
+  });
 
 // ─── Bot heuristics ──────────────────────────────────────────────────────────
 

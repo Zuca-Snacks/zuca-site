@@ -182,6 +182,21 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     page_path: '/',
     consent_text_version: '2026-08-15.marketing.a',
     motivation_consent_text_version: '2026-08-15.health.a',
+    referral_source_other: 'Podcast',
+    motivation_other: 'Doctor suggested it',
+    quantity_band: 'qty_2_3',
+    office_interest: true,
+    company: 'Acme AS',
+    headcount: 'hc_11_50',
+    phone: '+4791234567',
+    consent_sms: true,
+    sms_consent_text_version: '2026-08-17.sms.a',
+    address_line1: 'Storgata 1',
+    address_city: 'Oslo',
+    address_postal_code: '0150',
+    address_country: 'NO',
+    consent_postal: true,
+    postal_consent_text_version: '2026-08-17.postal.a',
     consent_timestamp: '2026-08-15T12:00:00.000Z',
     country: 'NO',
     needs_reconsent: false,
@@ -222,8 +237,14 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     ['country', 'NO'],
     ['consent_regime_status', 'ok'],
     ['utm_source', 'newsletter'],
-    ['zip', '94305'],
+    ['zip', "'94305"], // force-text: a US zip like 01234 must keep its leading zero
     ['flavor', 'both'],
+    ['quantity_band', 'qty_2_3'],
+    ['company', 'Acme AS'],
+    ['headcount', 'hc_11_50'],
+    ['referral_source_other', 'Podcast'],
+    ['address_city', 'Oslo'],
+    ['address_country', 'NO'],
   ]) {
     const c = cellFor(sheet, f);
     check(`new field "${f}" lands correctly`, !c.missing && String(c.value) === expect, `col ${c.column} = ${JSON.stringify(c.value)}`);
@@ -268,6 +289,51 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     cellFor(sheet, 'hearAbout').value === '' && cellFor(sheet, 'name').value === '',
     'name and hearAbout blank'
   );
+}
+
+console.log('\n  Scenario B2 — the extension fields\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  const { response } = post(sheet, {
+    email: 'ola@example.no',
+    phone: '+4791234567',
+    consent_sms: true,
+    address_line1: 'Storgata 1',
+    address_postal_code: '0150',
+    address_country: 'NO',
+    consent_postal: true,
+    company: 'Acme AS',
+  });
+
+  check('write returns the post-append count', Number.isFinite(response?.count), `count = ${response?.count}`);
+  check(
+    'sms_phone forced to text so Sheets cannot reformat it',
+    String(cellFor(sheet, 'sms_phone').value).startsWith("'"),
+    JSON.stringify(cellFor(sheet, 'sms_phone').value)
+  );
+  check(
+    'address_postal_code forced to text so 0150 keeps its leading zero',
+    String(cellFor(sheet, 'address_postal_code').value) === "'0150",
+    JSON.stringify(cellFor(sheet, 'address_postal_code').value)
+  );
+  check('company stored', cellFor(sheet, 'company').value === 'Acme AS', JSON.stringify(cellFor(sheet, 'company').value));
+}
+
+console.log('\n  Scenario B3 — consents withheld, gated data must not land\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, {
+    email: 'ola@example.no',
+    phone: '+4791234567',
+    consent_sms: false,
+    address_line1: 'Storgata 1',
+    consent_postal: false,
+    motivation_other: 'gut trouble',
+    consent_health: false,
+  });
+  for (const f of ['sms_phone', 'address_line1', 'motivation_other']) {
+    check(`"${f}" not stored without its consent`, cellFor(sheet, f).value === '', JSON.stringify(cellFor(sheet, f).value));
+  }
 }
 
 console.log('\n  Scenario C — health data without the separate consent\n');
