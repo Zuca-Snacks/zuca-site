@@ -13,3 +13,5 @@ export { default as Card } from './Card.jsx';
 export { default as Badge } from './Badge.jsx';
 export { default as Accordion } from './Accordion.jsx';
 export { default as Chip, ChipGroup } from './Chip.jsx';
+export { default as OtherInput } from './OtherInput.jsx';
+export { default as Progress } from './Progress.jsx';
