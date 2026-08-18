@@ -29,6 +29,7 @@
      --z-brand-on-cream  <- --z-brand    minimum darkening clearing 4.5:1 on the
                                          artwork name plate (#F1D4A7)
      --z-brand-dark      <- --z-brand    18% darker; hover/pressed fills only
+     --z-accent-dark     <- --z-accent   18% darker; hover/pressed fills only
      --z-maple-on-black  <- --z-maple    minimum lightening clearing 4.5:1 on the
                                          artwork's #000000 fiber pill
      --z-ink-muted       <- --gray #888888 (brand grey) darkened to clear 4.5:1
@@ -90,7 +91,22 @@
      stale when the brand red moved — the same failure as the old plate red.
      If --z-brand moves again, re-derive this too. */
   --z-brand-dark: #ba0016;
-  --z-accent: #e3001b;      /* primary CTA fill — accent equals brand */
+  /* [BRAND, Emil 17 Aug] PRIMARY CTA FILL. Accent no longer equals brand: the
+     red is still the identity — wordmark, JOIN THE WAITLIST, plate text — and
+     the green is the ACTION. Emil chose it after seeing both side by side.
+     ⚠️ This is a SITE-WIDE token. Every .z-btn primary uses it, so the sticky
+     bar and growth's waitlist form turn green too. That is deliberate: one
+     action colour, used consistently, is the point. Do not special-case the
+     hero.
+     White on it is 8.33:1; on cream it is 6.65:1, so it also works as ghost
+     text and as a border. */
+  --z-accent: #2a571e;
+
+  /* [DERIVED from --z-accent] Hover and pressed fills for the primary button.
+     18% darker, same hue — the same treatment --z-brand-dark gets. White on it
+     is 10.36:1.
+     ⚠️ Derived value with a named parent. Re-derive if --z-accent moves. */
+  --z-accent-dark: #224719;
 
   /* [DERIVED from --z-brand] The brand red is 3.85:1 on cream, which fails AA
      for body-sized text. This is the MINIMUM darkening that clears 4.5:1 — 10%
@@ -147,7 +163,12 @@
   --z-danger: #b3261e;      /* [INVENTED] no error color on the site; kept
                                 distinct from the pink-red brand so an error
                                 never reads as a CTA */
-  --z-focus: #e3001b;       /* [BRAND] follows --z-brand. 3.85:1 on bg (needs 3:1) */
+  /* [BRAND] follows --z-brand. 3.85:1 on cream, which is what matters: every
+     focus ring is drawn with outline-offset, so the ring sits ON THE PAGE with
+     cream either side of it, not on the control. That is why it survived the
+     CTA turning green — red on green is only 1.73:1 and would have failed if
+     the ring hugged the button. ⚠️ Do not remove outline-offset from .z-btn. */
+  --z-focus: #e3001b;
 
   /* ---- Inverted band ----------------------------------------------------- */
   --z-ink-surface: #1a3a1a; /* [BRAND] --green — the deep green band */

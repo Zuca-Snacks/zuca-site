@@ -145,7 +145,19 @@
      values; the stacks have since been grown and the band below them closed,
      with the freed height going to the logo wall and the fruit border.
      minmax(0, Nfr), NOT plain Nfr — a bare fr row has a min-content floor and
-     silently expands, which pushes every band below it down. */
+     silently expands, which pushes every band below it down.
+
+     ⚠️ EVERYTHING BELOW "JOIN THE WAITLIST" SHARES ONE ROW ON PURPOSE.
+     The field, the button, SUPPORTED BY and the logo card were four separate
+     fixed-fraction rows. Because a row is a fixed fraction of the VIEWPORT and
+     not of its content, anything taller than its share silently overflowed into
+     the row beneath and drew on top of it. That is what put SUPPORTED BY behind
+     the button: fine at 844 (10px clear), overlapping from 760 down — an
+     ordinary iPhone once browser chrome is counted.
+     Fixing only the first pair moved the collision one row down rather than
+     removing it: the label then overlapped the logo card at 680. The whole
+     lower stack is now ONE row in normal flow, where a gap is a real gap and
+     overlap is not expressible at any height. Do not split it back up. */
   grid-template-rows:
     minmax(0, 2.5fr)    /* top gap                                    */
     minmax(0, 9.2fr)    /* wordmark                                   */
@@ -153,10 +165,8 @@
     minmax(0, 25.1fr)   /* flavour artwork                            */
     minmax(0, 9.0fr)    /* gap  artwork -> JOIN       — was 6.0       */
     minmax(0, 2.6fr)    /* JOIN THE WAITLIST                          */
-    minmax(0, 13.5fr)   /* capture block   — was 16.0, slack reclaimed */
-    minmax(0, 5.0fr)    /* SUPPORTED BY    — larger label, air above it */
-    minmax(0, 20.0fr)   /* logo card                                  */
-    minmax(0, 4.1fr);   /* bottom gap      — funded the gaps and the label */
+    minmax(0, 38.5fr)   /* LOWER STACK: field, button, SUPPORTED BY, card */
+    minmax(0, 4.1fr);   /* bottom gap                                 */
   justify-items: center;
   align-items: center;
   text-align: center;
@@ -460,79 +470,112 @@
   border: 0;
 }
 
-/* The capture block sits in the comp's empty band between JOIN THE WAITLIST and
-   SUPPORTED BY. The comp left that space; we removed the thing that filled it.
-   Email field and button only — no eyebrow, tagline or h1 on the first screen. */
-/* Top-aligned in its row so the row's slack falls BELOW the button, adding to
-   the gap before SUPPORTED BY rather than being split either side of the
-   block — centred, half of it was wasted above, where JOIN already provides
-   separation. */
-.z-hero__capture {
+/* The LOWER STACK — field, button, SUPPORTED BY and the logo card, in flow.
+   See the grid-template-rows note above for why these are not four rows. */
+.z-hero__lower {
   grid-row: 7;
-  align-self: start;
-  /* Air between JOIN THE WAITLIST and the field (Emil, 17 Aug). Expressed in
-     svh so it scales with the poster rather than fighting it on a short phone.
-     Paid for by the smaller field and button below, not by the row budget. */
-  margin-block-start: 1.8svh;
-  /* Inset to the artwork's plate column — NOT full bleed. A previous revision
-     sized this to the file's ink bounds, which are 98.9% of the width, so the
-     field and button ran to both screen edges. The gutter floor keeps it clear
-     of the edge on any viewport where the derived inset is small. */
-  width: min(
-    calc(100% - 2 * var(--z-content-inset, 10%)),
-    calc(100% - 2 * var(--z-gutter))
-  );
-  margin-inline: auto;
   display: grid;
-  gap: var(--z-space-2);
+  justify-items: center;
+  align-content: center;
+  gap: clamp(1.1rem, 3.4svh, 2.4rem);
+  width: 100%;
+  min-height: 0;
 }
 
-/* Smaller field and button, HERO ONLY (Emil, 17 Aug) — the global primitives
-   stay at 48px for the real form below the fold, where there is no height
-   pressure.
-   ⚠️ 44px IS THE FLOOR, not a starting point. These are the primary CTA and the
-   only input on the first screen; WCAG 2.2 target size and every mobile
-   guideline put the comfortable minimum at 44. The request was "a little
-   smaller", and 48 -> 44 is what "a little" can mean here without making the
-   one thing the page exists for harder to hit.
-   ⚠️ font-size stays >= 16px on the input. Below that iOS zooms the whole page
-   on focus, which throws the composition off the screen mid-signup. */
+/* ⚠️ DISCREET BY DESIGN (Emil, 17 Aug). It was a full-width white slab above a
+   full-width red slab: two heavy bars across the middle of the poster. Now it
+   TAPERS — everything here is narrower than the flavour artwork above it, so
+   the composition narrows toward the bottom instead of widening. */
+.z-hero__capture-group {
+  display: grid;
+  justify-items: center;
+  /* The gap between the button and SUPPORTED BY — "separate blocks, not one
+     stack". A real gap in normal flow, which is also why they cannot collide. */
+  gap: clamp(1.4rem, 3.8svh, 2.6rem);
+  width: 100%;
+}
+
+.z-hero__capture {
+  display: grid;
+  justify-items: center;
+  gap: var(--z-space-3);
+  /* Narrower than the plate column above it. --z-content-inset is the artwork's
+     own margin; this insets a good deal further so the taper is visible rather
+     than notional. */
+  width: min(
+    17.5rem,
+    calc(100% - 2 * var(--z-content-inset, 10%) - 2 * var(--z-space-6))
+  );
+}
+
+/* Shorter and less tall than the global primitive, HERO ONLY — the real form
+   below the fold keeps the full 48px.
+   ⚠️ font-size stays >= 16px. Below that iOS zooms the whole page on focus,
+   which throws the composition off the screen mid-signup. That is the floor
+   this rule is written against, not a preference.
+   1px border, not 2px, and --z-border-strong rather than --z-ink: it is 3.58:1
+   on cream and 4.49:1 on the field's own fill, so it still carries the control
+   boundary that SC 1.4.11 requires while reading as a hairline. --z-border
+   would have been lighter still and is 1.26:1 — invisible, not subtle. */
 .z-hero__capture .z-input {
-  min-height: 44px;
-  padding-block: var(--z-space-2);
+  width: 100%;
+  min-height: 40px;
+  padding-block: var(--z-space-1);
+  padding-inline: var(--z-space-3);
+  border-width: 1px;
+  border-color: var(--z-border-strong);
+  border-radius: var(--z-radius-full);
+  text-align: center;
+  background: color-mix(in srgb, var(--z-surface) 78%, transparent);
 }
 
+/* Sized to its label and centred, not stretched across the poster.
+   Height stays at 44px: it is the primary CTA, and 44 is the floor for a
+   comfortable target. "Smaller" is spent on WIDTH, which is where the visual
+   heaviness actually was. */
 .z-hero__capture .z-btn {
+  display: inline-flex;
+  width: auto;
+  min-width: 0;
   min-height: 44px;
   padding-block: var(--z-space-2);
+  padding-inline: var(--z-space-6);
   font-size: var(--z-step-0);
 }
 
+/* Variant B — outlined. Same green, no fill: the lightest the CTA can be while
+   still reading as the primary action. Green on cream is 6.65:1 for both the
+   label and the 2px edge. */
+.z-hero[data-cta='ghost'] .z-hero__capture .z-btn {
+  --btn-bg: transparent;
+  --btn-ink: var(--z-accent);
+  --btn-border: var(--z-accent);
+  border-width: 2px;
+}
+
+.z-hero[data-cta='ghost'] .z-hero__capture .z-btn:hover:not(:disabled) {
+  --btn-bg: color-mix(in srgb, var(--z-accent) 12%, transparent);
+  --btn-ink: var(--z-accent-dark);
+}
+
 /* --- Supporter wall ------------------------------------------------------ */
-/* Bottom-aligned in its row so the row's slack sits ABOVE the text, where the
-   gap from the button is wanted, rather than being split either side of it. */
 .z-hero__supported {
-  grid-row: 8;
-  align-self: end;
   font-family: var(--z-font-display);
-  /* Up two steps — it was reading as a caption under the button rather than as
-     a label introducing the wall. */
   font-size: min(2.6svh, 5.4vw);
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--z-ink);
-  /* Air between the label and the card (Emil, 17 Aug). This element is
-     align-self:end, so a bottom margin lifts IT rather than pushing the card
-     down — the gap grows without the wall moving toward the fold. */
-  margin-block-end: 1.6svh;
 }
 
 /* The wall is a contained block, not eleven floating logos. The artwork ships
    with a transparent background so the container is entirely CSS — radius
    borrowed from the plates' language, generous internal padding. */
+/* No longer its own grid row — it is the last item in the lower stack.
+   max-block-size keeps the whole stack inside the row on a short phone: the
+   card is the only elastic item here, so it is the one that should give. */
 .z-hero__logos {
-  grid-row: 9;
+  max-block-size: 26svh;
   display: grid;
   place-items: center;
   width: min(
@@ -666,8 +709,26 @@
 
 .z-quotes {
   display: grid;
-  gap: var(--z-space-4);
+  gap: var(--z-space-3);
   container-type: inline-size;
+}
+
+/* Labels the group, so the boundary between the <h1> and the testimonials is
+   explicit rather than left to typography. Deliberately small and quiet — it is
+   a signpost, not a heading, which is why it is a <p> and not an <h2>: the page
+   has exactly one <h1> and no outline below it to disturb. */
+.z-quotes__eyebrow {
+  margin: 0;
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--z-ink-muted);
+}
+
+.z-quotes__stack {
+  display: grid;
+  gap: var(--z-space-4);
 }
 
 .z-quote {
@@ -695,11 +756,19 @@
   position: relative;
   z-index: 1;                     /* above the frame, so no stroke crosses a letter */
   margin: 0;
-  font-family: var(--z-font-display);
-  /* 20px at 360 -> 22px on desktop. Fluid so a long quote shrinks its type
-     rather than bursting its shape. */
-  font-size: clamp(1.0625rem, 0.92rem + 1.5vw, 1.375rem);
-  line-height: 1.25;
+  /* ⚠️ BODY FACE, NOT THE DISPLAY FACE, and that is the fix rather than a
+     preference. Lazydog has no lowercase — it is an all-caps face — so setting
+     speech in it produced five more shouted headlines flanking the <h1>, at a
+     similar size and weight, and the headline stopped reading as the headline.
+     The body face gives these sentence case, which is what makes them read as
+     people talking. Do not "restore brand consistency" here; the display face
+     is doing its job three inches above, on the h1. */
+  font-family: var(--z-font-body);
+  font-weight: 500;
+  /* A step down from the h1 (--z-step-2, 22 -> 34px) so the hierarchy is not
+     ambiguous. */
+  font-size: var(--z-step-0);
+  line-height: 1.35;
   text-wrap: balance;
 }
 

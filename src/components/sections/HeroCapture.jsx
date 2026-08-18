@@ -26,15 +26,14 @@ export default function HeroCapture() {
   return (
     <section className="z-capture z-section" id="capture" tabIndex={-1}>
       <div className="z-container z-capture__inner">
-        {/* Was introLines[0], the credential line. Replaced by taster quotes
-            (Emil, 17 Aug). The credential claim itself is not lost — it is
-            still made once, in the hero. */}
-        <TasterQuotes slot="lede" />
-
-        {/* ⚠️ THE PAGE'S ONLY <h1>, and it stays exactly as written. */}
+        {/* ⚠️ THE PAGE'S ONLY <h1>, and it stays exactly as written. It leads
+            the section: the quotes follow it, they no longer bracket it. */}
         <h1 className="z-capture__title">{copy.headline}</h1>
 
-        <TasterQuotes slot="coda" />
+        {/* Was introLines[0], the credential line, plus the "Two flavors…" line.
+            Both replaced by taster quotes (Emil, 17 Aug). The credential claim
+            itself is not lost — it is still made once, in the hero. */}
+        <TasterQuotes />
 
         {/* Reserves its height so an arriving number cannot shift anything.
             ⚠️ The empty state must never be blank. It no longer falls back to

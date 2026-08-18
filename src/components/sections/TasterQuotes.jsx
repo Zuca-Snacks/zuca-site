@@ -5,6 +5,14 @@
  * added sugar…" line below it. The <h1> itself is untouched: the page needs
  * exactly one and this is it.
  *
+ * ⚠️ ALL FIVE SIT BELOW THE <h1>, NOT AROUND IT. They were split above and
+ * below, which put the headline in the middle of the stack — and because the
+ * headline and the quotes were both set in the display face at a similar size,
+ * it read as a sixth quote rather than as the page's headline. The quotes are
+ * now set in the BODY face, a step smaller: the display face is all-caps, so
+ * using it here made speech look like more headlines. Sentence case is what
+ * makes them read as people talking.
+ *
  * ⚠️ THESE ARE REAL TESTIMONIALS — tasters at the Vituity symposium and
  * Stanford Demo Day. That is why they are <blockquote>, not styled <p>: a
  * screen reader should announce them as quotations from someone else, because
@@ -25,24 +33,25 @@
  * selectable, translatable and readable by a screen reader, and the section
  * adds no network requests at all.
  */
+/* ⚠️ ORDER IS LOAD-BEARING: two of these open "I can't believe", and Emil asked
+   that they never sit next to each other. "How has no one thought of this
+   before?" separates them. Do not re-sort this array. */
 const QUOTES = [
-  /* Above the headline — where the credential line was. */
-  { text: 'Can’t. Stop. Eating them!!!', side: 'start', slot: 'lede' },
-  { text: 'These are dangerously addictive.', side: 'end', slot: 'lede' },
-
-  /* Below the headline — where the "Two flavors…" line was.
-     ⚠️ ORDER IS LOAD-BEARING: two of these open "I can't believe", and Emil
-     asked that they never sit next to each other. "How has no one thought of
-     this before?" separates them. Do not re-sort this array. */
-  { text: 'I can’t believe this is upcycled fruit.', side: 'start', slot: 'coda' },
-  { text: 'How has no one thought of this before?', side: 'end', slot: 'coda' },
+  { text: 'Can’t. Stop. Eating them!!!', side: 'start' },
+  { text: 'These are dangerously addictive.', side: 'end' },
+  { text: 'I can’t believe this is upcycled fruit.', side: 'start' },
+  { text: 'How has no one thought of this before?', side: 'end' },
   {
     text:
       'I can’t believe this is made from food that otherwise would have been thrown away.',
     side: 'start',
-    slot: 'coda',
   },
 ];
+
+/* ⚠️ PLACEHOLDER — GROWTH OWNS THIS STRING. Flagged in HANDOFF-ux.md.
+   It labels the group so the boundary between the headline and the
+   testimonials is explicit rather than implied. */
+const EYEBROW = 'What tasters say';
 
 /* Hand-drawn outline, used by the "marker" treatment.
    preserveAspectRatio="none" lets one path stretch to any quote length, and
@@ -90,14 +99,20 @@ function Bubble({ q, i }) {
   );
 }
 
-export default function TasterQuotes({ slot }) {
-  const items = QUOTES.map((q, i) => ({ q, i })).filter(({ q }) => q.slot === slot);
-
+export default function TasterQuotes() {
   return (
-    <div className="z-quotes" data-slot={slot}>
-      {items.map(({ q, i }) => (
-        <Bubble q={q} i={i} key={i} />
-      ))}
+    <div className="z-quotes">
+      <p className="z-quotes__eyebrow" id="quotes-eyebrow">
+        {EYEBROW}
+      </p>
+      {/* A real group, named by the eyebrow, so a screen reader announces where
+          the testimonials start and stop rather than running them together with
+          the headline above. */}
+      <div className="z-quotes__stack" role="group" aria-labelledby="quotes-eyebrow">
+        {QUOTES.map((q, i) => (
+          <Bubble q={q} i={i} key={i} />
+        ))}
+      </div>
     </div>
   );
 }

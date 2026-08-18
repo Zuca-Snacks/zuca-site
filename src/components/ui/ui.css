@@ -44,7 +44,9 @@
     transform var(--z-dur-fast) var(--z-ease);
 }
 
-.z-btn:hover:not(:disabled) { --btn-bg: var(--z-brand-dark); }
+/* Primary is the ACTION colour (--z-accent), so its hover is the accent's
+   dark, not the brand's. These were the same token until the CTA went green. */
+.z-btn:hover:not(:disabled) { --btn-bg: var(--z-accent-dark); }
 
 /* Press feedback — cheap, transform-only. */
 .z-btn:active:not(:disabled) { transform: scale(0.97); }

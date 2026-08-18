@@ -58,6 +58,9 @@ const FLAVOURS = [
 
 const CHIP_TEXT = ['150 kcal', '4g protein'];
 
+/* Which CTA treatment to render: 'solid' | 'ghost'. */
+const CTA_STYLE = 'solid';
+
 /* The artwork's visible CONTENT column — the span of the plates themselves,
    not the file edges and not the botanicals, which bleed. The capture block is
    aligned to this so the field sits in the same column as the flavours, and the
@@ -132,7 +135,9 @@ export default function Hero() {
   }
 
   return (
-    <section className="z-hero" id="top">
+    /* data-cta selects the CTA treatment: 'solid' or 'ghost'. Emil is choosing
+       between the two; this is the one line that changes when he does. */
+    <section className="z-hero" id="top" data-cta={CTA_STYLE}>
       {/* The poster column. The composition was designed at phone width, so it
           is capped and centred rather than magnified — a desktop visitor sees
           the same poster, with cream either side, not a blown-up one. The art
@@ -288,59 +293,68 @@ export default function Hero() {
         Join the waitlist
       </p>
 
-      <form
-        className="z-hero__capture"
-        onSubmit={handleSubmit}
-        aria-labelledby="join-label"
-        noValidate
-      >
-        <label className="z-visually-hidden" htmlFor="hero-email">
-          Email
-        </label>
-        <Input
-          id="hero-email"
-          type="email"
-          name="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Button type="submit" block>
-          {ACTIVE_CTA.step1}
-        </Button>
-      </form>
+      {/* ⚠️ ONE ROW, IN FLOW: field, button, SUPPORTED BY and the logo card.
+          They were four fixed-fraction grid rows, and anything taller than its
+          share drew on top of the row below — which is how SUPPORTED BY ended
+          up behind the button on any phone shorter than ~760px. See
+          grid-template-rows in sections.css. */}
+      <div className="z-hero__lower">
+        <div className="z-hero__capture-group">
+          <form
+            className="z-hero__capture"
+            onSubmit={handleSubmit}
+            aria-labelledby="join-label"
+            noValidate
+          >
+            <label className="z-visually-hidden" htmlFor="hero-email">
+              Email
+            </label>
+            <Input
+              id="hero-email"
+              type="email"
+              name="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <Button type="submit">
+              {ACTIVE_CTA.step1}
+            </Button>
+          </form>
 
-      <p className="z-hero__supported">Supported by:</p>
+          <p className="z-hero__supported">Supported by:</p>
+        </div>
 
-      {/*
-        One sprite, so one request. It is above the fold here — the composition
-        wins, per Emil — but it carries loading=lazy and fetchpriority=low so it
-        queues behind the two product photographs rather than competing with the
-        LCP element.
-      */}
-      <picture className="z-hero__logos">
-        <source
-          type="image/avif"
-          srcSet="/images/logos-supported-by-640.avif 640w, /images/logos-supported-by-968.avif 968w"
-          sizes="92vw"
-        />
-        <source
-          type="image/webp"
-          srcSet="/images/logos-supported-by-640.webp 640w, /images/logos-supported-by-968.webp 968w"
-          sizes="92vw"
-        />
-        <img
-          src="/images/logos-supported-by-640.webp"
-          width="968"
-          height="304"
-          alt={LOGO_ALT}
-          loading="lazy"
-          fetchPriority="low"
-          decoding="async"
-        />
-      </picture>
+        {/*
+          One sprite, so one request. It is above the fold here — the composition
+          wins, per Emil — but it carries loading=lazy and fetchpriority=low so it
+          queues behind the two product photographs rather than competing with the
+          LCP element.
+        */}
+        <picture className="z-hero__logos">
+          <source
+            type="image/avif"
+            srcSet="/images/logos-supported-by-640.avif 640w, /images/logos-supported-by-968.avif 968w"
+            sizes="92vw"
+          />
+          <source
+            type="image/webp"
+            srcSet="/images/logos-supported-by-640.webp 640w, /images/logos-supported-by-968.webp 968w"
+            sizes="92vw"
+          />
+          <img
+            src="/images/logos-supported-by-640.webp"
+            width="968"
+            height="304"
+            alt={LOGO_ALT}
+            loading="lazy"
+            fetchPriority="low"
+            decoding="async"
+          />
+        </picture>
+      </div>
       </div>
     </section>
   );

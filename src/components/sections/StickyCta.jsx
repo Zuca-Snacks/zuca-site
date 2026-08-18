@@ -18,7 +18,7 @@
  */
 import { useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
-import { ACTIVE_CTA, proof } from '../../content/copy.js';
+import { ACTIVE_CTA, hero as copy, proof } from '../../content/copy.js';
 import useWaitlistCount from '../../hooks/useWaitlistCount.js';
 
 export default function StickyCta() {
@@ -26,6 +26,7 @@ export default function StickyCta() {
   const [waitlistInView, setWaitlistInView] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const count = useWaitlistCount();
+  const hasCount = count != null && count > 0;
 
   useEffect(() => {
     const hero = document.getElementById('top');
@@ -78,13 +79,18 @@ export default function StickyCta() {
       aria-hidden={visible ? undefined : 'true'}
     >
       <div className="z-sticky-cta__row">
-        {/* The second line renders whether or not the count lands — only the
-            numeral is late, so the bar cannot resize under the user's thumb. */}
+        {/* ⚠️ NEVER RENDER THE LABEL WITHOUT ITS NUMBER. proof.liveLabel is
+            "already on the waitlist" — a sentence fragment that only means
+            anything after a numeral. Printing it with an empty numeral put
+            "already on the waitlist" in the bar on its own, which is what
+            shipped until 17 Aug and is the state that shows on EVERY visit
+            until the count endpoint has its env vars.
+            The second line still always renders, so the bar cannot resize under
+            the user's thumb — it just renders growth's fallback instead. */}
         <p className="z-sticky-cta__text">
           <strong>10g fiber per bite</strong>
           <span>
-            {count != null && count > 0 ? `${count.toLocaleString()} ` : ''}
-            {proof.liveLabel}
+            {hasCount ? `${count.toLocaleString()} ${proof.liveLabel}` : copy.countFallback}
           </span>
         </p>
         <Button

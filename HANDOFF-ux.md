@@ -508,6 +508,23 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **🟡 `EYEBROW` in `TasterQuotes.jsx` is a UX placeholder — replace it.**
+  Emil asked for a small label above the taster quotes so the boundary between
+  the `<h1>` and the testimonials is explicit rather than implied. It currently
+  reads **"What tasters say"**, which is mine and is a placeholder. The string
+  is yours; move it into `copy.js` and word it properly.
+  ⚠️ Whatever it becomes, it must stay a LABEL. It may not connect the quotes to
+  a benefit — "Why people love the fiber" turns five taste opinions into
+  evidence for a health claim, which is the thing the guardrails forbid.
+
+- **🔴 `proof.liveLabel` was rendering without its number in the sticky bar.**
+  The bar printed `${count} ${proof.liveLabel}` with an empty count, so it read
+  "10g fiber per bite / already on the waitlist" — a dangling fragment, on every
+  visit, since the count endpoint has no env vars yet. Fixed by falling back to
+  `hero.countFallback`, so the second line always has content and the bar still
+  never resizes under the user's thumb. ⚠️ `liveLabel` is a sentence fragment
+  that only means anything after a numeral; never render it on its own.
+
 - **🔴🔴 REGULATED CLAIM — remove every bare "no added sugar" from `copy.js`.**
   Emil, 17 Aug: **the correct wording is "no refined sugar added."**
   "No added sugars" is a **regulated nutrient-content claim** under 21 CFR
