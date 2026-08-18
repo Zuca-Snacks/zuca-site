@@ -291,24 +291,46 @@ export const introLines = [
 ];
 
 // ─── Founder credentials ─────────────────────────────────────────────────────
+// ⚠️ EVERY LINE HERE IS BIOGRAPHY. These are facts about two people. None of
+// them is a statement about what Zuca does, and none may be rewritten into one.
+// The distinction is the whole basis on which they are publishable: a personal
+// history is not a product claim, and it stops being a personal history the
+// moment it is phrased as an outcome the reader might expect.
 export const founders = [
   {
     name: "Emil Nordin",
-    role: "Chef & Co-Founder",
+    role: "Founder & CEO",
     creds: [
-      "Norway's Most Promising Young Chef, 2021",
-      "Michelin-trained at Restaurant Kontrast (2 stars + Green Star)",
-      "National TV host, 1M+ viewers",
-      "Stanford Bioengineering & Biodesign '26",
+      "Won a national cooking competition watched by ~10% of Norway's population",
+      "Named Norway's Most Promising Young Chef",
+      "Trained at Restaurant Kontrast (two Michelin stars and a Michelin Green Star)",
+      "Hosted his own show on Norway's national food channel",
+      "BSc in Bioengineering and Food Systems Design, Stanford",
     ],
   },
   {
     name: "Kelley Yuan, MD",
-    role: "Physician & Co-Founder",
+    role: "Founding CMO",
     creds: [
       "Stanford Medicine physician",
       "Stanford Sustainability Fellow",
       "Leads Zuca's clinical network: 10+ physicians across 7 specialties",
+      // ⚠️⚠️ THE STRONGEST IMPLIED MEDICAL CLAIM ON THE PAGE. Added on Emil's
+      // instruction, 18 Aug 2026, and FLAGGED FOR COOLEY REVIEW — counsel is
+      // to bless this explicitly rather than have us assume it is fine.
+      //
+      // It is written as something that happened to HER, in the past, with the
+      // agent named as her diet — not as something Zuca does, not as an
+      // outcome, and not adjacent to any product statement. Do not:
+      //   • name the condition
+      //   • move it next to a claim about the product
+      //   • let it become "our CMO reversed disease with food, and this is that
+      //     food" — which is what a reader supplies for free if we let the two
+      //     sit together
+      // A disease-reversal line beside a product we sell is the highest-risk
+      // sentence on the site. Its safety is entirely in the framing, so the
+      // framing is not editorial preference.
+      "Reversed her own autoimmune disease through a plant-based diet",
     ],
   },
 ];
@@ -345,7 +367,7 @@ export const faq = [
   },
   {
     q: "Who's behind it?",
-    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering student, and Kelley Yuan, MD, a Stanford Medicine physician. Zuca is supported by Stanford's NEXT Accelerator, advised pro bono on FDA regulatory matters by Cooley LLP, and manufactured by Step Change Innovations.",
+    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering student, and Kelley Yuan, MD, a Stanford Medicine physician.",
   },
 ];
 

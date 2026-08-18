@@ -86,11 +86,6 @@ export default function Founders() {
         ))}
       </ul>
 
-      <p className="z-fineprint" style={{ marginTop: 'var(--z-space-5)' }}>
-        Supported by Stanford&rsquo;s NEXT Accelerator. Regulatory counsel
-        provided pro bono by Cooley LLP. Manufactured with Step Change
-        Innovations.
-      </p>
     </section>
   );
 }
