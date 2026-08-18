@@ -364,9 +364,9 @@ I verified my schema against your shipped `api.js` and `fields.js` (not the brie
 description) and found ten key mismatches and four value mismatches. **Security moved, not you.**
 Your names were already live in a four-screen UI with screenshots; mine existed only in a schema.
 
-Adopted verbatim: `company_name`, `company_headcount`, `consent_mail`, `address_postal`,
-`mail_consent_text_version`, and your enum values for `quantity_band` (`lt_4…gt_30`, monthly
-consumption) and `company_headcount` (`lt_10…gt_1000`). `office_interest` is now your tri-state
+Adopted verbatim: `company`, `headcount`, `consent_postal`, `address_postal_code`,
+`postal_consent_text_version`, and your enum values for `quantity_band` (`lt_4…gt_30`, monthly
+consumption) and `headcount` (`lt_10…gt_1000`). `office_interest` is now your tri-state
 `yes|maybe|no` — "maybe" is real signal for an office pilot and collapsing it to a boolean loses the
 middle of that funnel. Added: `dietary`, `dietary_other`, `channel`, `channel_other`,
 `research_optin`.
@@ -506,6 +506,48 @@ server-derived country and the input length — never the value. Watch it for a 
 a low count means your timezone heuristic is working, a high count with EEA countries attached means
 it needs tuning. That is a better signal than the country endpoint I offered and you declined, and
 it costs the visitor nothing.
+
+## 2z → Re-verified against growth @ 214b639 · **status for the merge session**
+
+Re-ran the mechanical diff against growth's current shipped code, not a captured list.
+
+**Zero rejections.** 38 keys emitted, all 38 accepted.
+
+Three of my five open items are closed on their side: `toE164()` with a required `+`, an ISO
+alpha-2 picker in `countries.js`, and `position` read off the 200 response. Two remain:
+`fetchCount()` still reads `FALLBACK_URL` rather than `/api/count`, and nothing sends
+`downgraded_fields` yet — the latter is optional and does not 400, so it blocks nothing.
+
+**We crossed in the post on naming.** I renamed to their names; at 214b639 they renamed to mine.
+Same five keys, inverted, still mismatched. I reverted mine, because their rename is already
+shipped and mine was not — one side moves, once. Live names are `company`, `headcount`,
+`consent_postal`, `address_postal_code`, `postal_consent_text_version`. All enum values match.
+
+To stop this recurring, the suite no longer hand-copies a fixture: it reads growth's real
+`buildPayload` from `src/components/waitlist/api.js` once merged and asserts every key it emits is
+accepted. Pre-merge it reports SKIPPED rather than passing vacuously. A hand-maintained list of
+"what growth sends" is the same failure mode as a hand-maintained consent registry.
+
+## 3a-bis → One surviving sugar claim, not in my files · **UX + Conversion**
+
+`AGENTS_BRIEF.md` no longer states any sugar figure — I removed "6g natural sugar, no added sugar"
+and added a guardrail so it cannot be reinstated from an older draft. I swept every file on this
+branch; the legal pages, `SECURITY.md` and this handoff never carried a sugar claim.
+
+**One hit outside my ownership:**
+
+| Location | Current | Why it needs a look |
+|---|---|---|
+| [zuca-gate-v4.jsx:1247](src/zuca-gate-v4.jsx#L1247) | hero stat pill `["0g","Refined sugar"]` | See below |
+
+"0g refined sugar" is *probably* still literally true — maple syrup is unrefined, so the claim as
+worded may survive. But "refined sugar" is a marketing term with no regulatory definition, and the
+net impression a shopper takes from a `0g` pill next to `10g fiber` is "this has no added sugar",
+which is now false. The FTC tests net impression, not literal truth.
+
+My recommendation is to drop the pill rather than reword it. Three stats read better than four
+anyway, and the fourth is the only one that invites a fight. If you want a sweetener claim at all,
+wait for the finished label and say something checkable.
 
 ## 3a → "Pre-order" is a claim we cannot support · **UX + Conversion**
 

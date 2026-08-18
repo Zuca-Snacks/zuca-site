@@ -6,7 +6,8 @@
 ## The product (verified facts — do not invent others)
 
 - Zuca upcycles apple pulp — a waste byproduct juiceries pay to dispose of ($25/ton) — into fiber-rich snack bites.
-- **Per serving: 10g fiber, 150 kcal, 4g protein, 6g natural sugar, no added sugar.** ~40–45% of daily recommended fiber. 2x the fiber of leading competitors.
+- **Per serving: 10g fiber, 150 kcal, 4g protein.** ~40–45% of daily recommended fiber. 2x the fiber of leading competitors.
+- ⚠️ **Sugar figures withdrawn 2026-08-18. Do not state a sugar number anywhere until the finished label is confirmed.** Maple syrup is an added sweetener, so the previous "6g natural sugar, no added sugar" was wrong on both halves: under FDA labelling rules syrups and honey count as *added sugars*, and calling the total "natural" implied none of it was added. Both claims are removed from this brief and must not be reinstated from memory or from an older draft.
 - Two flavors: **Chocolate Raspberry Sea Salt** and **Maple Pecan**.
 - Traction: **130+ waitlist signups** (~127 after removing test rows). **No payment has been taken — do not describe these as pre-orders anywhere.** They are people who gave an email address to be told when the product is available; no money changed hands, no order exists, no contract of sale was formed. Calling them pre-orders overstates traction to investors and misdescribes the transaction to consumers. "Waitlist signups", "people on the list", "signups" are all fine. Samples ran out on Day 1 at the Vituity Health symposium (physician network: 6,000+ docs, 10M+ patients/yr). Ran out in 45 minutes at Stanford Founder's Demo Day (300+ investors, 1,500+ attendees).
 - Founders: **Emil Nordin** — Norway's Most Promising Young Chef 2021, trained at Kontrast (2 Michelin stars + Green Star), Stanford Bioengineering '26. **Kelley Yuan, MD** — Stanford Medicine physician, leads Zuca's clinical network (10+ physicians across 7 specialties).
@@ -26,6 +27,7 @@ Zuca is a food, not a drug. Nothing on the site may state or imply that it treat
 - "Built with input from 10+ physicians across 7 specialties."
 
 **Forbidden:**
+- **"No added sugar", "no sugar added", "only natural sugar", "naturally sweetened", or any sugar figure at all** until the finished label is confirmed. Maple syrup is an added sugar under FDA rules. This is a *labelling* claim, not a health claim, and it is the kind that draws a warning letter or a class action rather than a polite correction — the number is checkable against the panel.
 - Any mention of Zuca and a named disease in the same claim: diabetes, colon cancer, IBS, diverticulitis, constipation-as-condition, heart disease, obesity.
 - "Physician-recommended," "doctor-approved," "clinically proven," "reduces your risk of," "prevents," "treats."
 - Weight-loss or GLP-1 claims.
@@ -70,9 +72,9 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 > **Field names and enum values are the Conversion agent's, verified against their shipped
 > `api.js`/`fields.js` rather than against any description.** Where the two disagreed, security moved:
 > their names were already live in a four-screen UI, and a contract nobody can implement is not a
-> contract. Renamed here from an earlier draft: `company` → `company_name`, `headcount` →
-> `company_headcount`, `consent_postal` → `consent_mail`, `address_postal_code` → `address_postal`,
-> `postal_consent_text_version` → `mail_consent_text_version`.
+> contract. Renamed here from an earlier draft: `company` → `company`, `headcount` →
+> `headcount`, `consent_postal` → `consent_postal`, `address_postal_code` → `address_postal_code`,
+> `postal_consent_text_version` → `postal_consent_text_version`.
 
 ### Client sends
 
@@ -83,7 +85,7 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
   "consent_health":   "boolean, default false — REQUIRED to store `motivation`, see below",
   "consent_sms":      "boolean, default false — REQUIRED to store `phone`",
-  "consent_mail":     "boolean, default false — REQUIRED to store the address block",
+  "consent_postal":     "boolean, default false — REQUIRED to store the address block",
 
   "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
   "motivation":       "array<enum>|null, max 3, one of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
@@ -100,8 +102,8 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   // TRI-STATE, not a boolean. "Maybe" is the most common honest answer to
   // "would you want these at work?" and is real signal for an office pilot.
   "office_interest":   "enum|null: yes | maybe | no",
-  "company_name":      "string|null, <=80 chars",
-  "company_headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
+  "company":      "string|null, <=80 chars",
+  "headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
 
   "channel":       "array<enum>|null, max 2: online_dtc | grocery | gym_studio | office | clinic | other",
   "channel_other": "string|null, <=120 chars   // requires channel to include 'other'",
@@ -130,9 +132,9 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "address_line2":       "string|null, <=120 chars",
   "address_city":        "string|null, <=80 chars",
   "address_region":      "string|null, <=80 chars",
-  "address_postal":      "string|null, <=16 chars, international format",
+  "address_postal_code":      "string|null, <=16 chars, international format",
   "address_country":     "string|null, ISO 3166-1 alpha-2, user-supplied — NOT the server's `country`",
-  "mail_consent_text_version": "string|null, <=64 chars, [A-Za-z0-9._-] only",
+  "postal_consent_text_version": "string|null, <=64 chars, [A-Za-z0-9._-] only",
 
   // Set ONLY on a downgrade retry, naming the fields the client had to strip.
   // See "The downgrade path" below.
@@ -226,13 +228,13 @@ identifier, and its own block in the consent receipt. Each one gates a field:
 | Marketing | `consent_marketing` **(required true)** | `consent_text_version` | the signup itself |
 | Health | `consent_health` | `motivation_consent_text_version` | `motivation`, `motivation_other`, `dietary`, `dietary_other` |
 | SMS | `consent_sms` | `sms_consent_text_version` | `phone` |
-| Post | `consent_mail` | `mail_consent_text_version` | the six `address_*` fields |
+| Post | `consent_postal` | `postal_consent_text_version` | the six `address_*` fields |
 
 **A gated field supplied without its consent is discarded, not stored.** Same rule `motivation` has
 always had: typing something into a form is not the same as agreeing we may keep it.
 
 **A consent claimed without the thing it gates is a `400`.** `consent_sms` with no phone, or
-`consent_mail` with no address, records an opt-in that can never be acted on and cannot be
+`consent_postal` with no address, records an opt-in that can never be acted on and cannot be
 evidenced against anything.
 
 **Consent wordings are no longer hand-registered.** The Conversion agent derives each version id by
@@ -256,7 +258,7 @@ discarding it while recording an SMS consent against nothing is worse than sayin
 | Field | Format | Purpose | On bad input |
 |---|---|---|---|
 | `zip` | US only, `/^[0-9]{5}$/` | shipping-region signal | **dropped**, signup succeeds |
-| `address_postal` | international | part of a real mailing address | `400` |
+| `address_postal_code` | international | part of a real mailing address | `400` |
 
 Do not merge them and do not widen `zip`. One is a coarse analytics hint that must never cost a
 signup; the other is part of an address someone expects post to arrive at.

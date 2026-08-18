@@ -69,8 +69,8 @@ var COLUMNS = [
   // ── Extension 2026-08-17 ───────────────────────────────────────────────
   'quantity_band',
   'office_interest',
-  'company_name',
-  'company_headcount',
+  'company',
+  'headcount',
   'channel',
   'channel_other',
   'dietary',
@@ -89,10 +89,10 @@ var COLUMNS = [
   'address_line2',
   'address_city',
   'address_region',
-  'address_postal',
+  'address_postal_code',
   'address_country',
-  'consent_mail',
-  'mail_consent_text_version',
+  'consent_postal',
+  'postal_consent_text_version',
 
   // Downgrade visibility: a record written without its extensions must LOOK
   // incomplete, not normal. See api/waitlist.js.
@@ -178,7 +178,7 @@ var CELL_MAX = { consent_receipt: 4000, user_agent: 250, downgraded_fields: 1000
  * a number, or a postal code losing its leading zero, is data loss that looks
  * like data.
  */
-var FORCE_TEXT = ['phone', 'sms_phone', 'address_postal', 'zip'];
+var FORCE_TEXT = ['phone', 'sms_phone', 'address_postal_code', 'zip'];
 
 /**
  * Neutralize spreadsheet formula injection and cell-breaking characters.
@@ -420,8 +420,8 @@ function doPost(e) {
 
       quantity_band: payload.quantity_band,
       office_interest: payload.office_interest,
-      company_name: payload.company_name,
-      company_headcount: payload.company_headcount,
+      company: payload.company,
+      headcount: payload.headcount,
       channel: [].concat(payload.channel || []).join('|'),
       channel_other: payload.channel_other,
       // Art 9, same gate as motivation — the health consent wording names both.
@@ -433,14 +433,14 @@ function doPost(e) {
       consent_sms: payload.consent_sms,
       sms_consent_text_version: payload.sms_consent_text_version,
 
-      address_line1: payload.consent_mail ? payload.address_line1 : '',
-      address_line2: payload.consent_mail ? payload.address_line2 : '',
-      address_city: payload.consent_mail ? payload.address_city : '',
-      address_region: payload.consent_mail ? payload.address_region : '',
-      address_postal: payload.consent_mail ? payload.address_postal : '',
-      address_country: payload.consent_mail ? payload.address_country : '',
-      consent_mail: payload.consent_mail,
-      mail_consent_text_version: payload.mail_consent_text_version,
+      address_line1: payload.consent_postal ? payload.address_line1 : '',
+      address_line2: payload.consent_postal ? payload.address_line2 : '',
+      address_city: payload.consent_postal ? payload.address_city : '',
+      address_region: payload.consent_postal ? payload.address_region : '',
+      address_postal_code: payload.consent_postal ? payload.address_postal_code : '',
+      address_country: payload.consent_postal ? payload.address_country : '',
+      consent_postal: payload.consent_postal,
+      postal_consent_text_version: payload.postal_consent_text_version,
       email_handle: payload.email_handle,
       confirmed: payload.confirmed,
       confirmed_at: payload.confirmed_at,

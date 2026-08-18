@@ -189,17 +189,17 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     motivation_other: 'Doctor suggested it',
     quantity_band: '4_8',
     office_interest: 'maybe',
-    company_name: 'Acme AS',
-    company_headcount: '10_49',
+    company: 'Acme AS',
+    headcount: '10_49',
     phone: '+4791234567',
     consent_sms: true,
     sms_consent_text_version: '2026-08-17.sms.a',
     address_line1: 'Storgata 1',
     address_city: 'Oslo',
-    address_postal: '0150',
+    address_postal_code: '0150',
     address_country: 'NO',
-    consent_mail: true,
-    mail_consent_text_version: '2026-08-17.mail.a',
+    consent_postal: true,
+    postal_consent_text_version: '2026-08-17.postal.a',
     consent_timestamp: '2026-08-15T12:00:00.000Z',
     country: 'NO',
     needs_reconsent: false,
@@ -246,8 +246,8 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     ['zip', "'94305"], // force-text: a US zip like 01234 must keep its leading zero
     ['flavor', 'both'],
     ['quantity_band', '4_8'],
-    ['company_name', 'Acme AS'],
-    ['company_headcount', '10_49'],
+    ['company', 'Acme AS'],
+    ['headcount', '10_49'],
     ['referral_source_other', 'Podcast'],
     ['address_city', 'Oslo'],
     ['address_country', 'NO'],
@@ -305,10 +305,10 @@ console.log('\n  Scenario B2 — the extension fields\n');
     phone: '+4791234567',
     consent_sms: true,
     address_line1: 'Storgata 1',
-    address_postal: '0150',
+    address_postal_code: '0150',
     address_country: 'NO',
-    consent_mail: true,
-    company_name: 'Acme AS',
+    consent_postal: true,
+    company: 'Acme AS',
   });
 
   check('write returns the post-append count', Number.isFinite(response?.count), `count = ${response?.count}`);
@@ -318,11 +318,11 @@ console.log('\n  Scenario B2 — the extension fields\n');
     JSON.stringify(cellFor(sheet, 'sms_phone').value)
   );
   check(
-    'address_postal forced to text so 0150 keeps its leading zero',
-    String(cellFor(sheet, 'address_postal').value) === "'0150",
-    JSON.stringify(cellFor(sheet, 'address_postal').value)
+    'address_postal_code forced to text so 0150 keeps its leading zero',
+    String(cellFor(sheet, 'address_postal_code').value) === "'0150",
+    JSON.stringify(cellFor(sheet, 'address_postal_code').value)
   );
-  check('company_name stored', cellFor(sheet, 'company_name').value === 'Acme AS', JSON.stringify(cellFor(sheet, 'company_name').value));
+  check('company stored', cellFor(sheet, 'company').value === 'Acme AS', JSON.stringify(cellFor(sheet, 'company').value));
 }
 
 console.log('\n  Scenario B3 — consents withheld, gated data must not land\n');
@@ -333,7 +333,7 @@ console.log('\n  Scenario B3 — consents withheld, gated data must not land\n')
     phone: '+4791234567',
     consent_sms: false,
     address_line1: 'Storgata 1',
-    consent_mail: false,
+    consent_postal: false,
     motivation_other: 'gut trouble',
     consent_health: false,
   });

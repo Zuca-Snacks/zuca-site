@@ -52,8 +52,8 @@ const BUILTIN_CONSENT_TEXTS = {
     regime: 'global',
     text: 'Text me about my order and when pre-orders open. Message rates may apply. Reply STOP to opt out.',
   },
-  '2026-08-17.mail.a': {
-    purpose: 'mail',
+  '2026-08-17.postal.a': {
+    purpose: 'postal',
     regime: 'global',
     text: 'Post me samples and product news at the address above.',
   },
@@ -77,7 +77,7 @@ export const CONSENT_PURPOSES = {
   marketing: { flag: 'consent_marketing', version: 'consent_text_version', gates: null },
   health: { flag: 'consent_health', version: 'motivation_consent_text_version', gates: 'motivation' },
   sms: { flag: 'consent_sms', version: 'sms_consent_text_version', gates: 'phone' },
-  mail: { flag: 'consent_mail', version: 'mail_consent_text_version', gates: 'address' },
+  mail: { flag: 'consent_postal', version: 'postal_consent_text_version', gates: 'address' },
 };
 
 /**
@@ -435,7 +435,7 @@ export const QUANTITY_BANDS = ['lt_4', '4_8', '9_16', '17_30', 'gt_30'];
 
 /** Company size, for the office-snack path. Bands, not a number — a headcount
  *  typed as free text is unusable for segmentation and more identifying. */
-export const COMPANY_HEADCOUNTS = ['lt_10', '10_49', '50_199', '200_999', 'gt_1000'];
+export const HEADCOUNTS = ['lt_10', '10_49', '50_199', '200_999', 'gt_1000'];
 
 /** Tri-state, not a boolean. "Maybe" is the most common honest answer to
  *  "would you want these at work?", and collapsing it into no loses the
@@ -607,8 +607,8 @@ export const waitlistSchema = z
     // reject-control-chars → length-cap path as every other free-text field,
     // and is formula-sanitised before it reaches a cell.
     office_interest: optionalEnum(OFFICE_INTERESTS),
-    company_name: safeString(80).nullish().transform((v) => v || null),
-    company_headcount: optionalEnum(COMPANY_HEADCOUNTS),
+    company: safeString(80).nullish().transform((v) => v || null),
+    headcount: optionalEnum(HEADCOUNTS),
 
     // A free-text escape for every enum that offers "Other". Only two enums do
     // — MOTIVATIONS and REFERRAL_SOURCES — and the pairing is enforced below in
@@ -630,7 +630,7 @@ export const waitlistSchema = z
     address_line2: safeString(120).nullish().transform((v) => v || null),
     address_city: safeString(80).nullish().transform((v) => v || null),
     address_region: safeString(80).nullish().transform((v) => v || null),
-    address_postal: z
+    address_postal_code: z
       .union([postalCodeSchema, z.literal(''), z.null()])
       .optional()
       .transform((v) => v || null),
@@ -638,8 +638,8 @@ export const waitlistSchema = z
       .union([addressCountrySchema, z.literal(''), z.null()])
       .optional()
       .transform((v) => v || null),
-    consent_mail: z.boolean().optional().default(false),
-    mail_consent_text_version: consentVersionField(),
+    consent_postal: z.boolean().optional().default(false),
+    postal_consent_text_version: consentVersionField(),
 
     // Set by the client ONLY on a downgrade retry, naming the fields it had to
     // strip to get past a stricter server. See the handling in api/waitlist.js:
@@ -689,8 +689,8 @@ export const waitlistSchema = z
     if (d.consent_sms && !d.phone) {
       ctx.addIssue({ code: 'custom', path: ['consent_sms'], message: 'sms_consent_without_phone' });
     }
-    if (d.consent_mail && !(d.address_line1 && d.address_city && d.address_country)) {
-      ctx.addIssue({ code: 'custom', path: ['consent_mail'], message: 'mail_consent_without_address' });
+    if (d.consent_postal && !(d.address_line1 && d.address_city && d.address_country)) {
+      ctx.addIssue({ code: 'custom', path: ['consent_postal'], message: 'mail_consent_without_address' });
     }
   });
 

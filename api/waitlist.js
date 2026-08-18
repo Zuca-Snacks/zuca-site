@@ -226,7 +226,7 @@ export default async function handler(req, res) {
   const consent = resolveConsentText(data.consent_text_version, 'marketing');
   const healthConsent = resolveConsentText(data.motivation_consent_text_version, 'health');
   const smsConsent = resolveConsentText(data.sms_consent_text_version, 'sms');
-  const mailConsent = resolveConsentText(data.mail_consent_text_version, 'mail');
+  const postalConsent = resolveConsentText(data.postal_consent_text_version, 'mail');
   const ipPrefix = ip.includes(':')
     ? ip.split(':').slice(0, 3).join(':')
     : ip.split('.').slice(0, 3).join('.') + '.0';
@@ -239,7 +239,7 @@ export default async function handler(req, res) {
     marketingVersion: data.consent_text_version,
     healthVersion: data.consent_health ? data.motivation_consent_text_version : null,
     smsVersion: data.consent_sms ? data.sms_consent_text_version : null,
-    postalVersion: data.consent_mail ? data.mail_consent_text_version : null,
+    postalVersion: data.consent_postal ? data.postal_consent_text_version : null,
   });
 
   if (reconciliation.needs_reconsent) {
@@ -270,8 +270,8 @@ export default async function handler(req, res) {
   if (data.consent_sms && !smsConsent.registry_match) {
     audit('consent.sms_text_version_unresolved', { handle, version: smsConsent.version });
   }
-  if (data.consent_mail && !mailConsent.registry_match) {
-    audit('consent.mail_text_version_unresolved', { handle, version: mailConsent.version });
+  if (data.consent_postal && !postalConsent.registry_match) {
+    audit('consent.mail_text_version_unresolved', { handle, version: postalConsent.version });
   }
 
   // 11. Build the record. Bot signals and the honeypot are dropped here — they
@@ -304,8 +304,8 @@ export default async function handler(req, res) {
     dietary_other: data.consent_health ? data.dietary_other : null,
     research_optin: data.research_optin,
     office_interest: data.office_interest,
-    company_name: data.company_name,
-    company_headcount: data.company_headcount,
+    company: data.company,
+    headcount: data.headcount,
 
     // Phone and postal address are each stored ONLY behind their own opt-in,
     // the same rule already applied to `motivation`. Someone typing an address
@@ -319,14 +319,14 @@ export default async function handler(req, res) {
     consent_sms: data.consent_sms,
     sms_consent_text_version: data.consent_sms ? smsConsent.version : null,
 
-    address_line1: data.consent_mail ? data.address_line1 : null,
-    address_line2: data.consent_mail ? data.address_line2 : null,
-    address_city: data.consent_mail ? data.address_city : null,
-    address_region: data.consent_mail ? data.address_region : null,
-    address_postal: data.consent_mail ? data.address_postal : null,
-    address_country: data.consent_mail ? data.address_country : null,
-    consent_mail: data.consent_mail,
-    mail_consent_text_version: data.consent_mail ? mailConsent.version : null,
+    address_line1: data.consent_postal ? data.address_line1 : null,
+    address_line2: data.consent_postal ? data.address_line2 : null,
+    address_city: data.consent_postal ? data.address_city : null,
+    address_region: data.consent_postal ? data.address_region : null,
+    address_postal_code: data.consent_postal ? data.address_postal_code : null,
+    address_country: data.consent_postal ? data.address_country : null,
+    consent_postal: data.consent_postal,
+    postal_consent_text_version: data.consent_postal ? postalConsent.version : null,
     consent_marketing: data.consent_marketing,
     utm: data.utm,
     page_path: data.page_path,
@@ -364,7 +364,7 @@ export default async function handler(req, res) {
           ['marketing', data.consent_marketing, consent],
           ['health', data.consent_health, healthConsent],
           ['sms', data.consent_sms, smsConsent],
-          ['mail', data.consent_mail, mailConsent],
+          ['mail', data.consent_postal, postalConsent],
         ].map(([name, granted, resolved]) => [
           name,
           {
@@ -424,8 +424,20 @@ export default async function handler(req, res) {
   //     3), and failing signups during that window would cost real leads. The
   //     log line is the alarm.
   if (!SHEETS_WEBHOOK_URL) {
+    // 500, not 200.
+    //
+    // This returned 200 until 2026-08-18, reasoning that the endpoint would be
+    // deployed ahead of the Apps Script rotation and that failing signups in
+    // that window would cost leads. That reasoning was wrong, and wrong in the
+    // exact way S7 is wrong: with no webhook configured the row is not stored,
+    // so a 200 does not save the lead — it loses it AND says otherwise. The
+    // lead is gone either way; the only variable is whether anybody finds out.
+    //
+    // Caught in review by the merge session. Worth recording that I wrote the
+    // S7 finding — "every submission reports success even when it fails" — and
+    // then reproduced it here.
     audit('forward.skipped_unconfigured', { handle });
-    return send(res, 200, { ok: true });
+    return send(res, 500, { ok: false, error: 'server' });
   }
 
   let newCount = null;
@@ -479,7 +491,7 @@ export default async function handler(req, res) {
       data.consent_marketing && 'marketing',
       data.consent_health && 'health',
       data.consent_sms && 'sms',
-      data.consent_mail && 'mail',
+      data.consent_postal && 'mail',
     ].filter(Boolean),
   });
   // `count` is additive: the contract's 200 shape is `{"ok":true}` and any
