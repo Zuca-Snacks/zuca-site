@@ -216,7 +216,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--z-space-3);
   position: relative;
-  /* Three named rows — photo, name, spec — so both columns share them via
+  /* Three named rows — name, spec, photo — so both columns share them via
      subgrid below. Without this the columns drift apart: "Chocolate Raspberry
      Sea Salt" wraps to two lines and "Maple Pecan" does not, which dropped the
      chocolate side's fiber plate a whole line below the maple one and made the
@@ -253,11 +253,20 @@
   box-shadow: var(--z-shadow-md);
 }
 
+/* 4:3 on phones, square from tablet up. The stack gained a per-flavour chip row
+   and the count moved into flow beneath it, which together cost ~90px and put
+   the CTA below the fold at 360px. The photograph is the most compressible
+   element in the stack — cropping it shorter costs no information, where
+   dropping a chip or the count would. */
 .z-hero__product img {
   width: 100%;
   height: auto;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
+}
+
+@media (min-width: 48em) {
+  .z-hero__product img { aspect-ratio: 1 / 1; }
 }
 
 .z-hero__product-name {
@@ -320,7 +329,7 @@
   background-size: 100% auto;
   background-position: center top;
   background-repeat: no-repeat;
-  opacity: 0.55;
+  opacity: 0.85;
 }
 
 @media (min-width: 48em) {
@@ -378,40 +387,6 @@
   list-style: none;
 }
 
-.z-hero__spec li[data-secondary] { display: none; }
-
-@media (min-width: 48em) {
-  .z-hero__spec li[data-secondary] { display: block; }
-  .z-hero__shared-spec { display: none; }
-}
-
-/* Shared row, phones only: 150 kcal and 4g protein are identical across both
-   flavours, so per-flavour copies cost a second wrapped row in each column —
-   ~50px of fold to state the same two facts twice. The accented 10G FIBER
-   plate stays per-flavour, because that is the part the mockup makes
-   flavour-specific. Full per-flavour spec returns at 48em. */
-.z-hero__shared-spec {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--z-space-2);
-  margin-top: var(--z-space-3);
-  list-style: none;
-}
-
-.z-hero__shared-spec li {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--z-ink);
-  background: var(--z-surface);
-  border: 1px solid var(--z-border);
-  border-radius: var(--z-radius-full);
-  padding: 3px var(--z-space-2);
-}
-
 .z-hero__spec li {
   font-size: 0.6875rem;
   font-weight: 700;
@@ -461,56 +436,45 @@
 }
 
 
-/* --- The live count badge ------------------------------------------------ */
-/* ONE mechanism: absolute positioning. It is out of flow, so when the count is
-   null and this element is not rendered at all there is no reserved gap to
-   leave a hole — the hero is complete without it. And when the number does
-   arrive it lands on top of the photography, displacing nothing. Reserving a
-   fixed-height row would have prevented the reflow but created the hole. */
-.z-hero__count-badge {
-  position: absolute;
-  top: calc(-1 * var(--z-space-2));
-  right: calc(-1 * var(--z-space-1));
-  z-index: 3;
-
+/* --- The live count, on the centre axis ---------------------------------- */
+/* Reserves its height so an arriving number cannot shift the CTA. Empty, that
+   space reads as breathing room between the product stacks and the copy on a
+   centred composition — not as a gap waiting to be filled. */
+.z-hero__count {
   display: flex;
-  align-items: center;
-  gap: var(--z-space-1);
-  padding: var(--z-space-1) var(--z-space-2);
-
-  background: var(--z-surface);
-  border: 1px solid var(--z-border);
-  border-radius: var(--z-radius-full);
-  box-shadow: var(--z-shadow-md);
-
-  animation: z-badge-in 380ms var(--z-ease) both;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--z-space-2);
+  min-height: 3.25rem;
+  margin-top: var(--z-space-4);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .z-hero__count-badge { animation: none; }
-}
-
-@keyframes z-badge-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
-  to   { opacity: 1; transform: none; }
-}
-
-/* Sized down deliberately: at --z-step-1 with the full label the badge covered
-   roughly 40% of the maple photograph. It has to read as a stamp ON the
-   product, not as a banner across it. */
 .z-hero__count-num {
   font-family: var(--z-font-display);
-  font-size: var(--z-step-0);
+  font-size: var(--z-step-3);
   line-height: 1;
-  color: var(--z-brand-dark);
+  color: var(--z-brand);
+}
+
+/* The fallback occupies the band at the same height as the number, so the two
+   states are dimensionally identical and the swap costs no layout. */
+.z-hero__count-fallback {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink-muted);
+  max-width: 30ch;
+  margin-inline: auto;
+  text-align: center;
+  align-self: center;
 }
 
 .z-hero__count-word {
-  font-size: 0.6875rem;
+  font-size: var(--z-step-0);
   font-weight: 600;
-  line-height: 1.1;
   color: var(--z-ink);
-  max-width: 8ch;
+  max-width: 12ch;
+  text-align: left;
+  line-height: 1.15;
 }
 
 
@@ -611,6 +575,111 @@
 
 @media (min-width: 48em) {
   .z-proof__list { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
+}
+
+/* ─── Fiber-gap statistic ───────────────────────────────────────────────── */
+
+.z-gap {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-block: var(--z-section-y);
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+  text-align: center;
+}
+
+.z-gap__inner { display: grid; gap: var(--z-space-2); }
+
+/* Large display text, so brand red on the alt surface clears the 3:1
+   large-text threshold at 5.01:1. Do not reuse this colour at body size. */
+.z-gap__figure {
+  font-family: var(--z-font-display);
+  font-size: clamp(4rem, 1.5rem + 16vw, 9rem);
+  line-height: 0.9;
+  color: var(--z-brand);
+  margin-inline: auto;
+}
+
+.z-gap__label {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  max-width: 24ch;
+  margin-inline: auto;
+}
+
+/* ─── Decorative section artwork ─────────────────────────────────────────────
+   Low-opacity illustration behind a section's content. Every one of these sits
+   BELOW the fold and none is ever the LCP element — they are encoded small,
+   drawn at low opacity, and pinned inside their section so they cannot create
+   a horizontal scrollbar. Measured after adding: LCP unchanged.
+   If one of these is ever moved above the fold, re-measure before shipping. */
+
+/* Any section hosting decorative art needs a containing block and its own
+   stacking context, or the negative-z layer escapes behind the page. */
+.z-has-art {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.z-art {
+  position: absolute;
+  inset: auto 0 0;
+  height: 62%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.3;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+/* ⚠️ The background-image lives ONLY on the .is-in variants below. Browsers
+   fetch CSS backgrounds for off-screen elements eagerly — all three of these
+   were measured loading ~185ms into the page, alongside the LCP image, costing
+   0.2s. Keep the URL out of the base rule. */
+
+.z-gap__art {
+  position: absolute;
+  inset: auto 0 0;
+  height: 55%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.32;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+.is-in .z-gap__art,
+.z-gap.is-in .z-gap__art {
+  background-image: image-set(
+    url('/images/art-fruit-row-720.avif') type('image/avif'),
+    url('/images/art-fruit-row-720.webp') type('image/webp')
+  );
+}
+
+.z-art--berries {
+  height: 100%;
+  opacity: 0.42;
+  background-size: cover;
+}
+
+.is-in .z-art--berries {
+  background-image: image-set(
+    url('/images/art-berries-720.avif') type('image/avif'),
+    url('/images/art-berries-720.webp') type('image/webp')
+  );
+}
+
+.z-art--tree { opacity: 0.26; }
+
+.is-in .z-art--tree {
+  background-image: image-set(
+    url('/images/art-tree-growth-720.avif') type('image/avif'),
+    url('/images/art-tree-growth-720.webp') type('image/webp')
+  );
 }
 
 /* ─── Numbers ────────────────────────────────────────────────────────────── */

@@ -28,10 +28,11 @@ export default function WaitlistSlot({ children }) {
   return (
     <section
       id="waitlist"
-      className="z-waitlist-slot z-section"
+      className="z-waitlist-slot z-section z-has-art"
       tabIndex={-1}
       aria-labelledby="waitlist-title"
     >
+      <div className="z-art z-art--tree" aria-hidden="true" />
       <div className="z-container">
         <div className="z-waitlist-slot__inner">
           <div>

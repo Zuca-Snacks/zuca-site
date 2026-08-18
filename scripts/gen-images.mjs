@@ -132,6 +132,12 @@ const JOBS = [
    and dropped Lighthouse performance from 98 to 81 with a 4.9s LCP. */
 const ART = [
   { name: 'art-backdrop', src: 'art-src/art-ingredients-backdrop.png', widths: [600, 1600] },
+  /* Section backgrounds. All render at low opacity behind content and all sit
+     BELOW the fold, so they are encoded small and cheap — decoration must never
+     compete with the LCP element for bandwidth. */
+  { name: 'art-fruit-row', src: 'art-src/art-fruit-row.png', widths: [720] },
+  { name: 'art-berries', src: 'art-src/art-berries.png', widths: [720] },
+  { name: 'art-tree-growth', src: 'art-src/art-tree-growth.png', widths: [720] },
 ];
 
 const FORMATS = [

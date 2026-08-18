@@ -24,6 +24,20 @@ import useWaitlistCount from '../../hooks/useWaitlistCount.js';
 export default function Hero() {
   const [email, setEmail] = useState('');
   const count = useWaitlistCount();
+  const hasCount = count != null && count > 0;
+
+  /* The count band never renders empty. When the number is unavailable — which
+     is every visit until the endpoint is configured — a static line occupies
+     exactly the same reserved height, so there is no visible hole AND no shift
+     when the number later swaps in.
+
+     ⚠️ INTERIM STRING. Growth owns this copy and is writing a purpose-made
+     line; the moment `hero.countFallback` exists in copy.js it is used with no
+     change here. Until then the eyebrow stands in, and the eyebrow badge is
+     suppressed while it does so, because showing the same sentence twice in one
+     viewport is worse than showing it once in the better position. */
+  const countFallback = copy.countFallback ?? copy.eyebrow;
+  const usingInterimFallback = !hasCount && !copy.countFallback;
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -75,9 +89,11 @@ export default function Hero() {
           {/* "Pre-order open" was removed at every breakpoint: nobody has paid,
               these are waitlist signups, and a badge implying an open
               transaction is a claim we cannot support. */}
-          <div className="z-hero__eyebrow">
-            <Badge>{copy.eyebrow}</Badge>
-          </div>
+          {!usingInterimFallback && (
+            <div className="z-hero__eyebrow">
+              <Badge>{copy.eyebrow}</Badge>
+            </div>
+          )}
 
           {/* Headline and subhead are A/B-switchable from one place — flip
               ACTIVE_HEADLINE in src/content/copy.js. Nothing is hardcoded here. */}
@@ -177,6 +193,16 @@ export default function Hero() {
                 data-tone={f.tone}
                 key={f.slug}
               >
+                <figcaption className="z-hero__product-name">{f.name}</figcaption>
+
+                {/* Spec above the photo, per Emil's reference: the stack reads
+                    as a labelled pack, name first, picture last. */}
+                <ul className="z-hero__spec">
+                  <li className="z-hero__spec-hero">10g fiber</li>
+                  <li>150 kcal</li>
+                  <li>4g protein</li>
+                </ul>
+
                 <picture>
                   <source
                     type="image/avif"
@@ -208,41 +234,33 @@ export default function Hero() {
                     decoding={f.lcp ? 'sync' : 'async'}
                   />
                 </picture>
-                <figcaption className="z-hero__product-name">{f.name}</figcaption>
-
-                {/* Per-flavour spec stack, as the mockup has it. The fiber
-                    figure gets the dark plate and the flavour's own accent;
-                    the other two are quiet pills. These ARE duplicated across
-                    the two flavours — the numbers are identical — but in this
-                    layout the duplication is the point: each product reads as
-                    its own labelled pack. */}
-                <ul className="z-hero__spec">
-                  <li className="z-hero__spec-hero">10g fiber</li>
-                  <li data-secondary="">150 kcal</li>
-                  <li data-secondary="">4g protein</li>
-                </ul>
               </figure>
             ))}
 
           </div>
 
-          {/* Phones only — see .z-hero__shared-spec. The per-flavour stacks
-              above carry the full spec from 48em up; below that the two
-              identical secondary figures collapse to one row here. */}
-          <ul className="z-hero__shared-spec" aria-label="Per serving">
-            <li>150 kcal</li>
-            <li>4g protein</li>
-          </ul>
 
-          {/* Count badge: rendered ONLY when the number exists. Absent, there is
-              nothing here and the hero reads as complete. Present, it lands on
-              top of the photography and pushes nothing. */}
-          {count != null && count > 0 && (
-            <p className="z-hero__count-badge">
-              <span className="z-hero__count-num">{count.toLocaleString()}</span>
-              <span className="z-hero__count-word">{proof.liveLabel}</span>
-            </p>
-          )}
+
+          {/* THE COUNT IS NOW A FOCAL POINT, not a corner badge — it sits on
+              the centre axis beneath the two stacks, where the reference slide
+              puts it.
+              It is in normal flow here, so it can no longer be both hole-free
+              and reflow-free by being out of flow. The container therefore
+              reserves its height: absent, that reads as breathing room on a
+              centred poster rather than as a gap; present, nothing moves. */}
+          <div
+            className="z-hero__count"
+            data-has-count={hasCount ? 'true' : 'false'}
+          >
+            {hasCount ? (
+              <>
+                <span className="z-hero__count-num">{count.toLocaleString()}</span>
+                <span className="z-hero__count-word">{proof.liveLabel}</span>
+              </>
+            ) : (
+              <p className="z-hero__count-fallback">{countFallback}</p>
+            )}
+          </div>
         </div>
       </div>
     </section>

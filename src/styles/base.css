@@ -172,6 +172,9 @@ a:hover { color: var(--z-brand-dark); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* .is-in is still applied under reduced motion — it also gates decorative
+     artwork loading, so suppressing it would strip those backgrounds for these
+     users. Only the animation is removed here. */
   .z-js .z-reveal,
   .z-js .z-reveal.is-in {
     opacity: 1;
