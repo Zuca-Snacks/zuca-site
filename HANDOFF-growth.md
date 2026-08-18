@@ -118,6 +118,42 @@ Two things that live in your files, not mine:
 
 ---
 
+## ⚠️ ALLERGEN PANEL IS CONFIRMED BUT NOT STABLE
+
+**Confirmed 18 Aug 2026:** both flavours contain tree nuts — almonds and pecans.
+The site states exactly that and it is accurate today.
+
+**It is expected to change.** The nut base may move from almond to **sunflower
+butter**, with pecan remaining in Maple Pecan. That is not a copy edit when it
+lands — it changes the *shape* of the claim:
+
+| Today | If the base moves |
+|---|---|
+| One shared statement true of both flavours | Maple Pecan carries tree nuts; the other may not |
+| Safe on shared pills, shared subheads, one FAQ line | Needs per-flavour allergen wording |
+
+So: **do not build anything that assumes this panel is permanent.** Concretely,
+nothing should hard-code "contains tree nuts" as a property of *Zuca* rather
+than of a flavour — not the shared `PILLS` array, not a segment, not an email
+cohort, not a filter. The places that would need to change are the `numbers`
+footnote, the allergen FAQ, `Flavors.jsx` PILLS, and the og/twitter meta.
+
+### ❌ Never claim gluten-free
+
+Unconfirmed, and — this is the part that catches people — **a separate question
+from the recipe.** A gluten-free recipe made on a shared line is not a
+gluten-free product; that is a facility question, and we do not have the answer.
+
+The `gluten_free` value in `fields.js` is a **dietary chip: the user describing
+their own diet.** It is not evidence about Zuca and must never be read back as
+one. If someone later builds a "gluten-free interest" segment, that is a segment
+of *people*, not a claim about the product, and the copy must not blur the two.
+
+Still unconfirmed and therefore unstated anywhere: dairy in Chocolate Raspberry
+Sea Salt, and shared-facility cross-contact.
+
+---
+
 ## ⚠️ RULE: assert on visibility, never on presence
 
 **For anything gated on a prop, assert that it is visible and interactable. A
@@ -167,6 +203,29 @@ It was found only by chasing an unrelated symptom (an empty label) down to
 - **When adopting someone else's primitive, re-derive what your assertions mean.**
   The bug was not the missing prop; it was that a proxy stayed in the test after
   the thing it proxied for had changed underneath it.
+
+### A third instance: a reassuring message that was false
+
+The client answered *every* failed fetch with "You look offline. We've saved
+your email and we'll send it the moment you're back." A 404, a 5xx, a CORS
+rejection or a missing env var in production all produced that sentence. The
+address was not saved, and the person had no reason to try again — a false
+reassurance is worse than a blunt error precisely because it stops them
+retrying.
+
+Now three distinct paths, with `test/failure-paths.test.mjs` locking them:
+
+| Case | Result | Message | Queued? |
+|---|---|---|---|
+| `navigator.onLine === false` | `OFFLINE` | "You're offline… we'll send it when you're back" | **yes** |
+| 404 / 5xx / unreachable / timeout | `SERVER` | "That's our end… your email hasn't saved yet" | no |
+| 400 | `VALIDATION` | says what is wrong | no |
+
+**Only the offline path may claim the address is saved, because it is the only
+one that queues it.** One test asserts that directly against the copy strings,
+so rewording cannot quietly reintroduce the lie. Note the assertion matches an
+*affirmative* claim (`we've saved`), not the word "saved" — a naive `/saved/`
+fails the honest message and passes the dishonest one.
 
 ### The same shape, elsewhere in this branch
 

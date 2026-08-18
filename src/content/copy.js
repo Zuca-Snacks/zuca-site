@@ -10,18 +10,27 @@
 // "doctor-approved", "clinically proven", or weight-loss framing. Structure/
 // function and factual nutrient-content statements only.
 //
-// ── TODO (BLOCKING before the outbound campaign sends) ───────────────────────
-// ALLERGEN PANEL IS INCOMPLETE ON PURPOSE.
-// Confirmed and safe to publish: both flavors contain TREE NUTS — almonds and
-// pecans. Nothing else is confirmed.
-// NOT yet confirmed, and therefore NOT stated anywhere on the site:
-//   • gluten / oats status
-//   • dairy in the Chocolate Raspberry Sea Salt
-//   • shared-facility cross-contact with other allergens
-// Emil is obtaining written confirmation from Step Change Innovations. Do not
-// add any of the above to this file — or soften the "we're not publishing a
-// guess" line in the allergen FAQ — until that confirmation exists in writing.
+// ── ALLERGENS: CONFIRMED, BUT NOT STABLE ────────────────────────────────────
+// Confirmed 18 Aug 2026: both flavours contain TREE NUTS — almonds and pecans.
+// That is what the site says and it is accurate today.
 //
+// ⚠️ THE RECIPE IS STILL MOVING. The nut base may change from almond to
+// SUNFLOWER butter, with pecan remaining in Maple Pecan. If that lands, the
+// panel changes and so does the shape of the claim: one flavour would carry
+// tree nuts and the other might not, which is a per-flavour allergen statement
+// rather than the shared one we have now. Do not build anything — pills,
+// filters, segments, email cohorts — that assumes this panel is permanent.
+//
+// ❌ NEVER CLAIM GLUTEN-FREE. Unconfirmed, and a separate question from the
+// recipe: a gluten-free recipe made on a shared line is not a gluten-free
+// product. The `gluten_free` chip in fields.js is the USER describing their
+// diet; it is not evidence about Zuca and must never be read as such.
+//
+// Also still unconfirmed and therefore unstated: dairy in the Chocolate
+// Raspberry Sea Salt, and shared-facility cross-contact. Do not add either,
+// and do not soften the "We're not publishing a guess" line in the allergen
+// FAQ, until confirmation exists in writing.
+
 // ── PRICING — NO FIGURES OF ANY KIND ON THIS PAGE ────────────────────────────
 // This applies to BOTH directions:
 //   • Retail price. The waitlist measures willingness to pay via price_band;
@@ -102,7 +111,7 @@ export const HEADLINES = {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Two flavors, and about 40% of your daily fiber in one bite.",
+      "Two flavors, no refined sugar, and about 40% of your daily fiber in one bite.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -110,7 +119,7 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "10g of fiber, 150 calories. Chocolate Raspberry Sea Salt or Maple Pecan.",
+      "10g of fiber, 150 calories, no refined sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
@@ -118,7 +127,7 @@ export const HEADLINES = {
     id: "c",
     headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories. Made from apple pulp a juicery was about to throw away.",
+      "150 calories. No refined sugar. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
@@ -226,19 +235,25 @@ export const proof = {
 };
 
 // ─── Three-number block ──────────────────────────────────────────────────────
-// ⚠️ SUGAR CLAIMS ARE WITHDRAWN, NOT REWORDED (18 Aug 2026).
-// Maple syrup is added as a sweetener. Under FDA rules syrups count as ADDED
-// SUGARS, so two separate claims were false and both are gone from every
-// string on the site:
-//   • "no added sugar" / "0g added sugar" — false outright.
-//   • "6g natural sugar" — false too: some of that sugar is added, not
-//     naturally occurring in the fruit. It went in the same pass rather than
-//     being left as the surviving half of a wrong pair.
-// Nothing replaces them yet. Naming the sweetener beats claiming an absence,
-// but the replacement needs two facts we do not have: whether Chocolate
-// Raspberry Sea Salt also contains syrup, and the exact added-sugar grams.
-// Emil is chasing both. DO NOT write a sugar line until they are confirmed —
-// a wrong claim in the other direction is not an improvement.
+// ── SUGAR: ONE CLAIM IS PERMITTED, AND ONLY ONE ────────────────────────────
+// Confirmed by the manufacturer, 18 Aug 2026:
+//   ✅ "No refined sugar."  TRUE of BOTH flavours. This is the claim to make,
+//      and it is the ONLY sugar claim allowed on the site.
+//   ❌ "No added sugar."    FALSE — maple syrup is added as a sweetener, and
+//      syrups are added sugars under FDA rules.
+//   ❌ "6g natural sugar."  FALSE — some of that sugar is added, not naturally
+//      occurring in the fruit.
+//
+// ⚠️ NO SITE-WIDE SWEETENER CLAIM. Maple syrup is in MAPLE PECAN ONLY. What
+// sweetens Chocolate Raspberry Sea Salt is still unconfirmed, so anything more
+// specific than "No refined sugar" — naming maple, naming any sweetener,
+// "sweetened with…" — is a per-flavour claim wearing a site-wide coat. The
+// pills render on BOTH cards; the subheads cover both. Hold until confirmed.
+//
+// Do not "improve" this into a positive sweetener statement. Naming the
+// sweetener would be better copy, and we cannot yet do it truthfully for half
+// the range.
+
 export const numbers = {
   title: "What's actually in one.",
   items: [
@@ -246,7 +261,7 @@ export const numbers = {
     { value: "150", unit: "calories", note: "Plus 4g of protein." },
     { value: "4g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
-  footnote: "Per serving. Contains tree nuts — almonds and pecans.",
+  footnote: "Per serving. No refined sugar. Contains tree nuts — almonds and pecans.",
 };
 
 // ─── Section headers ─────────────────────────────────────────────────────────
@@ -330,7 +345,7 @@ export const faq = [
   },
   {
     q: "What's in it, and what about allergens?",
-    a: "Both flavors contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein, The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
+    a: "No refined sugar in either flavor. Both contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
   },
   {
     q: "What will it cost?",
@@ -452,8 +467,13 @@ export const step1 = {
     invalid: "That email doesn't look right — mind checking it?",
     consent: "Tick the box so we're allowed to email you.",
     rate_limited: "That's a lot of tries. Give it a minute and we'll take it from there.",
-    server: "Our end broke, not yours. We've kept your email — try that button once more.",
-    network: "You look offline. We've saved your email and we'll send it the moment you're back.",
+    // ⚠️ ONLY `offline` may say the address is saved. It is the only failure
+    // we actually queue. `server` covers a 404, a 5xx, a timeout and an
+    // unreachable endpoint — none of which stored anything, so none of which
+    // may imply otherwise. A false reassurance is worse than a blunt error:
+    // it makes people stop trying.
+    server: "That's our end, not yours — your email hasn't saved yet. Give it another go?",
+    offline: "You're offline. We've saved your email here and we'll send it the moment you're back.",
   },
 };
 

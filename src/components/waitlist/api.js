@@ -39,7 +39,12 @@ export const RESULT = {
   VALIDATION: "validation",
   RATE_LIMITED: "rate_limited",
   SERVER: "server",
-  NETWORK: "network",
+  /**
+   * The browser is genuinely offline. This is the ONLY state that may tell
+   * someone their address is saved, because it is the only one where we
+   * actually queued it and know why it has not been delivered.
+   */
+  OFFLINE: "offline",
 };
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -267,7 +272,7 @@ export async function drainQueue() {
   if (!queue.length) return;
   for (const payload of queue) {
     const result = await post(payload);
-    if (result.status !== RESULT.NETWORK) dequeue(payload);
+    if (result.status !== RESULT.OFFLINE) dequeue(payload);
   }
 }
 
@@ -324,8 +329,21 @@ async function post(payload, rung = 0) {
     }
     return { status: result, position, via: rung === 0 ? "api" : `api-rung${rung}` };
   } catch {
-    // Network error, timeout, or abort. Queued for replay by submitWaitlist.
-    return { status: RESULT.NETWORK, via: "none" };
+    /* A fetch that throws is TWO different failures wearing one coat, and they
+       need opposite messages:
+
+         browser offline        → their network. We queue it and replay, so
+                                  "saved, we'll send it when you're back" is true.
+         everything else        → DNS, CORS, a timeout, a missing env var in
+                                  production, an endpoint that does not exist.
+                                  Our fault, nothing queued, nothing saved.
+
+       Treating both as "you look offline" told someone with perfect
+       connectivity that we had kept their email while it went nowhere — a
+       reassuring message is worse than a blunt one when it is false, because
+       they stop trying. */
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    return { status: offline ? RESULT.OFFLINE : RESULT.SERVER, via: "none" };
   } finally {
     clearTimeout(timer);
   }
@@ -338,7 +356,10 @@ async function post(payload, rung = 0) {
  */
 export async function submitWaitlist(payload) {
   const result = await post(payload);
-  if (result.status === RESULT.NETWORK) {
+  // Only a genuine offline state is queued. A 404 or a 500 is not something a
+  // retry-on-reconnect fixes, and queueing it would make the UI's "we have it"
+  // language true-ish in a way that hides a broken deploy.
+  if (result.status === RESULT.OFFLINE) {
     enqueue(payload);
   } else {
     dequeue(payload);
