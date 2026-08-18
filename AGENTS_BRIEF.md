@@ -6,7 +6,9 @@
 ## The product (verified facts — do not invent others)
 
 - Zuca upcycles apple pulp — a waste byproduct juiceries pay to dispose of ($25/ton) — into fiber-rich snack bites.
-- **Per serving: 10g fiber, 150 kcal, 4g protein, 6g natural sugar, no added sugar.** ~40–45% of daily recommended fiber. 2x the fiber of leading competitors.
+- **Per serving: 10g fiber, 150 kcal, 4g protein.** ~40–45% of daily recommended fiber. 2x the fiber of leading competitors.
+  - ⚠️ **No sugar claim is verified.** "6g natural sugar" and "no added sugar" were removed 18 Aug 2026: maple syrup is added as a sweetener, and syrups count as added sugars under FDA rules. Both claims were false, not merely loose. Do not restate either, and do not write a replacement sugar line until the manufacturer confirms which flavours contain syrup and the exact added-sugar grams.
+  - This entry is why the error propagated: it was listed as a *verified fact*, so every agent tightened its copy toward it. A brief asserting a withdrawn claim is how the claim comes back.
 - Two flavors: **Chocolate Raspberry Sea Salt** and **Maple Pecan**.
 - Traction: **130+ waitlist signups** (~127 after removing test rows). **No payment has been taken — do not describe these as pre-orders anywhere.** They are people who gave an email address to be told when the product is available; no money changed hands, no order exists, no contract of sale was formed. Calling them pre-orders overstates traction to investors and misdescribes the transaction to consumers. "Waitlist signups", "people on the list", "signups" are all fine. Samples ran out on Day 1 at the Vituity Health symposium (physician network: 6,000+ docs, 10M+ patients/yr). Ran out in 45 minutes at Stanford Founder's Demo Day (300+ investors, 1,500+ attendees).
 - Founders: **Emil Nordin** — Norway's Most Promising Young Chef 2021, trained at Kontrast (2 Michelin stars + Green Star), Stanford Bioengineering '26. **Kelley Yuan, MD** — Stanford Medicine physician, leads Zuca's clinical network (10+ physicians across 7 specialties).

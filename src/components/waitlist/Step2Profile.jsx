@@ -282,15 +282,16 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             >
               <summary>{copy.motivationDisclosure}</summary>
               <div className="zw-disclosure-body">
-                <Consent
-                  id={`health-${uid}`} separate checked={consentHealth}
-                  onChange={(on) => {
+                <Checkbox
+                  id={`health-${uid}`}
+                  className="zw-consent--separate"
+                  checked={consentHealth}
+                  label={healthCopy.text}
+                  onChange={(e) => { const on = e.target.checked;
                     setConsentHealth(on); optin("health", on);
                     if (!on) set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" });
                   }}
-                >
-                  {healthCopy.text}
-                </Consent>
+                />
                 <ChipMultiGroup
                   legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
                   max={MOTIVATION.max} hint={copy.motivationHint} disabled={!consentHealth}
@@ -344,12 +345,13 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             >
               <summary>{copy.smsDisclosure}</summary>
               <div className="zw-disclosure-body">
-                <Consent
-                  id={`sms-${uid}`} separate checked={consentSms}
-                  onChange={(on) => { setConsentSms(on); optin("sms", on); if (!on) { set({ phone: "" }); setPhoneError(""); } }}
-                >
-                  {smsCopy.text}
-                </Consent>
+                <Checkbox
+                  id={`sms-${uid}`}
+                  className="zw-consent--separate"
+                  checked={consentSms}
+                  label={smsCopy.text}
+                  onChange={(e) => { const on = e.target.checked; setConsentSms(on); optin("sms", on); if (!on) { set({ phone: "" }); setPhoneError(""); } }}
+                />
                 <Field id={`ph-${uid}`} label={PHONE.label} optional error={phoneError}>
                   {(props) => (
                     <Input
@@ -378,12 +380,13 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
               >
                 <summary>{copy.mailDisclosure}</summary>
                 <div className="zw-disclosure-body">
-                  <Consent
-                    id={`mail-${uid}`} separate checked={consentPostal}
-                    onChange={(on) => { setConsentPostal(on); optin("postal", on); }}
-                  >
-                    {postalCopy.text}
-                  </Consent>
+                  <Checkbox
+                    id={`mail-${uid}`}
+                    className="zw-consent--separate"
+                    checked={consentPostal}
+                    label={postalCopy.text}
+                    onChange={(e) => { const on = e.target.checked; setConsentPostal(on); optin("postal", on); }}
+                  />
                   <fieldset className="zw-field" disabled={!consentPostal}>
                     <legend className="zw-sr">Postal address</legend>
                     {ADDRESS.fields.map((f) => (
