@@ -208,6 +208,11 @@ export const DIETARY = {
   options: [
     { value: "none", label: "Nothing to flag" },
     { value: "nut_allergy", label: "Tree nut allergy" },
+    // ⚠️ This is the USER telling us their diet, never a claim about Zuca.
+    // We must NEVER state the product is gluten-free: it is unconfirmed, and
+    // it is a separate question from what is in the recipe — a gluten-free
+    // recipe made on a shared line is not a gluten-free product. Reading this
+    // chip as product evidence is the mistake to avoid.
     { value: "gluten_free", label: "Gluten free" },
     { value: "dairy_free", label: "Dairy free" },
     { value: "vegan", label: "Vegan" },

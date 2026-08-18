@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "node scripts/build-consent-registry.mjs && vite build",
     "lint": "eslint .",
+    "test": "node --test test/*.test.mjs",
     "preview": "vite preview",
     "security:test": "node scripts/attack-waitlist.mjs",
     "security:test:sheet": "node scripts/test-apps-script.mjs",

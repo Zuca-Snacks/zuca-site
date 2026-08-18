@@ -25,10 +25,11 @@ const FLAVORS = [
   },
 ];
 
-// 'No added sugar' removed 18 Aug: maple syrup is added as a sweetener and
-// counts as an added sugar under FDA rules. No replacement sugar claim until
-// the manufacturer confirms which flavours contain syrup and at what grams.
-const PILLS = ['10g fiber', '4g protein', '150 cal'];
+// 'No refined sugar' is confirmed true of BOTH flavours, so it is safe on a
+// pill list that renders on both cards. 'No added sugar' stays out — maple
+// syrup IS an added sugar. Do not add a sweetener name here: maple is Maple
+// Pecan only, and these pills are shared. See the sugar note in copy.js.
+const PILLS = ['10g fiber', '4g protein', '150 cal', 'No refined sugar'];
 
 export default function Flavors() {
   return (
