@@ -434,8 +434,10 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
           <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.nextBusy}>
             {screen + 1 < SCREENS.length ? copy.next : copy.finish}
           </Button>
+          {/* Back is a retreat, not a forward action — ghost, never the CTA
+              colour. Only Continue/Done carry --z-cta. */}
           {screen > 0 && (
-            <Button variant="secondary" onClick={() => setScreen(screen - 1)} disabled={busy}>
+            <Button variant="ghost" onClick={() => setScreen(screen - 1)} disabled={busy}>
               {copy.back}
             </Button>
           )}

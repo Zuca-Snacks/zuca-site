@@ -80,6 +80,30 @@ Two consequences for you:
   usable). If the hero entrance reuses a tagline, take it from there. If nothing
   uses it, tell me and I'll delete the export.
 
+### 5b. Button variants — --z-cta scope
+
+Settled (Emil, 18 Aug): **green `--z-cta` for forward/submit actions, neutral
+ghost for Back and Skip, red stays brand identity only.** Progress completed
+segments go green.
+
+My side is pointed correctly and needs nothing further once you repoint
+`--btn-bg`:
+
+| Control | Variant | Why |
+|---|---|---|
+| Step 1 submit, Continue, Done | `primary` | forward actions — these carry `--z-cta` |
+| Back | `ghost` | a retreat, not a forward action. Was `secondary`; changed. |
+| Skip | `ghost` | unchanged — a visible skip must not compete with the CTA |
+| Share (confirmation) | `secondary` | neither forward-in-flow nor a retreat; tell me if you want it green |
+
+Two things that live in your files, not mine:
+
+- **`ui.css:11` — `--btn-bg: var(--z-accent)`.** That single line is the
+  repoint. Adding `--z-cta` without changing it has no visible effect.
+- **`.z-progress__seg[data-state='done']` is on `--z-accent`.** If buttons go
+  green and this stays red, the form shows two different "active" colours in
+  one card. Per the ruling it should follow `--z-cta`.
+
 ### 6. Layout bugs I found but did not fix (yours)
 
 - **`.nav-strip` collides at 390px.** "ZUCA" and "Waitlist open" overlap — see
@@ -91,6 +115,65 @@ Two consequences for you:
   If you rework the cursor, keep that carve-out.
 - **`.hero-left` padding is `80px 32px` at ≤900px.** That top padding is what
   pushes the form down; if you tighten it, step 1 moves further above the fold.
+
+---
+
+## ⚠️ RULE: assert on visibility, never on presence
+
+**For anything gated on a prop, assert that it is visible and interactable. A
+DOM-presence check is not a test — it is a test-shaped thing that passes while
+the feature is broken.**
+
+This is not a general principle someone thought was nice. It is written here
+because it already cost us every free-text box on the form, silently, across
+multiple rounds of checking that all reported green.
+
+### What happened
+
+`src/components/waitlist/primitives.jsx` (mine, now deleted) rendered
+`OtherInput` **conditionally** — if the "Other" chip was selected, the element
+existed; otherwise it did not. So "is it in the DOM" and "can the user use it"
+were the same question, and a `count() > 0` assertion was a fair proxy.
+
+`src/components/ui/OtherInput.jsx` (UX's, now in use) is **always rendered** and
+toggled by a `show` prop, defaulting to `false`, with `inert={!show}`. It does
+this deliberately and correctly: it reserves its own gap so revealing it cannot
+shift a chip out from under a thumb already moving toward it.
+
+The swap changed the meaning of presence, and nothing announced that. `show` was
+never passed, so from the moment of the swap **every free-text box on the form
+was rendered, invisible, and inert. No user could type in any of them.**
+
+### What did not catch it
+
+- `eslint` — green. It is not a missing prop; the default is legal.
+- `vite build` — green. It compiles perfectly.
+- Browser tests asserting `locator(...).count() > 0` — **green, and reported as
+  "appears ✓" in a handoff.** The element was genuinely there.
+- Reading the diff. The swap looks like an import change.
+
+It was found only by chasing an unrelated symptom (an empty label) down to
+`getComputedStyle`, and confirmed with `isVisible()`.
+
+### The rule, concretely
+
+- Assert `isVisible()`, and where the control accepts input, actually type into
+  it and read the value back. `fill()` on a hidden or `inert` element fails or
+  silently writes nothing — that failure is the signal.
+- `count()` answers "did I wire the component in", which is worth knowing and is
+  a different question from "does it work".
+- Treat `inert`, `hidden`, `aria-hidden`, `visibility` and zero-size as the same
+  class of failure. All of them mean present-and-useless.
+- **When adopting someone else's primitive, re-derive what your assertions mean.**
+  The bug was not the missing prop; it was that a proxy stayed in the test after
+  the thing it proxied for had changed underneath it.
+
+### The same shape, elsewhere in this branch
+
+A `const` referenced above its own declaration (`DIETARY_OTHER_MAX`) blanked the
+entire page at runtime with lint and build both green. Two failures in one
+session that only *running the thing* exposed. Static checks confirm a file is
+well-formed; they cannot confirm it does anything.
 
 ---
 
