@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 /**
  * ProcessStrip — the five-step making-of, as pictures rather than paragraphs.
  *
@@ -34,10 +33,7 @@ import { useEffect, useRef, useState } from 'react';
  * allergen asserts it in pixels exactly as copy would in words, which is why
  * the ingredients shot from the deck is NOT here — it shows rolled oats.
  */
-/* 1x1 transparent GIF. Holds the box at its declared width/height until the
-   real source is allowed to load, so gating costs no layout shift. */
-const BLANK =
-  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+import useNearViewport, { BLANK } from '../../hooks/useNearViewport.js';
 
 const STEPS = [
   {
@@ -99,32 +95,9 @@ const STEPS = [
 ];
 
 export default function ProcessStrip() {
-  /* Photographs load only once the strip nears the viewport.
-     loading="lazy" is NOT enough on its own: Chrome's lazy threshold is very
-     generous on a throttled connection, and all four of these (59.8 KB) were
-     measured being fetched during the initial paint, competing with the LCP
-     image. This is the same gate used for the decorative artwork, applied to
-     <img> rather than to a CSS background — the alt text and the reserved
-     width/height stay, so there is no CLS and nothing is hidden from a screen
-     reader; only the bytes wait. */
-  const ref = useRef(null);
-  const [near, setNear] = useState(false);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    if (!('IntersectionObserver' in window)) {
-      // Deferred a tick so this is not a synchronous setState inside the
-      // effect body, which cascades a render.
-      const t = setTimeout(() => setNear(true), 0);
-      return () => clearTimeout(t);
-    }
-    const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setNear(true); io.disconnect(); } },
-      { rootMargin: '300px 0px' }
-    );
-    io.observe(ref.current);
-    return () => io.disconnect();
-  }, []);
+  /* Photographs load only once the strip nears the viewport. loading="lazy" is
+     NOT enough on its own — see useNearViewport for the measurement. */
+  const [ref, near] = useNearViewport();
 
   return (
     <ol className="z-process-strip" ref={ref}>

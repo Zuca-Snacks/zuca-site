@@ -149,14 +149,14 @@
   grid-template-rows:
     minmax(0, 2.5fr)    /* top gap                                    */
     minmax(0, 9.2fr)    /* wordmark                                   */
-    minmax(0, 6.0fr)    /* gap                                        */
-    minmax(0, 25.1fr)   /* flavour stacks   — was 20.6, +20.9%        */
-    minmax(0, 6.0fr)    /* gap              — was 17.9, closed        */
+    minmax(0, 9.1fr)    /* gap  wordmark -> artwork   — was 6.0       */
+    minmax(0, 25.1fr)   /* flavour artwork                            */
+    minmax(0, 9.0fr)    /* gap  artwork -> JOIN       — was 6.0       */
     minmax(0, 2.6fr)    /* JOIN THE WAITLIST                          */
-    minmax(0, 16.0fr)   /* capture block    — was 19.2                */
-    minmax(0, 2.0fr)    /* SUPPORTED BY     — was 1.2, more air above */
-    minmax(0, 20.0fr)   /* logo wall        — was 17.8, room to breathe */
-    minmax(0, 10.6fr);  /* bottom gap       — was 3.2, fruit border    */
+    minmax(0, 13.5fr)   /* capture block   — was 16.0, slack reclaimed */
+    minmax(0, 5.0fr)    /* SUPPORTED BY    — larger label, air above it */
+    minmax(0, 20.0fr)   /* logo card                                  */
+    minmax(0, 4.1fr);   /* bottom gap      — funded the gaps and the label */
   justify-items: center;
   align-items: center;
   text-align: center;
@@ -218,28 +218,28 @@
   align-self: center;
   width: 100%;
   display: grid;
-  /* 52% each — the ceiling, and +20.9% on the previous 43%. The boxes overlap
-     by 16px at 390px, which is safe ONLY because the right-hand artwork carries
-     a 10.6% transparent margin on its inner edge: measured, the visible art
-     still keeps a ~5px gap. The LEFT artwork has no margin at all (ink runs to
-     x501 of 503), so going wider collides real pixels. Do not increase without
-     re-measuring the ink bounds. */
-  grid-template-columns: repeat(2, 52%);
-  justify-content: space-between;
-}
-
-.z-hero__product {
+  /* ONE image spanning the poster. The two flavours are aligned to each other
+     inside the artwork, so there are no columns to keep in step and no overlap
+     to police — the whole class of drift is gone. */
+  display: block;
   position: relative;
-  container-type: inline-size;
-  margin: 0;
-  min-width: 0;
 }
 
-.z-hero__product picture,
-.z-hero__product img {
+/* The artwork fills the products band; the two figures are overlay layers on
+   top of it, each covering the whole image so its plate percentages resolve
+   against the same box the artwork occupies. */
+.z-hero__flavours {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.z-hero__product {
+  position: absolute;
+  inset: 0;
+  container-type: inline-size;
+  margin: 0;
+  pointer-events: none;
 }
 
 /* Every overlay shares this: centred in its measured rectangle, in the display
@@ -265,7 +265,7 @@
   /* 6.5cqw, measured not guessed: at 7.6cqw "CHOCOLATE RASPBERRY SEA SALT"
      rendered 80px of ink into a 67px content box and spilled off the plate.
      This is the largest size where the longest flavour name still fits. */
-  font-size: 6.5cqw;
+  font-size: 3.1cqw;
   color: var(--z-brand-on-cream);
   padding: 0 4%;
 }
@@ -275,7 +275,7 @@
 
 /* Fiber pill. The artwork's pill is pure #000000. */
 .z-hero__plate-fiber {
-  font-size: 11cqw;
+  font-size: 5.3cqw;
   color: var(--z-brand-on-plate); /* 5.03:1 */
 }
 
@@ -285,7 +285,7 @@
 
 /* Chips sit on white; --z-ink is 9.79:1. */
 .z-hero__plate-chip {
-  font-size: 5.4cqw;
+  font-size: 2.6cqw;
   color: var(--z-ink);
 }
 
@@ -308,32 +308,66 @@
 /* The capture block sits in the comp's empty band between JOIN THE WAITLIST and
    SUPPORTED BY. The comp left that space; we removed the thing that filled it.
    Email field and button only — no eyebrow, tagline or h1 on the first screen. */
+/* Top-aligned in its row so the row's slack falls BELOW the button, adding to
+   the gap before SUPPORTED BY rather than being split either side of the
+   block — centred, half of it was wasted above, where JOIN already provides
+   separation. */
 .z-hero__capture {
   grid-row: 7;
-  align-self: center;
-  width: 100%;
-  max-width: 21rem;
+  align-self: start;
+  /* Inset to the artwork's plate column — NOT full bleed. A previous revision
+     sized this to the file's ink bounds, which are 98.9% of the width, so the
+     field and button ran to both screen edges. The gutter floor keeps it clear
+     of the edge on any viewport where the derived inset is small. */
+  width: min(
+    calc(100% - 2 * var(--z-content-inset, 10%)),
+    calc(100% - 2 * var(--z-gutter))
+  );
+  margin-inline: auto;
   display: grid;
   gap: var(--z-space-2);
-  padding-inline: var(--z-gutter);
 }
 
 /* --- Supporter wall ------------------------------------------------------ */
+/* Bottom-aligned in its row so the row's slack sits ABOVE the text, where the
+   gap from the button is wanted, rather than being split either side of it. */
 .z-hero__supported {
   grid-row: 8;
+  align-self: end;
   font-family: var(--z-font-display);
-  font-size: min(1.5svh, 3.2vw);
+  /* Up two steps — it was reading as a caption under the button rather than as
+     a label introducing the wall. */
+  font-size: min(2.6svh, 5.4vw);
   line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--z-ink);
 }
 
+/* The wall is a contained block, not eleven floating logos. The artwork ships
+   with a transparent background so the container is entirely CSS — radius
+   borrowed from the plates' language, generous internal padding. */
 .z-hero__logos {
   grid-row: 9;
-  display: block;
-  width: 92%;
-  height: 100%;
+  display: grid;
+  place-items: center;
+  width: min(
+    calc(100% - 2 * var(--z-content-inset, 10%)),
+    calc(100% - 2 * var(--z-gutter))
+  );
+  /* --z-surface, not --z-surface-alt: alt is #FFF3E0 on a #FDE0B4 ground,
+     1.15:1, so the card edge was barely perceptible and the logos still read as
+     floating. --z-surface is 1.34:1 and actually separates.
+
+     height:auto, not 100%: the sprite is 3.18:1 and the row is not, so
+     object-fit letterboxed it and put ~29px of dead space above and below the
+     logos on top of the padding. Shrink-wrapping the image makes the declared
+     padding the real padding, evenly on all four sides. */
+  height: auto;
+  align-self: center;
+  padding: 5%;
+  background: var(--z-surface);
+  border-radius: 22px;
 }
 
 .z-hero__logos img {
@@ -416,6 +450,24 @@
   font-weight: 500;
   color: var(--z-ink-muted);
   align-self: center;
+}
+
+/* ─── Nutshell — three composed blocks ──────────────────────────────────── */
+
+.z-nutshell { background: var(--z-bg); }
+
+.z-nutshell__stack {
+  display: grid;
+  gap: var(--z-space-7);
+  max-width: 46rem;
+}
+
+.z-nutshell__block { margin: 0; }
+
+.z-nutshell__block img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 /* ─── Fiber-gap statistic ───────────────────────────────────────────────── */

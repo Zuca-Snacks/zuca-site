@@ -136,6 +136,12 @@ const ART = [
      BELOW the fold, so they are encoded small and cheap — decoration must never
      compete with the LCP element for bandwidth. */
   { name: 'art-fruit-row', src: 'art-src/art-fruit-row.png', widths: [720] },
+  /* "In a nutshell" section. Composed blocks with text and arrows baked in, so
+     they carry a visually-hidden text equivalent in the markup — see
+     Nutshell.jsx. All three are below the fold and lazy. */
+  { name: 'nutshell-flow', src: 'art-src/nutshell-flow-wide.png', widths: [420, 780, 1090] },
+  { name: 'process-steps', src: 'art-src/process-steps-wide.png', widths: [420, 780, 1107] },
+  { name: 'problem-cycle', src: 'art-src/problem-cycle-wide.png', widths: [420, 780, 1114] },
   /* Hero comp assets. The two botanical clusters sit behind their own flavour
      stack and are ABOVE the fold, so they are kept deliberately small. The
      fruit clusters and the logo wall are below it. */
@@ -143,8 +149,9 @@ const ART = [
      baked in, plates left EMPTY. Live text is overlaid on them using the plate
      rectangles measured by scripts/measure-plates.mjs. Above the fold, and the
      left one is the LCP element. */
-  { name: 'hero-flavour-left', src: 'art-src/hero-flavour-left.png', widths: [340, 606] },
-  { name: 'hero-flavour-right', src: 'art-src/hero-flavour-right.png', widths: [340, 657] },
+  /* ONE combined artwork. Replaced the two separate stacks on 17 Aug: they are
+     aligned to each other inside the file now, so they cannot drift apart. */
+  { name: 'hero-flavours', src: 'art-src/hero-flavours.png', widths: [420, 780, 1218] },
   { name: 'hero-art-left', src: 'art-src/hero-art-left.png', widths: [340] },
   { name: 'hero-art-right', src: 'art-src/hero-art-right.png', widths: [340] },
   { name: 'hero-fruit-left', src: 'art-src/hero-fruit-left.png', widths: [340] },

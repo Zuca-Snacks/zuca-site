@@ -25,6 +25,7 @@ import WaitlistForm from './components/waitlist/WaitlistForm.jsx';
 import Header from './components/sections/Header.jsx';
 import Hero from './components/sections/Hero.jsx';
 import HeroCapture from './components/sections/HeroCapture.jsx';
+import Nutshell from './components/sections/Nutshell.jsx';
 import ProofStrip from './components/sections/ProofStrip.jsx';
 import FiberGap from './components/sections/FiberGap.jsx';
 import Numbers from './components/sections/Numbers.jsx';
@@ -57,6 +58,7 @@ export default function App() {
       <main id="main">
         <Hero />
         <HeroCapture />
+        <Nutshell />
         <ProofStrip />
         <FiberGap />
         <Numbers />

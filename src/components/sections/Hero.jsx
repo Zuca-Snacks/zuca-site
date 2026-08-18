@@ -24,28 +24,29 @@ import Input from '../ui/Input.jsx';
 import { ACTIVE_CTA } from '../../content/copy.js';
 import { PLATES } from './platePositions.js';
 
-/* The artwork is the CHROME — plates, chips, photo, borders and botanicals are
-   all baked into the PNG, with the plates left empty. HTML supplies only the
-   WORDS, positioned over the measured plate rectangles. Nothing here rebuilds a
-   plate, a border or a chip in CSS; that is what kept failing. */
+/* ONE artwork carrying both flavours, both sets of empty plates and all the
+   botanicals, aligned to each other inside the file. The image is the CHROME;
+   HTML supplies only the WORDS, positioned over the plate rectangles measured
+   by scripts/measure-plates.mjs. Nothing here rebuilds a plate or a border. */
 const FLAVOURS = [
-  {
-    tone: 'berry',
-    slug: 'hero-flavour-left',
-    widths: [340, 606],
-    name: 'Chocolate Raspberry Sea Salt',
-    lcp: true,
-  },
-  {
-    tone: 'maple',
-    slug: 'hero-flavour-right',
-    widths: [340, 657],
-    name: 'Maple Pecan',
-    lcp: false,
-  },
+  { tone: 'berry', name: 'Chocolate Raspberry Sea Salt' },
+  { tone: 'maple', name: 'Maple Pecan' },
 ];
 
 const CHIP_TEXT = ['150 kcal', '4g protein'];
+
+/* The artwork's visible CONTENT column — the span of the plates themselves,
+   not the file edges and not the botanicals, which bleed. The capture block is
+   aligned to this so the field sits in the same column as the flavours, and the
+   inset is symmetric (the wider of the two margins) so it reads as centred. */
+const RECTS = [
+  PLATES.berry.name, PLATES.berry.pill, ...PLATES.berry.chips,
+  PLATES.maple.name, PLATES.maple.pill, ...PLATES.maple.chips,
+];
+const CONTENT_INSET = Math.max(
+  Math.min(...RECTS.map((r) => r.left)),
+  100 - Math.max(...RECTS.map((r) => r.left + r.width))
+);
 
 /** Turns a measured rectangle into absolute positioning. */
 const box = (r) => ({
@@ -86,7 +87,13 @@ export default function Hero() {
           the same poster, with cream either side, not a blown-up one. The art
           bleeds to the POSTER's edges, not the viewport's, which is why it
           lives in here. */}
-      <div className="z-hero__poster">
+      {/* --z-content-inset is the artwork's plate column, derived from the
+          measured rectangles. Used to inset the capture block so it lines up
+          with the flavours rather than bleeding to the screen edges. */}
+      <div
+        className="z-hero__poster"
+        style={{ '--z-content-inset': `${CONTENT_INSET.toFixed(2)}%` }}
+      >
         {/* No separate botanical layers: they are baked into the flavour-stack
             artwork. Keeping both loaded the same illustrations twice. */}
       <span className="z-hero__fruit z-hero__fruit--left" aria-hidden="true" />
@@ -101,42 +108,41 @@ export default function Hero() {
       </p>
 
       <div className="z-hero__products">
+        {/* alt="" — the artwork is decorative chrome. Every word it carries is
+            real text in the overlay, so describing it too would read each
+            flavour twice. */}
+        <picture>
+          <source
+            type="image/avif"
+            srcSet="/images/hero-flavours-420.avif 420w, /images/hero-flavours-780.avif 780w, /images/hero-flavours-1218.avif 1218w"
+            sizes="100vw"
+          />
+          <source
+            type="image/webp"
+            srcSet="/images/hero-flavours-420.webp 420w, /images/hero-flavours-780.webp 780w, /images/hero-flavours-1218.webp 1218w"
+            sizes="100vw"
+          />
+          <img
+            className="z-hero__flavours"
+            src="/images/hero-flavours-420.webp"
+            width={PLATES.image.w}
+            height={PLATES.image.h}
+            alt=""
+            fetchPriority="high"
+            decoding="sync"
+          />
+        </picture>
+
         {FLAVOURS.map((f) => {
           const P = PLATES[f.tone];
-          const [wSm, wLg] = f.widths;
-          const set = (ext) =>
-            `/images/${f.slug}-${wSm}.${ext} ${wSm}w, /images/${f.slug}-${wLg}.${ext} ${wLg}w`;
           return (
-            <figure
-              className="z-hero__product"
-              data-tone={f.tone}
-              key={f.tone}
-              aria-label={f.name}
-            >
-              {/* alt="" — the artwork is decorative chrome. Every word it would
-                  have carried is real text below, so describing it too would
-                  read the flavour name twice. */}
-              <picture>
-                <source type="image/avif" srcSet={set('avif')} sizes="43vw" />
-                <source type="image/webp" srcSet={set('webp')} sizes="43vw" />
-                <img
-                  src={`/images/${f.slug}-${wSm}.webp`}
-                  width={P.image.w}
-                  height={P.image.h}
-                  alt=""
-                  fetchPriority={f.lcp ? 'high' : undefined}
-                  decoding={f.lcp ? 'sync' : 'async'}
-                />
-              </picture>
-
+            <figure className="z-hero__product" data-tone={f.tone} key={f.tone} aria-label={f.name}>
               <figcaption className="z-hero__plate-name" style={box(P.name)}>
                 {f.name}
               </figcaption>
-
               <p className="z-hero__plate-fiber" style={box(P.pill)}>
                 10g fiber
               </p>
-
               {P.chips.map((c, i) => (
                 <p className="z-hero__plate-chip" style={box(c)} key={i}>
                   {CHIP_TEXT[i]}
