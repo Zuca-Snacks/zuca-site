@@ -216,6 +216,18 @@ export const sections = {
   faq: {
     title: "The questions everyone asks.",
   },
+  /* Labels the taster-quote group so the boundary between the <h1> and the
+     testimonials is explicit rather than implied. CONFIRMED BY EMIL 18 Aug —
+     no longer the UX placeholder it shipped as.
+     Stored in sentence case and uppercased in CSS: a screen reader may spell
+     out an all-caps string letter by letter, and the visual result is
+     identical either way.
+     ⚠️ It must stay a LABEL. It may not connect the quotes to a benefit —
+     "Why people love the fiber" turns five taste opinions into evidence for a
+     health claim, which the guardrails forbid. */
+  quotes: {
+    eyebrow: "What tasters say",
+  },
 };
 
 // ─── Intro gate (organic visitors only) ──────────────────────────────────────

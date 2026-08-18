@@ -496,3 +496,107 @@
 }
 
 .z-accordion__panel[hidden] { display: none; }
+
+/* ─── OtherInput — free text beside an "Other" chip ───────────────────────
+   ⚠️ ALWAYS OCCUPIES ITS BOX. `show` toggles visibility, never presence, so
+   revealing it moves nothing. Do not "optimise" this to display:none or to
+   conditional rendering — the reserved gap IS the feature, and the thing it
+   prevents is the Continue button jumping out from under a thumb.
+   The opacity transition is the only thing that animates; the box never
+   changes size, so there is no CLS to animate away. */
+.z-other {
+  display: grid;
+  gap: var(--z-space-1);
+  transition: opacity var(--z-dur) var(--z-ease);
+}
+
+.z-other[data-show='false'] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-other { transition: none; }
+}
+
+.z-other__label {
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  color: var(--z-ink);
+}
+
+.z-other__hint {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+/* Right-aligned under the field, where a character counter is looked for. */
+.z-other__count {
+  justify-self: end;
+  font-size: var(--z-step--1);
+  font-variant-numeric: tabular-nums;
+  color: var(--z-ink-muted);   /* 4.51:1 on cream, 5.65:1 on surface */
+}
+
+/* ⚠️ Colour is NOT the only signal that the cap is close: the text itself
+   changes to "N characters left" at the same threshold, and that is what the
+   live region reads. This is reinforcement, not the message. */
+.z-other__count[data-low='true'] {
+  color: var(--z-danger);
+  font-weight: 600;
+}
+
+.z-other__live { display: contents; }
+
+.z-other__error {
+  font-size: var(--z-step--1);
+  font-weight: 500;
+  color: var(--z-danger);
+}
+
+/* ─── Progress — the "1 of 4" step indicator ──────────────────────────────
+   Everything here is decorative; the accessible copy is a visually-hidden live
+   region in the component. See Progress.jsx for why a progressbar role alone
+   does not announce a step change. */
+.z-progress {
+  display: grid;
+  gap: var(--z-space-2);
+}
+
+.z-progress__bar {
+  display: flex;
+  gap: var(--z-space-1);
+}
+
+/* Segments, not a continuous fill: four screens is a countable number, and the
+   segment count matches the "3 of 4" beneath it. */
+.z-progress__seg {
+  flex: 1 1 0;
+  block-size: 6px;
+  border-radius: var(--z-radius-full);
+  background: color-mix(in srgb, var(--z-ink) 16%, transparent);
+  transition: background var(--z-dur) var(--z-ease);
+}
+
+.z-progress__seg[data-state='done'] { background: var(--z-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .z-progress__seg { transition: none; }
+}
+
+.z-progress__text {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--z-space-2);
+  align-items: baseline;
+  margin: 0;
+  font-size: var(--z-step--1);
+}
+
+.z-progress__count {
+  font-weight: 700;
+  color: var(--z-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.z-progress__label { color: var(--z-ink-muted); }

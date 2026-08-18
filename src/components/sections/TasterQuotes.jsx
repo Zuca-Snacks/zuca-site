@@ -33,6 +33,8 @@
  * selectable, translatable and readable by a screen reader, and the section
  * adds no network requests at all.
  */
+import { sections } from '../../content/copy.js';
+
 /* ⚠️ ORDER IS LOAD-BEARING: two of these open "I can't believe", and Emil asked
    that they never sit next to each other. "How has no one thought of this
    before?" separates them. Do not re-sort this array. */
@@ -47,11 +49,6 @@ const QUOTES = [
     side: 'start',
   },
 ];
-
-/* ⚠️ PLACEHOLDER — GROWTH OWNS THIS STRING. Flagged in HANDOFF-ux.md.
-   It labels the group so the boundary between the headline and the
-   testimonials is explicit rather than implied. */
-const EYEBROW = 'What tasters say';
 
 /* Hand-drawn outline, used by the "marker" treatment.
    preserveAspectRatio="none" lets one path stretch to any quote length, and
@@ -102,8 +99,12 @@ function Bubble({ q, i }) {
 export default function TasterQuotes() {
   return (
     <div className="z-quotes">
+      {/* Confirmed copy (Emil, 18 Aug), now living in copy.js with the rest of
+          the strings rather than hard-coded here. Rendered uppercase in CSS,
+          stored in sentence case — an all-caps string can be spelled out letter
+          by letter by a screen reader. */}
       <p className="z-quotes__eyebrow" id="quotes-eyebrow">
-        {EYEBROW}
+        {sections.quotes.eyebrow}
       </p>
       {/* A real group, named by the eyebrow, so a screen reader announces where
           the testimonials start and stop rather than running them together with

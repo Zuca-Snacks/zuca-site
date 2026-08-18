@@ -35,7 +35,12 @@ export default function HeroCapture() {
             itself is not lost — it is still made once, in the hero. */}
         <TasterQuotes />
 
-        {/* Reserves its height so an arriving number cannot shift anything.
+        {/* Reserves its height so an arriving number cannot shift the page
+            noticeably. ⚠️ NOT literally zero: the merge session measured the
+            empty-to-populated swap at 1px (360), 1px (390) and 3px (430),
+            because the numeral's line box is not identical to the fallback
+            sentence's. Sub-visual and not worth chasing, but it has been
+            described as "zero shift" more than once and it is not.
             ⚠️ The empty state must never be blank. It no longer falls back to
             copy.subhead — that was the "Two flavors, no added sugar…" line the
             quotes replaced — so it uses copy.countFallback, which is growth's

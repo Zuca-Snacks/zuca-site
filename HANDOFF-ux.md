@@ -539,7 +539,48 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
-- **🟡 `EYEBROW` in `TasterQuotes.jsx` is a UX placeholder — replace it.**
+- **✅ SHIPPED: `OtherInput` and `Progress`** in `src/components/ui/`, exported
+  from the barrel. **Both take your existing prop signatures**, so adopting them
+  is a swap of the import line — delete `src/components/waitlist/primitives.jsx`
+  and import from `../ui`. Two notes:
+    - `OtherInput` adds an optional **`show`** prop. Use it instead of
+      conditionally rendering: the field always occupies its box and `show`
+      toggles visibility, so revealing it shifts nothing. Conditional rendering
+      moves the Continue button out from under a thumb already travelling.
+      **You must clear `value` when "Other" is deselected** — hidden is inert,
+      not unsubmitted.
+    - `onChange` still receives the already-truncated **value**, not the event,
+      exactly as your stand-in did. The counter is now announced near the cap
+      (yours was `aria-hidden` with no live region, so a screen-reader user hit
+      the limit with no warning). It stays silent until the last quarter of the
+      allowance so it does not chatter on every keystroke.
+    - `Progress` keeps `{ step, total, label }`. Internally it does **not** rely
+      on `role="progressbar"` to announce: a progressbar's `aria-valuenow`
+      changing is not reliably spoken unless focus is inside it, and in a
+      four-screen form focus is on the fields. The announcement is a polite live
+      region and the visible bar is `aria-hidden`, so it announces exactly once.
+
+- **🔴 THERE IS NO CONTRACT FIELD FOR THE "OTHER" FREE TEXT.** `AGENTS_BRIEF.md`
+  defines `motivation` (enum array) and `referral_source` (enum) — neither has a
+  companion text field, and the brief says unknown keys are rejected. So
+  `OtherInput` can be rendered today but its value **cannot be sent** until the
+  contract gains a field. That is an Emil + security decision, not a UI one.
+
+- **🔴 PRIVACY — do not wire `OtherInput` to `motivation` without a ruling.**
+  `motivation` is special-category health data under GDPR Art 9, which is why it
+  already sits behind its own consent line. An enum is bounded; a free-text box
+  is not, and beside a health question it invites people to type a diagnosis —
+  which lands unstructured special-category data in the sheet. Attaching it to
+  `referral_source` carries none of that risk. Flagging, not deciding.
+
+- **🟡 `EYEBROW` — RESOLVED.** Emil confirmed "WHAT TASTERS SAY" on 18 Aug. It
+  now lives in `copy.js` as `sections.quotes.eyebrow`, stored in sentence case
+  and uppercased in CSS (an all-caps string can be spelled out letter by letter
+  by a screen reader). The guardrail still stands: it must remain a LABEL and
+  must not connect the quotes to a benefit.
+
+- **🟡 SUPERSEDED — `EYEBROW` placeholder note below is resolved, kept for
+  history.**
   Emil asked for a small label above the taster quotes so the boundary between
   the `<h1>` and the testimonials is explicit rather than implied. It currently
   reads **"What tasters say"**, which is mine and is a placeholder. The string

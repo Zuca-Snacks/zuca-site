@@ -134,8 +134,18 @@
   /* Capped: the composition was drawn at phone width. Past ~560px it stops
      growing and centres instead of magnifying. */
   max-width: 560px;
-  height: 100svh;
-  min-height: 640px;
+  /* ⚠️ min-height, NOT height. With a FIXED height the grid clips: once the fr
+     gaps have collapsed to zero (they go first), content taller than the
+     viewport is simply cut off by `overflow: hidden` — silently, with nothing
+     overlapping, so every other check stays green. Measured 18 Aug: the logo
+     card was losing 24px at 1280x900 and 6px at 390x640 and nothing caught it
+     until audit:hero grew a poster-fit test.
+     With min-height the box GROWS to its content instead. Below that threshold
+     nothing changes — there is free space, the fr gaps distribute it, and the
+     composition is exactly as before. Above it the poster runs a little past
+     the fold rather than eating its own content, which is the better failure:
+     visible and scrollable beats invisible and gone. */
+  min-height: max(100svh, 640px);
   display: grid;
   /* ⚠️ CONTENT ROWS ARE min-content; ONLY THE GAPS ARE FRACTIONS.
      Every row used to be minmax(0, Nfr) — a fixed fraction of the VIEWPORT,
@@ -168,12 +178,14 @@
   align-items: center;
   text-align: center;
   /* The art and fruit bleed past the poster's edges; without this they extend
-     the document and give the page a horizontal scrollbar. */
+     the document and give the page a horizontal scrollbar. Safe to keep now
+     that the box grows vertically: `overflow: hidden` only clips what exceeds
+     the box, and the box no longer refuses to grow. */
   overflow: hidden;
 }
 
 @media (min-width: 48em) {
-  .z-hero__poster { height: calc(100svh - var(--z-header-h)); }
+  .z-hero__poster { min-height: calc(100svh - var(--z-header-h)); }
 }
 
 /* --- Wordmark ------------------------------------------------------------ */
@@ -578,10 +590,12 @@
    with a transparent background so the container is entirely CSS — radius
    borrowed from the plates' language, generous internal padding. */
 /* No longer its own grid row — it is the last item in the lower stack.
-   max-block-size keeps the whole stack inside the row on a short phone: the
-   card is the only elastic item here, so it is the one that should give. */
+   The cap stops the wall dominating the poster on a tall screen; it is NOT what
+   prevents clipping — the poster's min-height does that. Tried as a clipping
+   fix first and it did nothing, because the card's height comes from its width
+   and aspect ratio, not from this cap. */
 .z-hero__logos {
-  max-block-size: 26svh;
+  max-block-size: 20svh;
   display: grid;
   place-items: center;
   width: min(
