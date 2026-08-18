@@ -578,9 +578,9 @@ Measured after fixing my generator, against their current head, not a captured l
 | `script.google.com` in their `api.js` | absent |
 | `downgraded_fields` | sent, and correctly only on a retry |
 
-**Their `SERVER_KNOWN_KEYS` ladder is stale by five keys** — non-blocking, but it is a latent
-version of the bug the ladder exists to prevent. It lists 34; I accept 39. Missing:
-`channel`, `channel_other`, `dietary`, `dietary_other`, `research_optin`.
+**Their `SERVER_KNOWN_KEYS` ladder was stale by five keys** — *closed*: widened to 39 in `27766d9`,
+re-measured at 39/39 with no phantom and no would-strip entries. Kept here because the general point
+outlived the instance.
 
 Nothing in it is wrong in the dangerous direction — there is no key they think I accept that I
 reject, so a retry would not 400. But if a downgrade ever *does* fire, it strips those five
@@ -601,6 +601,19 @@ side's names".
 
 It is specific to parallel agents told to converge without a nominated direction, and the tell is
 that neither side's diff looks wrong on its own.
+
+**The distinction that makes it tractable** (the merge session's, and it is the useful half):
+simultaneous convergence happened three times in one day and produced a collision once and clean
+convergence twice. The difference was *what each side was converging on*.
+
+| Each side changes… | Outcome |
+|---|---|
+| something **the other side found** — a bug, a stale list, a broken build | **Safe.** Both fixes point the same way; worst case is a duplicate fix, which merges trivially |
+| its own **naming preference**, to match the other's | **Collides.** Both move, the mismatch survives inverted, and both commits honestly claim to have adopted the other's names |
+
+The tell is whether the change originates from the other side's *report* or from your own *read of
+their code*. A report is a fixed target. Their code is a moving one, and they may be reading yours
+at the same moment.
 
 Two cheap defences, both now in place:
 
