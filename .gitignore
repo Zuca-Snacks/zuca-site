@@ -26,3 +26,5 @@ secrets/
 # build, so nothing in art-src/ is ever deployed. Keeping them out of public/ is
 # what matters: referencing the raw 534KB backdrop PNG from public/ cost 4.9s of
 # LCP. Generate derivatives with `node scripts/gen-images.mjs` instead.
+# Generated from src/content/copy.js at build time.
+src/lib/consent-registry.generated.js

