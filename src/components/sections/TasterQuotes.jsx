@@ -103,11 +103,18 @@ function Bubble({ q, i }) {
       {/* The <p> carries the quote. It is above the frame in stacking order so
           the outline can never sit over a letter. */}
       <p className="z-quote__text">{q.text}</p>
-      {q.cite && (
-        <footer className="z-quote__cite">
-          — <cite>{q.cite}</cite>
-        </footer>
-      )}
+      {/* ⚠️ THE <cite> IS ALWAYS IN THE MARKUP, and `hidden` when there is no
+          name — Emil asked for the slots to be present and empty so supplying a
+          name later is a string edit, not a markup change.
+          `hidden` rather than an empty element on purpose: this footer emits a
+          leading em-dash, so rendering it empty would have every quote announce
+          a dangling "—" to a screen reader and add its line box to the layout.
+          `hidden` removes it from the accessibility tree AND from layout, so the
+          slot costs nothing until it is filled. Measured: identical blockquote
+          height with and without, and no stray text in the rendered output. */}
+      <footer className="z-quote__cite" hidden={!q.cite}>
+        — <cite>{q.cite}</cite>
+      </footer>
     </blockquote>
   );
 }

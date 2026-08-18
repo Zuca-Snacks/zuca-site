@@ -139,17 +139,31 @@ and the sticky bar, all unchanged.
 **Emil's ruling, 18 Aug.** There are now two tokens and they mean different
 things. Getting this wrong is how the green leaked site-wide the first time.
 
-| Token | Value | Means | Used for |
-|---|---|---|---|
-| `--z-cta` | `#2A571E` | **the thing you click** | primary buttons only — hero CTA, sticky bar, growth's form buttons |
-| `--z-accent` | `#E3001B` | **brand identity** | wordmark, JOIN heading, badges, the flavour `+`, the progress bar |
+**Green means go, red means Zuca.** Scope is by the element's JOB, not by how
+prominent you want it to look.
 
-The point of splitting them is that a primary action is **one consistent colour
-everywhere** without green reaching anything that is not a button.
+| Role | Token | Applies to |
+|---|---|---|
+| **Advance** | `--z-cta` `#2A571E` | hero CTA, sticky-bar CTA, growth's Continue/submit buttons, **progress bar completed segments** |
+| **Utility** | ink tokens, no colour | Back, Skip, dismiss, the skip link |
+| **Identity** | `--z-accent` `#E3001B` | wordmark, JOIN heading, badges, the flavour `+`, headings |
 
-⚠️ **If you are colouring something that is not a button, you do not want
-`--z-cta`.** The step indicator is the worked example: it is an indicator, so it
-uses `--z-accent` and stays red even though it sits inside a form.
+Button variants encode that, so pick by job and not by emphasis:
+
+| Variant | Job | Looks like |
+|---|---|---|
+| `.z-btn` | forward / submit, full emphasis | `--z-cta`, filled |
+| `.z-btn--secondary` | forward / submit, lower emphasis | `--z-cta`, outline |
+| `.z-btn--ghost` | **utility** — Back, Skip, dismiss | ink, neutral |
+
+⚠️ **Do not reach for `--secondary` just because a button should look quieter.**
+If it does not move the person forward, it is `--ghost`.
+
+⚠️ **Completed progress segments are GREEN, not red.** I originally reasoned a
+progress bar is an indicator rather than a button so the green should not reach
+it; Emil ruled the other way and the reasoning is better — completed segments
+represent progress toward the same goal the CTA drives at. Green buttons above a
+red progress bar read as two different systems.
 
 `--z-accent-dark` was **deleted** — it was the green hover and had exactly one
 user. Hover/pressed is `--z-cta-dark`. Ink on the CTA is `--z-cta-ink` (8.33:1),

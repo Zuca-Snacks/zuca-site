@@ -66,16 +66,26 @@
 }
 
 /* Variants */
+/* ⚠️ VARIANT MEANING, NOT JUST APPEARANCE (Emil, 18 Aug). Pick by the button's
+   JOB, not by how prominent you want it:
+     .z-btn            forward / submit, full emphasis      -> --z-cta, filled
+     .z-btn--secondary forward / submit, lower emphasis     -> --z-cta, outline
+     .z-btn--ghost     UTILITY: Back, Skip, dismiss         -> ink, neutral
+   Green means go, red means Zuca. A Back button is not an action the page is
+   asking for, so it gets neither colour — painting it either overstates it.
+   ⚠️ Do NOT reach for --secondary just because a button should look quieter.
+   If it does not move the person forward, it is --ghost. */
 .z-btn--secondary {
   --btn-bg: transparent;
-  --btn-ink: var(--z-brand-dark);
-  --btn-border: var(--z-brand-dark);
+  --btn-ink: var(--z-cta);
+  --btn-border: var(--z-cta);
 }
 .z-btn--secondary:hover:not(:disabled) {
-  --btn-bg: var(--z-brand-dark);
-  --btn-ink: var(--z-accent-ink);
+  --btn-bg: var(--z-cta);
+  --btn-ink: var(--z-cta-ink);
 }
 
+/* The neutral utility. Back, Skip, dismiss — never green, never brand red. */
 .z-btn--ghost {
   --btn-bg: transparent;
   --btn-ink: var(--z-ink);
@@ -580,9 +590,13 @@
   transition: background var(--z-dur) var(--z-ease);
 }
 
-/* ⚠️ --z-accent (brand red), NOT --z-cta. A progress bar is an indicator, not
-   a button, and the green is reserved for things you click. */
-.z-progress__seg[data-state='done'] { background: var(--z-accent); }
+/* ⚠️ --z-cta, i.e. GREEN. I had this on --z-accent and reasoned that a progress
+   bar is an indicator rather than a button, so the green should not reach it.
+   Emil ruled the other way on 18 Aug and the reasoning is better than mine:
+   completed segments represent progress toward the SAME goal the CTA drives at,
+   so they should match it. The alternative is green buttons above a red
+   progress bar, which reads as two different systems. */
+.z-progress__seg[data-state='done'] { background: var(--z-cta); }
 
 @media (prefers-reduced-motion: reduce) {
   .z-progress__seg { transition: none; }

@@ -23,7 +23,9 @@
  *                       400 the user reads as "the form is broken".
  *
  * Added by UX, both defaulted so growth's existing call sites work untouched:
- *   show       boolean  whether the field is revealed (default false)
+ *   show       boolean  whether the field is revealed. ⚠️ REQUIRED IN PRACTICE:
+ *                       omitting it renders an invisible, inert field with no
+ *                       visual tell. Dev builds warn; see the note in the body.
  *   hint       node     optional helper text
  *   error      node     optional error message
  *   announceFrom number characters remaining at which the counter starts being
@@ -85,7 +87,7 @@ const OtherInput = forwardRef(function OtherInput(
     value = '',
     onChange,
     maxLength = 120,
-    show = false,
+    show,
     hint,
     error,
     announceFrom = 20,
@@ -98,6 +100,7 @@ const OtherInput = forwardRef(function OtherInput(
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const countId = `${id}-count`;
+  const isShown = show === true;
   const remaining = maxLength - value.length;
   /* ⚠️ RELATIVE TO THE CAP, not a flat number. A flat 20 meant that with
      maxLength={20} the field announced from the very first character — the
@@ -113,13 +116,29 @@ const OtherInput = forwardRef(function OtherInput(
     if (onChange) onChange(e.target.value.slice(0, maxLength));
   }
 
-  if (!show && !reserveSpace) return null;
+  /* ⚠️ A CONSUMER THAT FORGETS `show` GETS A SILENTLY UNREACHABLE FIELD.
+     This is the cost of the always-rendered design that makes the reveal
+     shift-free: `show` defaults to false, so an omitted prop renders a field
+     that is present, inert and invisible. It has NO visual tell, and lint,
+     build and presence-based tests all stay green — growth shipped every
+     free-text box in that state and it went unnoticed for a while.
+     So the omission is made loud in development. Not a runtime guard: it costs
+     nothing in production and never changes behaviour. */
+  if (import.meta.env?.DEV && show === undefined) {
+    console.warn(
+      `<OtherInput id="${id}"> was rendered without a \`show\` prop, so it is ` +
+        `invisible and inert. Pass show={isOtherSelected}. This is not a ` +
+        `styling issue — the field cannot be reached at all.`
+    );
+  }
+
+  if (!isShown && !reserveSpace) return null;
 
   return (
     <div
       className={`z-other ${className}`.trim()}
-      data-show={show ? 'true' : 'false'}
-      inert={!show}
+      data-show={isShown ? 'true' : 'false'}
+      inert={!isShown}
     >
       <label className="z-other__label" htmlFor={id}>
         {label}
