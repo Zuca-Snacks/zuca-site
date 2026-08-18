@@ -566,6 +566,28 @@ moves a claim from vague-but-defensible to precise-and-wrong is worth catching a
 and adds it to the forbidden list, so my version should win the merge — worth a glance, because a
 brief that still asserts the claim is how it gets reinstated.
 
+## 2z-bis → Re-verified against growth @ a615c57 · **for the merge session**
+
+Measured after fixing my generator, against their current head, not a captured list.
+
+| Check | Result |
+|---|---|
+| Keys emitted / accepted | **38 / 38, zero rejections** |
+| Enum value sets | **all 7 match** |
+| Consent ids resolving to verbatim text | **6 / 6** including the new `sms-eea` |
+| `script.google.com` in their `api.js` | absent |
+| `downgraded_fields` | sent, and correctly only on a retry |
+
+**Their `SERVER_KNOWN_KEYS` ladder is stale by five keys** — non-blocking, but it is a latent
+version of the bug the ladder exists to prevent. It lists 34; I accept 39. Missing:
+`channel`, `channel_other`, `dietary`, `dietary_other`, `research_optin`.
+
+Nothing in it is wrong in the dangerous direction — there is no key they think I accept that I
+reject, so a retry would not 400. But if a downgrade ever *does* fire, it strips those five
+unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "what the server
+accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
+the alarm catch the drift.
+
 ## 3a-ter → Failure mode worth naming: simultaneous convergence
 
 Recorded at the merge session's suggestion, because it cost a round trip and would have cost a

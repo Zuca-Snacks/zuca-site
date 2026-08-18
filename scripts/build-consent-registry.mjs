@@ -86,11 +86,44 @@ const add = (purpose, region, entry) => {
   };
 };
 
-add('mkt', 'us', consentTexts.marketing.us);
-add('mkt', 'eea', consentTexts.marketing.eea);
-add('mot', 'eea', consentTexts.motivation);
-add('sms', 'us', consentTexts.sms);
-add('mail', 'eea', consentTexts.mail);
+/**
+ * Emit every wording under one purpose, whether or not it is split by region.
+ *
+ * The shape of these nodes is not stable and should not have to be. A wording
+ * starts as one string for everywhere and splits the moment a regulator needs
+ * different words — `sms` was a single node until 2026-08-18, when an EEA
+ * variant was added because the TCPA string was flagging every EEA opt-in for
+ * re-consent. Hardcoding `consentTexts.sms` read `.text` off a node that no
+ * longer had one, and the generator threw.
+ *
+ * Throwing was the right failure: a build that dies beats a registry that
+ * silently omits a wording, because the omission only shows up later as
+ * `registry_match:false` on live records. But it should not need a patch each
+ * time. This walks the node instead: a leaf (has `.text`) is emitted under
+ * `defaultRegion`; a branch emits one entry per region key, which is exactly
+ * what `version(purpose, key, entry)` does in the Conversion agent's consent.js.
+ */
+const addPurpose = (purpose, node, defaultRegion) => {
+  if (!node || typeof node !== 'object') {
+    throw new Error(`consentTexts.${purpose} is missing or not an object`);
+  }
+  if (typeof node.text === 'string') {
+    add(purpose, defaultRegion, node);
+    return;
+  }
+  const regions = Object.keys(node).filter((k) => typeof node[k]?.text === 'string');
+  if (!regions.length) {
+    throw new Error(`consentTexts.${purpose} has no wording — neither .text nor a region key`);
+  }
+  for (const region of regions) add(purpose, region, node[region]);
+};
+
+// Purpose → the region to assume if the node is NOT split. Must match the
+// literal each function in consent.js passes to version().
+addPurpose('mkt', consentTexts.marketing, 'us');
+addPurpose('mot', consentTexts.motivation, 'eea');
+addPurpose('sms', consentTexts.sms, 'us');
+addPurpose('mail', consentTexts.mail, 'eea');
 
 const body = JSON.stringify(out, null, 2).replace(/"([a-z_]+)":/g, '$1:');
 fs.writeFileSync(OUT, header(`${Object.keys(out).length} wordings resolved.`) + body + ';\n');
