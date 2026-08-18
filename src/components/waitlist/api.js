@@ -82,24 +82,37 @@ const str = (v, max) => {
   return t ? t.slice(0, max) : null;
 };
 const arr = (v, max) => (Array.isArray(v) && v.length ? v.slice(0, max) : null);
+const hasOther = (v) => (Array.isArray(v) ? v.includes("other") : v === "other");
+
+/** E.164 or null. Matches the server's rule exactly rather than approximating it. */
+export function toE164(raw) {
+  const digits = String(raw || "").trim().replace(/[\s\-().]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(digits) ? digits : null;
+}
+
+/** Two uppercase letters or null. */
+const iso2 = (v) => {
+  const c = String(v || "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(c) ? c : null;
+};
 
 export function buildPayload({
   email,
   consentMarketing,
   consentHealth = false,
   consentSms = false,
-  consentMail = false,
+  consentPostal = false,
   consentTextVersion = null,
   motivationConsentTextVersion = null,
   smsConsentTextVersion = null,
-  mailConsentTextVersion = null,
+  postalConsentTextVersion = null,
   profile = {},
   formRenderTs,
   hpField = "",
 }) {
   const health = consentHealth === true;
   const sms = consentSms === true;
-  const mail = consentMail === true;
+  const postal = consentPostal === true;
   const p = profile;
 
   return {
@@ -123,33 +136,50 @@ export function buildPayload({
     hp_field: hpField || null,
     form_render_ts: typeof formRenderTs === "number" ? formRenderTs : null,
 
-    // ── Extensions: pending a schema widening. See HANDOFF-growth.md. ───────
-    motivation_other: health ? str(p.motivation_other, OTHER_MAX) : null,
+    // ── Extensions ──────────────────────────────────────────────────────────
+    // Key names match the server's schema exactly. They are the server's
+    // vocabulary where it already had one (`company`, `headcount`,
+    // `address_postal_code`, `consent_postal`) and ours where it adopted ours
+    // (`quantity_band` values, tri-state `office_interest`, headcount bands).
+    //
+    // FREE TEXT IS PAIRED WITH ITS SELECTION. The server's superRefine rejects
+    // `*_other` text that arrives without the matching "other" choice, and it is
+    // right to: text with no selection is uninterpretable. So the pairing is
+    // enforced here as well, because state outlives the UI that set it — pick
+    // "Other", type, switch to "Friend", and the string is still sitting in
+    // state waiting to 400 the whole submission.
+    motivation_other: health && hasOther(p.motivation) ? str(p.motivation_other, OTHER_MAX) : null,
     dietary: health ? arr(p.dietary, 3) : null,
-    dietary_other: health ? str(p.dietary_other, OTHER_MAX) : null,
-    referral_source_other: str(p.referral_source_other, OTHER_MAX),
+    dietary_other: health && hasOther(p.dietary) ? str(p.dietary_other, OTHER_MAX) : null,
+    referral_source_other:
+      p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
     quantity_band: p.quantity_band ?? null,
     channel: arr(p.channel, 2),
-    channel_other: str(p.channel_other, OTHER_MAX),
+    channel_other: hasOther(p.channel) ? str(p.channel_other, OTHER_MAX) : null,
     office_interest: p.office_interest ?? null,
-    company_name: str(p.company_name, 80),
-    company_headcount: p.company_headcount ?? null,
+    company: str(p.company, 80),
+    headcount: p.headcount ?? null,
     research_optin: typeof p.research_optin === "boolean" ? p.research_optin : null,
 
     // Phone and address are inert without their own opt-in. Sending either
     // while its consent is false would be collecting on a basis we do not have.
     consent_sms: sms,
-    phone: sms ? str(p.phone, 24) : null,
+    // E.164 or nothing. The server requires /^\+[1-9]\d{7,14}$/ and rejects
+    // anything else outright, so a number that cannot be normalised is dropped
+    // rather than sent to fail — losing a phone number beats losing the record.
+    phone: sms ? toE164(p.phone) : null,
     sms_consent_text_version: sms ? smsConsentTextVersion || null : null,
 
-    consent_mail: mail,
-    address_line1: mail ? str(p.address_line1, 120) : null,
-    address_line2: mail ? str(p.address_line2, 120) : null,
-    address_city: mail ? str(p.address_city, 80) : null,
-    address_region: mail ? str(p.address_region, 80) : null,
-    address_postal: mail ? str(p.address_postal, 16) : null,
-    address_country: mail ? str(p.address_country, 56) : null,
-    mail_consent_text_version: mail ? mailConsentTextVersion || null : null,
+    consent_postal: postal,
+    address_line1: postal ? str(p.address_line1, 120) : null,
+    address_line2: postal ? str(p.address_line2, 120) : null,
+    address_city: postal ? str(p.address_city, 80) : null,
+    address_region: postal ? str(p.address_region, 80) : null,
+    address_postal_code: postal ? str(p.address_postal_code, 16) : null,
+    // ISO 3166-1 alpha-2, from a picker. Free text could never satisfy the
+    // server's /^[A-Z]{2}$/ reliably.
+    address_country: postal ? iso2(p.address_country) : null,
+    postal_consent_text_version: postal ? postalConsentTextVersion || null : null,
   };
 }
 

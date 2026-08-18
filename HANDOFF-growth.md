@@ -233,66 +233,76 @@ That gives you a reconciliation you should run:
 I expect this to be a small number (VPNs, travellers, misconfigured clocks), but
 it will not be zero.
 
-### 4b. ⚠️ SCHEMA EXTENSION REQUEST — 22 new keys · **blocking for the new fields**
+### 4b. Extension reconciliation — verified against `sec/hardening@385b1ac`
 
-Step 2 now collects considerably more, across four screens. `waitlistSchema` is
-`.strict()`, so **one unrecognised key rejects the entire submission** — which
-is why this is a request rather than a shipped assumption.
+Checked by running my real `buildPayload()` output through your real
+`waitlistSchema` (33 keys, enumerated from the zod shape), not against either
+side's prose.
 
-**I have not left this to chance.** `post()` detects a 400 on a payload carrying
-extensions, strips to the 16 keys you accept today, and resends once. Verified:
-the downgraded record passes your schema unchanged. So the worst case while you
-catch up is that the extended answers are dropped, never that a submission is
-lost. `payload_downgraded` fires when it happens, so the gap is measurable
-rather than invisible — **if you see that event in production, this section has
-not landed yet.**
+**Naming is now clean in both directions.** I adopted your vocabulary wherever
+you already had one:
 
-Right now `/api/waitlist` does not exist on `main`, so these fall through to the
-Sheets webhook, which accepts anything. The moment your endpoint deploys, the
-downgrade path is what stands between us and losing all of this.
+| was (mine) | now (yours) |
+|---|---|
+| `address_postal` | `address_postal_code` |
+| `consent_mail` | `consent_postal` |
+| `mail_consent_text_version` | `postal_consent_text_version` |
+| `company_name` | `company` |
+| `company_headcount` | `headcount` |
 
-| Key | Type | Notes |
+Verified: **zero keys I send that you reject on naming, zero keys you accept
+that I never send.** The internal state names changed too, so there is one
+vocabulary rather than a translation layer that can drift.
+
+**Three bugs of mine you would have caught the hard way, now fixed:**
+
+1. **Stale `*_other`.** Pick "Other", type, switch to "Friend" — I was still
+   sending the string, and your `superRefine` rightly rejects it as
+   `other_not_selected`. Now paired at both layers: cleared from state on
+   deselect, and refused by `buildPayload` regardless of what state holds.
+   That second guard is the one that matters, because state outlives the UI
+   that set it.
+2. **Phone.** Normalised to E.164 (`toE164`) against your exact rule. Anything
+   that cannot be normalised is sent as `null` rather than sent to fail —
+   losing a phone number beats losing the record it was attached to.
+3. **`address_country`.** Now an ISO 3166-1 alpha-2 picker, not free text.
+   "USA" and "United States" both failed your `/^[A-Z]{2}$/`.
+
+**Still failing, and all on your side** — the vocabulary you said you would
+adopt. Listed so you can tick them off:
+
+| Field | You have | I send |
 |---|---|---|
-| `quantity_band` | enum | `lt_4 4_8 9_16 17_30 gt_30` |
-| `channel` | array<enum> max 2 | `online_dtc grocery gym_studio office clinic other` |
-| `channel_other` | string ≤120 | |
-| `referral_source_other` | string ≤120 | |
-| `motivation_other` | string ≤120 | **Art 9** — only with `consent_health` |
-| `dietary` | array<enum> max 3 | **Art 9** — `none nut_allergy gluten_free dairy_free vegan low_sugar other` |
-| `dietary_other` | string ≤120 | **Art 9** |
-| `office_interest` | enum | `yes maybe no` |
-| `company_name` | string ≤80 | |
-| `company_headcount` | enum | `lt_10 10_49 50_199 200_999 gt_1000` |
-| `research_optin` | boolean\|null | |
-| `consent_sms` | boolean, default false | |
-| `phone` | string ≤24 | only with `consent_sms` |
-| `sms_consent_text_version` | version id | |
-| `consent_mail` | boolean, default false | |
-| `address_line1` `address_line2` | string ≤120 | only with `consent_mail` |
-| `address_city` `address_region` | string ≤80 | only with `consent_mail` |
-| `address_postal` | string ≤16 | free-form, **not** the US `zip` regex |
-| `address_country` | string ≤56 | |
-| `mail_consent_text_version` | version id | |
+| `quantity_band` | `qty_1 qty_2_3 qty_4_6 qty_7_12 qty_12_plus` | `lt_4 4_8 9_16 17_30 gt_30` (per month) |
+| `office_interest` | `boolean` | `yes` \| `maybe` \| `no` |
+| `headcount` | `hc_1_10 hc_11_50 hc_51_200 hc_201_1000 hc_gt_1000` | `lt_10 10_49 50_199 200_999 gt_1000` |
+| `dietary`, `dietary_other` | — | array<enum> max 3 + string ≤120, **Art 9** |
+| `channel`, `channel_other` | — | array<enum> max 2 + string ≤120 |
+| `research_optin` | — | boolean\|null |
 
-Four things worth your attention rather than a rubber stamp:
+Two notes on those:
 
-1. **`dietary` is Art 9, same as `motivation`.** A nut allergy is health data. It
-   is gated by the *same* single `consent_health` opt-in, whose wording was
-   changed to name both — that minted `mot-eea-2026-08-17-53abe75d`, replacing
-   the 15 Aug version. Please treat `dietary` and `dietary_other` exactly as you
-   treat `motivation`: dropped entirely without `consent_health`. I already drop
-   them client-side, but yours is the copy that matters.
-2. **`phone` needs TCPA-grade handling.** You flagged this yourself. The consent
-   wording is express written consent — sender identified, automated marketing
-   named, not a condition of purchase, rates disclosed, STOP given. `phone` is
-   null unless `consent_sms` is true. If SMS is ever actually sent, that wording
-   is the evidence, and `sms_consent_text_version` points at it.
-3. **`address_postal` must NOT reuse the `zip` rule.** `zip` stays your US-only
-   structured field. This one has to hold `SW1A 1AA` and `100-0001`. Applying
-   the 5-digit regex here would recreate the bug you just fixed, one field over.
-4. **Rate limiting: up to 5 POSTs per signup now**, not 2. Each screen advance
-   upserts, so an abandoned form still keeps what was answered. A limit tuned to
-   2 would break the normal path.
+- **`dietary` needs the same Art 9 treatment as `motivation`** — dropped
+  entirely without `consent_health`. I already drop it client-side.
+- **`superRefine` needs two more pairs.** `channel_other` and `dietary_other`
+  have no pairing rule yet; without one they are the only free-text fields that
+  could arrive orphaned.
+
+### 4c. SMS consent now has an EEA wording
+
+`sms-us-` was the only SMS string, so every EEA opt-in reconciled as "shown US
+copy in the EEA" and flagged for re-consent. **That flag was correct** — the
+wording really was drafted against the wrong rulebook — so the fix is a second
+string, not a quieter tag.
+
+```
+sms-us-2026-08-17-43da99ea    TCPA express written consent
+sms-eea-2026-08-18-25206b1e   GDPR: purpose, frequency, withdrawal, no sharing
+```
+
+Same region guess and the same strict-by-default bias as the marketing consent,
+so an unresolvable region gets the EEA wording. `sms_consent_text_version`
+carries whichever was actually rendered.
 
 ### 5. Bot signals I already send
 

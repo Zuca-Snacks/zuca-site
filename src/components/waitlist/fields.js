@@ -220,7 +220,7 @@ export const OFFICE_INTEREST = {
 };
 
 export const COMPANY_HEADCOUNT = {
-  key: "company_headcount",
+  key: "headcount",
   label: "Roughly how many people?",
   why: "Sizes the office opportunity.",
   options: [
@@ -233,7 +233,7 @@ export const COMPANY_HEADCOUNT = {
 };
 
 export const COMPANY_NAME = {
-  key: "company_name",
+  key: "company",
   label: "Company",
   placeholder: "Where do you work?",
   maxLength: 80,
@@ -280,8 +280,9 @@ export const ADDRESS = {
     { key: "address_line2", label: "Apartment, floor (optional)", autoComplete: "address-line2", maxLength: 120 },
     { key: "address_city", label: "City", autoComplete: "address-level2", maxLength: 80 },
     { key: "address_region", label: "State or region", autoComplete: "address-level1", maxLength: 80 },
-    { key: "address_postal", label: "Postal code", autoComplete: "postal-code", maxLength: 16 },
-    { key: "address_country", label: "Country", autoComplete: "country-name", maxLength: 56 },
+    { key: "address_postal_code", label: "Postal code", autoComplete: "postal-code", maxLength: 16 },
+    // Rendered as a select, not a text input — the server needs ISO alpha-2.
+    { key: "address_country", label: "Country", autoComplete: "country", select: true },
   ],
 };
 

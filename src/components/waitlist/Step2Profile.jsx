@@ -25,16 +25,19 @@ import {
   QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN, ZIP,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
-import { buildPayload, RESULT, submitWaitlist } from "./api.js";
+import { buildPayload, RESULT, submitWaitlist, toE164 } from "./api.js";
 import { EVENTS, track, trackOnce } from "../../lib/analytics.js";
-import { mailConsent, marketingConsent, motivationConsent, smsConsent } from "./consent.js";
+import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
 import { detectPostalRegion } from "./region.js";
+import { COUNTRIES } from "./countries.js";
 
 const ZIP_RE = /^[0-9]{5}$/;
 const SCREENS = copy.screens;
 
-/** Permissive on purpose — the carrier is the authority, not a regex. */
-const PHONE_RE = /^\+?[0-9][0-9\s().-]{6,22}$/;
+// Matches the server's rule exactly. Being laxer here does not help anyone: it
+// just moves the rejection from an inline message to a 400 that discards the
+// whole submission.
+const isE164 = (raw) => toE164(raw) !== null;
 
 export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const uid = useId();
@@ -47,7 +50,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const [consentCopy] = useState(marketingConsent);
   const [healthCopy] = useState(motivationConsent);
   const [smsCopy] = useState(smsConsent);
-  const [mailCopy] = useState(mailConsent);
+  const [postalCopy] = useState(postalConsent);
   const [postalRegion] = useState(detectPostalRegion);
   const showZip = postalRegion !== "non_us";
 
@@ -61,16 +64,16 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     zip: "", is_clinician: null,
     motivation: [], motivation_other: "",
     dietary: [], dietary_other: "",
-    office_interest: null, company_name: "", company_headcount: null,
+    office_interest: null, company: "", headcount: null,
     phone: "", research_optin: null,
     address_line1: "", address_line2: "", address_city: "",
-    address_region: "", address_postal: "", address_country: "",
+    address_region: "", address_postal_code: "", address_country: "",
   });
   const set = (patch) => setV((prev) => ({ ...prev, ...patch }));
 
   const [consentHealth, setConsentHealth] = useState(false);
   const [consentSms, setConsentSms] = useState(false);
-  const [consentMail, setConsentMail] = useState(false);
+  const [consentPostal, setConsentPostal] = useState(false);
 
   const inFlight = useRef(false);
   const touched = useRef(new Set());
@@ -109,11 +112,11 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
       consentMarketing: true,
       consentHealth,
       consentSms,
-      consentMail,
+      consentPostal,
       consentTextVersion: consentCopy.version,
       motivationConsentTextVersion: healthCopy.version,
       smsConsentTextVersion: smsCopy.version,
-      mailConsentTextVersion: mailCopy.version,
+      postalConsentTextVersion: postalCopy.version,
       formRenderTs,
       profile: { ...v, zip: showZip ? v.zip || null : null },
     });
@@ -142,8 +145,8 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
       setZipError("A US ZIP is five digits — or leave it blank.");
       return false;
     }
-    if (SCREENS[screen].id === "extras" && consentSms && v.phone && !PHONE_RE.test(v.phone.trim())) {
-      setPhoneError("That number doesn't look right — or untick the box.");
+    if (SCREENS[screen].id === "extras" && consentSms && v.phone && !isE164(v.phone)) {
+      setPhoneError("Include the country code, like +1 555 000 0000.");
       return false;
     }
     return true;
@@ -218,13 +221,19 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
               legend={CHANNEL.label} options={CHANNEL.options} values={v.channel} max={CHANNEL.max}
               hint={`Pick up to ${CHANNEL.max}.`}
               other={otherProps(CHANNEL, v.channel_other, "channel_other")}
-              onChange={(x) => { set({ channel: x }); if (x.length) note(CHANNEL.key, x[0]); }}
+              onChange={(x) => {
+                set({ channel: x, ...(x.includes("other") ? {} : { channel_other: "" }) });
+                if (x.length) note(CHANNEL.key, x[0]);
+              }}
             />
             <ChipRadioGroup
               legend={REFERRAL_SOURCE.label} name="referral_source" options={REFERRAL_SOURCE.options}
               value={v.referral_source}
               other={otherProps(REFERRAL_SOURCE, v.referral_source_other, "referral_source_other")}
-              onChange={(x) => { set({ referral_source: x }); if (x) note(REFERRAL_SOURCE.key, x); }}
+              onChange={(x) => {
+                set({ referral_source: x, ...(x === "other" ? {} : { referral_source_other: "" }) });
+                if (x) note(REFERRAL_SOURCE.key, x);
+              }}
             />
             {showZip && (
               <Field
@@ -278,13 +287,19 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                   legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
                   max={MOTIVATION.max} hint={copy.motivationHint} disabled={!consentHealth}
                   other={otherProps(MOTIVATION, v.motivation_other, "motivation_other")}
-                  onChange={(x) => { set({ motivation: x }); if (x.length) note(MOTIVATION.key); }}
+                  onChange={(x) => {
+                    set({ motivation: x, ...(x.includes("other") ? {} : { motivation_other: "" }) });
+                    if (x.length) note(MOTIVATION.key);
+                  }}
                 />
                 <ChipMultiGroup
                   legend={DIETARY.label} options={DIETARY.options} values={v.dietary}
                   max={DIETARY.max} hint={`Pick up to ${DIETARY.max}.`} disabled={!consentHealth}
                   other={otherProps(DIETARY, v.dietary_other, "dietary_other")}
-                  onChange={(x) => { set({ dietary: x }); if (x.length) note(DIETARY.key); }}
+                  onChange={(x) => {
+                    set({ dietary: x, ...(x.includes("other") ? {} : { dietary_other: "" }) });
+                    if (x.length) note(DIETARY.key);
+                  }}
                 />
               </div>
             </details>
@@ -301,14 +316,14 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                   <Input
                     id={`co-${uid}`} label={COMPANY_NAME.label} type="text"
                     autoComplete="organization" maxLength={COMPANY_NAME.maxLength}
-                    placeholder={COMPANY_NAME.placeholder} value={v.company_name}
-                    onChange={(e) => set({ company_name: e.target.value })}
+                    placeholder={COMPANY_NAME.placeholder} value={v.company}
+                    onChange={(e) => set({ company: e.target.value })}
                   />
                 </Field>
                 <ChipRadioGroup
-                  legend={COMPANY_HEADCOUNT.label} name="company_headcount"
-                  options={COMPANY_HEADCOUNT.options} value={v.company_headcount}
-                  onChange={(x) => { set({ company_headcount: x }); if (x) note(COMPANY_HEADCOUNT.key, x); }}
+                  legend={COMPANY_HEADCOUNT.label} name="headcount"
+                  options={COMPANY_HEADCOUNT.options} value={v.headcount}
+                  onChange={(x) => { set({ headcount: x }); if (x) note(COMPANY_HEADCOUNT.key, x); }}
                 />
               </div>
             )}
@@ -345,28 +360,43 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                 className="zw-disclosure"
                 onToggle={(e) => {
                   if (!e.currentTarget.open) {
-                    setConsentMail(false);
-                    set({ address_line1: "", address_line2: "", address_city: "", address_region: "", address_postal: "", address_country: "" });
+                    setConsentPostal(false);
+                    set({ address_line1: "", address_line2: "", address_city: "", address_region: "", address_postal_code: "", address_country: "" });
                   }
                 }}
               >
                 <summary>{copy.mailDisclosure}</summary>
                 <div className="zw-disclosure-body">
                   <Consent
-                    id={`mail-${uid}`} separate checked={consentMail}
-                    onChange={(on) => { setConsentMail(on); optin("mail", on); }}
+                    id={`mail-${uid}`} separate checked={consentPostal}
+                    onChange={(on) => { setConsentPostal(on); optin("postal", on); }}
                   >
-                    {mailCopy.text}
+                    {postalCopy.text}
                   </Consent>
-                  <fieldset className="zw-field" disabled={!consentMail}>
+                  <fieldset className="zw-field" disabled={!consentPostal}>
                     <legend className="zw-sr">Postal address</legend>
                     {ADDRESS.fields.map((f) => (
                       <Field key={f.key}>
-                        <Input
-                          id={`${f.key}-${uid}`} label={f.label} type="text"
-                          autoComplete={f.autoComplete} maxLength={f.maxLength}
-                          value={v[f.key]} onChange={(e) => set({ [f.key]: e.target.value })}
-                        />
+                        {f.select ? (
+                          <>
+                            <label className="zw-label" htmlFor={`${f.key}-${uid}`}>{f.label}</label>
+                            <select
+                              id={`${f.key}-${uid}`} className="zw-input" autoComplete={f.autoComplete}
+                              value={v[f.key]} onChange={(e) => set({ [f.key]: e.target.value })}
+                            >
+                              <option value="">Select a country</option>
+                              {COUNTRIES.map((c) => (
+                                <option key={c.code} value={c.code}>{c.name}</option>
+                              ))}
+                            </select>
+                          </>
+                        ) : (
+                          <Input
+                            id={`${f.key}-${uid}`} label={f.label} type="text"
+                            autoComplete={f.autoComplete} maxLength={f.maxLength}
+                            value={v[f.key]} onChange={(e) => set({ [f.key]: e.target.value })}
+                          />
+                        )}
                       </Field>
                     ))}
                   </fieldset>

@@ -78,15 +78,23 @@ export function marketingConsent(region = detectConsentRegion()) {
  * which is what GDPR Art 9 requires, and the US has no weaker standard worth
  * having for health-adjacent data.
  */
-export function smsConsent() {
-  const entry = consentTexts.sms;
-  // Audience token `us`: TCPA is the US regime this wording is written to meet.
-  // The server reads the regime off the token, so it must be honest about which
-  // rulebook the sentence was drafted against.
-  return { text: entry.text, version: version("sms", "us", entry) };
+/**
+ * SMS, per regime.
+ *
+ * Two wordings, not one: TCPA is a US construct, and tagging the US string
+ * `sms-us-` meant every EEA opt-in reconciled as "shown US copy in the EEA" and
+ * flagged for re-consent. That flag was correct — the wording really was drafted
+ * against the wrong rulebook — so the fix is an EEA string, not a quieter tag.
+ * Same region guess and same strict-by-default bias as the marketing consent.
+ */
+export function smsConsent(region = detectConsentRegion()) {
+  const key = region === "eea" ? "eea" : "us";
+  const entry = consentTexts.sms[key];
+  return { region: key, text: entry.text, version: version("sms", key, entry) };
 }
 
-export function mailConsent() {
+/** Postal. Named for the wire key `consent_postal`, not for "mail". */
+export function postalConsent() {
   const entry = consentTexts.mail;
   return { text: entry.text, version: version("mail", "eea", entry) };
 }

@@ -380,8 +380,22 @@ export const consentTexts = {
   // one of those clauses is load-bearing — do not trim this for length.
   // Unchecked, separate, and never bundled with the email consent.
   sms: {
-    authored: "2026-08-17",
-    text: "Text me about Zuca. I agree to receive automated marketing texts from Zuca at the number I give — a handful around launch, not a stream. Agreeing is not a condition of buying anything, message and data rates may apply, and I can stop them any time by replying STOP.",
+    // US — TCPA prior express written consent. Every clause is load-bearing:
+    // sender identified, marketing named, automated named, not-a-condition-of-
+    // purchase, rates disclosed, STOP given. Do not trim this for length.
+    us: {
+      authored: "2026-08-17",
+      text: "Text me about Zuca. I agree to receive automated marketing texts from Zuca at the number I give — a handful around launch, not a stream. Agreeing is not a condition of buying anything, message and data rates may apply, and I can stop them any time by replying STOP.",
+    },
+    // EEA/UK — GDPR wants freely given, specific, informed and withdrawable,
+    // and says nothing about the TCPA formula. Serving the US string to an EEA
+    // number is not a false alarm on the re-consent report: it is wording
+    // written to the wrong rulebook, which is exactly what that report exists
+    // to surface.
+    eea: {
+      authored: "2026-08-18",
+      text: "Yes, text me about Zuca. I'm agreeing to texts about the launch date and my first-access window — a handful around launch, not a stream. Zuca won't text me without this, my number isn't shared with anyone, and I can withdraw it any time by replying STOP.",
+    },
   },
 
   // Postal. Framed as what it actually is, because the honest version is also
