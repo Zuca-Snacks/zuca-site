@@ -23,7 +23,7 @@
 // difference is that we now know it hasn't landed yet.
 
 import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
-import { OTHER_MAX } from "./fields.js";
+import { DIETARY, OTHER_MAX, otherMaxFor } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 const COUNT_ENDPOINT = "/api/count";
@@ -150,9 +150,11 @@ export function buildPayload({
     // enforced here as well, because state outlives the UI that set it — pick
     // "Other", type, switch to "Friend", and the string is still sitting in
     // state waiting to 400 the whole submission.
-    motivation_other: health && hasOther(p.motivation) ? str(p.motivation_other, OTHER_MAX) : null,
+    // motivation_other is DELETED, not merely unsent: no free text beside an
+    // Art 9 question. The server still accepts the key; we will never populate
+    // it. See the note on MOTIVATION in fields.js.
     dietary: health ? arr(p.dietary, 3) : null,
-    dietary_other: health && hasOther(p.dietary) ? str(p.dietary_other, OTHER_MAX) : null,
+    dietary_other: health && hasOther(p.dietary) ? str(p.dietary_other, otherMaxFor(DIETARY)) : null,
     referral_source_other:
       p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
     quantity_band: p.quantity_band ?? null,
@@ -201,7 +203,12 @@ export function buildPayload({
 export const SERVER_KNOWN_KEYS = new Set([
   ...CORE_KEYS,
   "quantity_band", "office_interest", "company", "headcount",
-  "motivation_other", "referral_source_other",
+  // motivation_other is deliberately ABSENT: security removes it at 10a562a,
+  // so listing it would make this set wrong in the optimistic direction —
+  // claiming the server accepts something it rejects. The ladder cannot
+  // recover from that: rung 1 would strip nothing and the retry would 400
+  // again. A maintained list can only be trusted when it errs pessimistic.
+  "referral_source_other",
   "channel", "channel_other", "dietary", "dietary_other", "research_optin",
   "phone", "consent_sms", "sms_consent_text_version",
   "address_line1", "address_line2", "address_city", "address_region",

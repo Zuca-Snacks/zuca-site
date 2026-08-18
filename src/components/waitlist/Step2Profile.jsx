@@ -25,7 +25,7 @@ import { ChipMultiGroup, ChipRadioGroup } from "./chipGroups.jsx";
 import { OtherInput, Progress } from "../ui/index.js";
 import {
   ADDRESS, CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, FLAVOR, INTENT,
-  IS_CLINICIAN, MOTIVATION, OFFICE_INTEREST, OTHER_MAX, PHONE, PRICE_BAND,
+  IS_CLINICIAN, MOTIVATION, OFFICE_INTEREST, otherMaxFor, PHONE, PRICE_BAND,
   QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN, ZIP,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
@@ -66,7 +66,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     referral_source: null, referral_source_other: "",
     channel: [], channel_other: "",
     zip: "", is_clinician: null,
-    motivation: [], motivation_other: "",
+    motivation: [],
     dietary: [], dietary_other: "",
     office_interest: null, company: "", headcount: null,
     phone: "", research_optin: null,
@@ -184,7 +184,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     id: `${key}-${uid}`,
     label: def.otherLabel,
     value: val,
-    maxLength: OTHER_MAX,
+    maxLength: otherMaxFor(def),
     onChange: (t) => set({ [key]: t }),
   });
 
@@ -279,7 +279,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
               className="zw-disclosure"
               onToggle={(e) => {
                 if (e.currentTarget.open) track(EVENTS.STEP2_MOTIVATION_OPEN);
-                else { setConsentHealth(false); set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" }); }
+                else { setConsentHealth(false); set({ motivation: [], dietary: [], dietary_other: "" }); }
               }}
             >
               <summary>{copy.motivationDisclosure}</summary>
@@ -291,15 +291,14 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                   label={healthCopy.text}
                   onChange={(e) => { const on = e.target.checked;
                     setConsentHealth(on); optin("health", on);
-                    if (!on) set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" });
+                    if (!on) set({ motivation: [], dietary: [], dietary_other: "" });
                   }}
                 />
                 <ChipMultiGroup
                   legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
                   max={MOTIVATION.max} hint={copy.motivationHint} disabled={!consentHealth}
-                  other={otherProps(MOTIVATION, v.motivation_other, "motivation_other")}
                   onChange={(x) => {
-                    set({ motivation: x, ...(x.includes("other") ? {} : { motivation_other: "" }) });
+                    set({ motivation: x });
                     if (x.length) note(MOTIVATION.key);
                   }}
                 />
