@@ -1,0 +1,492 @@
+/* ============================================================================
+   ZUCA — UI PRIMITIVES
+   Every interactive state is styled here (rest / hover / :focus-visible /
+   :disabled / loading / error) so feature code only ever writes logic.
+   Token-driven throughout — no literal colors, no literal font sizes.
+   ========================================================================== */
+
+/* ─── Button ─────────────────────────────────────────────────────────────── */
+
+.z-btn {
+  --btn-bg: var(--z-accent);
+  --btn-ink: var(--z-accent-ink);
+  --btn-border: transparent;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--z-space-2);
+
+  /* 44px minimum tap target, per WCAG 2.2 target size. */
+  min-height: 48px;
+  min-width: 48px;
+  padding: var(--z-space-3) var(--z-space-5);
+
+  font-family: var(--z-font-body);
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+
+  background: var(--btn-bg);
+  color: var(--btn-ink);
+  border: 2px solid var(--btn-border);
+  border-radius: var(--z-radius-full);
+  cursor: pointer;
+
+  transition:
+    background-color var(--z-dur-fast) var(--z-ease),
+    color var(--z-dur-fast) var(--z-ease),
+    border-color var(--z-dur-fast) var(--z-ease),
+    transform var(--z-dur-fast) var(--z-ease);
+}
+
+.z-btn:hover:not(:disabled) { --btn-bg: var(--z-brand-dark); }
+
+/* Press feedback — cheap, transform-only. */
+.z-btn:active:not(:disabled) { transform: scale(0.97); }
+
+.z-btn:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 3px;
+}
+
+.z-btn:disabled,
+.z-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Variants */
+.z-btn--secondary {
+  --btn-bg: transparent;
+  --btn-ink: var(--z-brand-dark);
+  --btn-border: var(--z-brand-dark);
+}
+.z-btn--secondary:hover:not(:disabled) {
+  --btn-bg: var(--z-brand-dark);
+  --btn-ink: var(--z-accent-ink);
+}
+
+.z-btn--ghost {
+  --btn-bg: transparent;
+  --btn-ink: var(--z-ink);
+  --btn-border: transparent;
+  padding-inline: var(--z-space-3);
+}
+.z-btn--ghost:hover:not(:disabled) { --btn-bg: rgb(82 65 40 / 0.08); }
+
+/* Sizes */
+.z-btn--lg { min-height: 56px; font-size: var(--z-step-1); padding-inline: var(--z-space-6); }
+.z-btn--block { display: flex; width: 100%; }
+
+/* Loading: label is hidden but kept in flow so the button never resizes. */
+.z-btn--loading { cursor: progress; }
+.z-btn--loading .z-btn__label { visibility: hidden; }
+
+.z-btn__spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.z-btn__spinner::after {
+  content: '';
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: z-spin 700ms linear infinite;
+}
+
+@keyframes z-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .z-btn__spinner::after { animation-duration: 2s; }
+}
+
+/* ─── Field (label + hint + error wrapper) ───────────────────────────────── */
+
+.z-field { display: flex; flex-direction: column; gap: var(--z-space-2); }
+
+.z-field__label {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink);
+}
+
+.z-field__optional {
+  font-weight: 400;
+  color: var(--z-ink-muted);
+}
+
+.z-field__hint {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+/* Cancels the parent's flex gap while there is no error to show, so the field's
+   height is identical with and without one. Kept rendered (not display:none) so
+   the live region is already in the a11y tree when an error arrives. */
+.z-field__live:empty {
+  margin-top: calc(-1 * var(--z-space-2));
+}
+
+.z-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--z-space-2);
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  color: var(--z-danger);
+}
+
+/* The error is never colour-only — it carries an icon and text. */
+.z-field__error::before { content: '⚠'; line-height: 1; }
+
+/* ─── Input ──────────────────────────────────────────────────────────────── */
+
+.z-input,
+.z-select {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--z-space-3) var(--z-space-4);
+
+  /* max(16px, …) prevents iOS from zooming the page on focus. */
+  font-size: max(16px, var(--z-step-0));
+  font-family: var(--z-font-body);
+  color: var(--z-ink);
+
+  background: var(--z-surface);
+  border: 2px solid var(--z-border-strong);
+  border-radius: var(--z-radius-sm);
+
+  transition:
+    border-color var(--z-dur-fast) var(--z-ease),
+    box-shadow var(--z-dur-fast) var(--z-ease);
+}
+
+.z-input::placeholder { color: var(--z-ink-muted); opacity: 1; }
+
+.z-input:hover:not(:disabled),
+.z-select:hover:not(:disabled) { border-color: var(--z-ink); }
+
+.z-input:focus-visible,
+.z-select:focus-visible {
+  outline: none;
+  border-color: var(--z-focus);
+  box-shadow: 0 0 0 3px rgb(204 24 80 / 0.25);
+}
+
+.z-input:disabled,
+.z-select:disabled {
+  background: var(--z-surface-alt);
+  color: var(--z-ink-muted);
+  cursor: not-allowed;
+}
+
+.z-input[aria-invalid='true'],
+.z-select[aria-invalid='true'] { border-color: var(--z-danger); }
+
+.z-input[aria-invalid='true']:focus-visible,
+.z-select[aria-invalid='true']:focus-visible {
+  box-shadow: 0 0 0 3px rgb(179 38 30 / 0.25);
+}
+
+/* ─── Select ─────────────────────────────────────────────────────────────── */
+
+.z-select {
+  appearance: none;
+  padding-right: var(--z-space-7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23524128' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--z-space-4) center;
+  background-size: 12px 8px;
+}
+
+/* ─── Chip / toggle-pill (multi-select) ──────────────────────────────────── */
+
+.z-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--z-space-2);
+  /* Reset the fieldset the group is rendered in. */
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.z-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--z-space-2);
+  min-height: 44px;
+  padding: var(--z-space-2) var(--z-space-4);
+
+  font-size: var(--z-step-0);
+  font-weight: 500;
+  color: var(--z-ink);
+
+  background: var(--z-surface);
+  border: 2px solid var(--z-border-strong);
+  border-radius: var(--z-radius-full);
+  cursor: pointer;
+
+  transition:
+    background-color var(--z-dur-fast) var(--z-ease),
+    border-color var(--z-dur-fast) var(--z-ease),
+    color var(--z-dur-fast) var(--z-ease);
+}
+
+.z-chip:hover:not(:disabled) { border-color: var(--z-ink); }
+
+.z-chip:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+/* Selected state is border + fill + a check glyph, never colour alone. */
+.z-chip[aria-pressed='true'],
+.z-chip[data-selected='true'] {
+  background: var(--z-brand-dark);
+  border-color: var(--z-brand-dark);
+  color: var(--z-accent-ink);
+}
+
+.z-chip[aria-pressed='true']::before,
+.z-chip[data-selected='true']::before { content: '✓'; font-weight: 700; }
+
+.z-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── Checkbox / consent block ───────────────────────────────────────────── */
+
+.z-checkbox-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--z-space-2);
+}
+
+/* The row IS the <label>, so the whole strip — box, text, and the gaps around
+   them — is one target, comfortably past 44px. The 24px box alone would meet
+   WCAG 2.2 AA (SC 2.5.8 is a 24x24 minimum) but not the brief's stricter 44px
+   rule, and a tap landing just above or beside a lone 24px box hitting nothing
+   is exactly the kind of miss that costs a conversion.
+   Tried and rejected: an invisible ::after expander on the input — pseudo
+   elements on a replaced <input> paint (the tick uses ::before) but do not
+   reliably extend hit-testing. Verified in a browser. */
+.z-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--z-space-3);
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.z-checkbox {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+
+  /* Centres the box on the label's FIRST line, not on the label as a whole —
+     the consent text runs to two or three lines in some locales, and
+     align-items:center would drift the box toward the middle of the block.
+     Derived from the tokens rather than hardcoded so it holds if the type
+     scale changes: label padding + half the first line box - half the box.
+     font-size is pinned here so 1.4em resolves against the label's size. */
+  font-size: var(--z-step-0);
+  align-self: flex-start;
+  margin-top: calc(var(--z-space-3) + (1.4em - 24px) / 2);
+
+  display: grid;
+  place-content: center;
+
+  background: var(--z-surface);
+  border: 2px solid var(--z-border-strong);
+  border-radius: var(--z-radius-sm);
+  cursor: pointer;
+
+  transition:
+    background-color var(--z-dur-fast) var(--z-ease),
+    border-color var(--z-dur-fast) var(--z-ease);
+}
+
+/* The tick. Drawn with clip-path so it needs no icon font and no SVG request. */
+.z-checkbox::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  transform: scale(0);
+  transform-origin: center;
+  background: var(--z-accent-ink);
+  clip-path: polygon(
+    14% 44%, 0 58%, 43% 100%, 100% 16%, 84% 0, 43% 68%
+  );
+  transition: transform var(--z-dur-fast) var(--z-ease);
+}
+
+.z-checkbox:checked {
+  background: var(--z-brand-dark);
+  border-color: var(--z-brand-dark);
+}
+
+.z-checkbox:checked::before { transform: scale(1); }
+
+.z-checkbox:hover:not(:disabled) { border-color: var(--z-ink); }
+
+.z-checkbox:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: 2px;
+}
+
+.z-checkbox[aria-invalid='true'] { border-color: var(--z-danger); }
+
+.z-checkbox:disabled {
+  background: var(--z-surface-alt);
+  border-color: var(--z-border);
+  cursor: not-allowed;
+}
+
+.z-checkbox:disabled + .z-checkbox-label {
+  color: var(--z-ink-muted);
+  cursor: not-allowed;
+}
+
+.z-checkbox-label {
+  /* Padding, not margin — it extends the clickable label to a 44px row. */
+  padding-block: var(--z-space-3);
+  font-size: var(--z-step-0);
+  line-height: 1.4;
+  color: var(--z-ink);
+  cursor: pointer;
+}
+
+/* Smaller print below. Links live HERE, never inside the label — a link inside
+   a <label> toggles the checkbox when clicked. */
+.z-checkbox-legal {
+  /* Aligns under the label text, clear of the 24px box + 12px gap. */
+  margin-left: calc(24px + var(--z-space-3));
+  font-size: var(--z-step--1);
+  line-height: 1.5;
+  color: var(--z-ink-muted);
+  max-width: var(--z-measure);
+}
+
+.z-checkbox-legal a {
+  color: var(--z-brand-dark);
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-checkbox,
+  .z-checkbox::before { transition: none; }
+}
+
+/* ─── Card ───────────────────────────────────────────────────────────────── */
+
+.z-card {
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-md);
+  padding: var(--z-space-5);
+  box-shadow: var(--z-shadow-sm);
+}
+
+.z-card--flush { padding: 0; overflow: hidden; }
+.z-card--alt { background: var(--z-surface-alt); }
+
+/* ─── Badge ──────────────────────────────────────────────────────────────── */
+
+.z-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--z-space-2);
+  padding: var(--z-space-1) var(--z-space-3);
+
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  color: var(--z-ink);
+  background: var(--z-surface-alt);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-full);
+}
+
+.z-badge--brand {
+  color: var(--z-accent-ink);
+  background: var(--z-brand-dark);
+  border-color: var(--z-brand-dark);
+}
+
+/* Amber only ever appears as a FILL with dark ink on it — amber text on cream
+   is 1.45:1 and can never carry meaning. */
+.z-badge--warm {
+  color: var(--z-ink);
+  background: var(--z-warm);
+  border-color: var(--z-warm);
+}
+
+/* ─── Accordion ──────────────────────────────────────────────────────────── */
+
+.z-accordion {
+  border-top: 1px solid var(--z-border);
+}
+
+.z-accordion__item { border-bottom: 1px solid var(--z-border); }
+
+.z-accordion__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--z-space-4);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--z-space-4) 0;
+
+  font-family: var(--z-font-body);
+  font-size: var(--z-step-1);
+  font-weight: 600;
+  text-align: left;
+  color: var(--z-ink);
+
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.z-accordion__trigger:focus-visible {
+  outline: 3px solid var(--z-focus);
+  outline-offset: -3px;
+}
+
+.z-accordion__icon {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  transition: transform var(--z-dur) var(--z-ease);
+}
+
+.z-accordion__trigger[aria-expanded='true'] .z-accordion__icon {
+  transform: rotate(45deg);
+}
+
+.z-accordion__panel {
+  padding-bottom: var(--z-space-5);
+  color: var(--z-ink-muted);
+  max-width: var(--z-measure);
+}
+
+.z-accordion__panel[hidden] { display: none; }

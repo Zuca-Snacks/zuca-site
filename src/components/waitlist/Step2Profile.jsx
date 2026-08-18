@@ -16,9 +16,16 @@
 //     cheaper on layout and is not consent.
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import {
-  Button, ChipMultiGroup, ChipRadioGroup, Consent, Field, Input, OtherInput, Progress,
-} from "./primitives.jsx";
+import Button from "../ui/Button.jsx";
+import Input from "../ui/Input.jsx";
+import Field from "../ui/Field.jsx";
+import Checkbox from "../ui/Checkbox.jsx";
+import Select from "../ui/Select.jsx";
+import { ChipMultiGroup, ChipRadioGroup } from "./chipGroups.jsx";
+// ⚠️ NOT YET IN src/components/ui/. UX is building both to these exact
+// signatures; the moment they land, change these two imports and delete
+// stepPrimitives.jsx. Everything else here is on UX's primitives already.
+import { OtherInput, Progress } from "./stepPrimitives.jsx";
 import {
   ADDRESS, CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, FLAVOR, INTENT,
   IS_CLINICIAN, MOTIVATION, OFFICE_INTEREST, OTHER_MAX, PHONE, PRICE_BAND,
@@ -237,12 +244,12 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             />
             {showZip && (
               <Field
-                error={zipError}
-                errorId={`zip-${uid}`}
+                id={`zip-${uid}`} label={ZIP.label} optional error={zipError}
                 hint={postalRegion === "unknown" ? ZIP.hint : undefined}
               >
+                {(props) => (
                 <Input
-                  id={`zip-${uid}`} label={ZIP.label} error={zipError} errorId={`zip-${uid}`}
+                  {...props}
                   type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5}
                   placeholder={ZIP.placeholder} value={v.zip}
                   onChange={(e) => {
@@ -251,6 +258,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                     if (d.length === 5) note(ZIP.key, "set");
                   }}
                 />
+                )}
               </Field>
             )}
             <ChipRadioGroup
@@ -312,13 +320,14 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             />
             {(v.office_interest === "yes" || v.office_interest === "maybe") && (
               <div className="zw-nested">
-                <Field>
-                  <Input
-                    id={`co-${uid}`} label={COMPANY_NAME.label} type="text"
-                    autoComplete="organization" maxLength={COMPANY_NAME.maxLength}
-                    placeholder={COMPANY_NAME.placeholder} value={v.company}
-                    onChange={(e) => set({ company: e.target.value })}
-                  />
+                <Field id={`co-${uid}`} label={COMPANY_NAME.label} optional>
+                  {(props) => (
+                    <Input
+                      {...props} type="text" autoComplete="organization"
+                      maxLength={COMPANY_NAME.maxLength} placeholder={COMPANY_NAME.placeholder}
+                      value={v.company} onChange={(e) => set({ company: e.target.value })}
+                    />
+                  )}
                 </Field>
                 <ChipRadioGroup
                   legend={COMPANY_HEADCOUNT.label} name="headcount"
@@ -341,13 +350,15 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                 >
                   {smsCopy.text}
                 </Consent>
-                <Field error={phoneError} errorId={`ph-${uid}`}>
-                  <Input
-                    id={`ph-${uid}`} label={PHONE.label} error={phoneError} errorId={`ph-${uid}`}
-                    type="tel" inputMode="tel" autoComplete="tel" maxLength={PHONE.maxLength}
-                    placeholder={PHONE.placeholder} value={v.phone} disabled={!consentSms}
-                    onChange={(e) => { set({ phone: e.target.value }); if (phoneError) setPhoneError(""); }}
-                  />
+                <Field id={`ph-${uid}`} label={PHONE.label} optional error={phoneError}>
+                  {(props) => (
+                    <Input
+                      {...props} type="tel" inputMode="tel" autoComplete="tel"
+                      maxLength={PHONE.maxLength} placeholder={PHONE.placeholder}
+                      value={v.phone} disabled={!consentSms}
+                      onChange={(e) => { set({ phone: e.target.value }); if (phoneError) setPhoneError(""); }}
+                    />
+                  )}
                 </Field>
               </div>
             </details>
@@ -376,27 +387,26 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                   <fieldset className="zw-field" disabled={!consentPostal}>
                     <legend className="zw-sr">Postal address</legend>
                     {ADDRESS.fields.map((f) => (
-                      <Field key={f.key}>
-                        {f.select ? (
-                          <>
-                            <label className="zw-label" htmlFor={`${f.key}-${uid}`}>{f.label}</label>
-                            <select
-                              id={`${f.key}-${uid}`} className="zw-input" autoComplete={f.autoComplete}
-                              value={v[f.key]} onChange={(e) => set({ [f.key]: e.target.value })}
+                      <Field key={f.key} id={`${f.key}-${uid}`} label={f.label} optional>
+                        {(props) =>
+                          f.select ? (
+                            <Select
+                              {...props} autoComplete={f.autoComplete} value={v[f.key]}
+                              onChange={(e) => set({ [f.key]: e.target.value })}
                             >
                               <option value="">Select a country</option>
                               {COUNTRIES.map((c) => (
                                 <option key={c.code} value={c.code}>{c.name}</option>
                               ))}
-                            </select>
-                          </>
-                        ) : (
-                          <Input
-                            id={`${f.key}-${uid}`} label={f.label} type="text"
-                            autoComplete={f.autoComplete} maxLength={f.maxLength}
-                            value={v[f.key]} onChange={(e) => set({ [f.key]: e.target.value })}
-                          />
-                        )}
+                            </Select>
+                          ) : (
+                            <Input
+                              {...props} type="text" autoComplete={f.autoComplete}
+                              maxLength={f.maxLength} value={v[f.key]}
+                              onChange={(e) => set({ [f.key]: e.target.value })}
+                            />
+                          )
+                        }
                       </Field>
                     ))}
                   </fieldset>

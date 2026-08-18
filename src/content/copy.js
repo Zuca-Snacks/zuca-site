@@ -102,7 +102,7 @@ export const HEADLINES = {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Two flavors, no added sugar, and about 40% of your daily fiber in one bite.",
+      "Two flavors, and about 40% of your daily fiber in one bite.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -110,7 +110,7 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "10g of fiber, 150 calories, no added sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
+      "10g of fiber, 150 calories. Chocolate Raspberry Sea Salt or Maple Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
@@ -118,7 +118,7 @@ export const HEADLINES = {
     id: "c",
     headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories. No added sugar. Made from apple pulp a juicery was about to throw away.",
+      "150 calories. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
@@ -226,12 +226,25 @@ export const proof = {
 };
 
 // ─── Three-number block ──────────────────────────────────────────────────────
+// ⚠️ SUGAR CLAIMS ARE WITHDRAWN, NOT REWORDED (18 Aug 2026).
+// Maple syrup is added as a sweetener. Under FDA rules syrups count as ADDED
+// SUGARS, so two separate claims were false and both are gone from every
+// string on the site:
+//   • "no added sugar" / "0g added sugar" — false outright.
+//   • "6g natural sugar" — false too: some of that sugar is added, not
+//     naturally occurring in the fruit. It went in the same pass rather than
+//     being left as the surviving half of a wrong pair.
+// Nothing replaces them yet. Naming the sweetener beats claiming an absence,
+// but the replacement needs two facts we do not have: whether Chocolate
+// Raspberry Sea Salt also contains syrup, and the exact added-sugar grams.
+// Emil is chasing both. DO NOT write a sugar line until they are confirmed —
+// a wrong claim in the other direction is not an improvement.
 export const numbers = {
   title: "What's actually in one.",
   items: [
     { value: "10g", unit: "fiber", note: "About 40% of your daily fiber, and twice what the leading bars carry." },
-    { value: "150", unit: "calories", note: "Plus 4g of protein and 6g of natural sugar." },
-    { value: "0g", unit: "added sugar", note: "The sweetness is the fruit. Nothing is added to it." },
+    { value: "150", unit: "calories", note: "Plus 4g of protein." },
+    { value: "4g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
   footnote: "Per serving. Contains tree nuts — almonds and pecans.",
 };
@@ -298,7 +311,7 @@ export const faq = [
   },
   {
     q: "What's in it, and what about allergens?",
-    a: "Both flavors contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein, 6g natural sugar, no added sugar. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
+    a: "Both flavors contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein, The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
   },
   {
     q: "What will it cost?",

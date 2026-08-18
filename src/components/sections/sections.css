@@ -1,0 +1,1136 @@
+/* ============================================================================
+   ZUCA — SECTION LAYOUT
+   Mobile-first. Every rule below is written for 390px and then widened.
+   Vertical rhythm comes exclusively from --z-space-* / --z-section-y.
+   ========================================================================== */
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+
+.z-header {
+  position: relative;
+  z-index: var(--z-layer-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--z-space-4);
+  min-height: 60px;
+  padding-block: var(--z-space-3);
+}
+
+.z-header__wordmark {
+  display: inline-flex;
+  align-items: center;
+  /* A nav target, so it earns a full 44px tap height even though the glyphs
+     themselves are shorter. */
+  min-height: 44px;
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  line-height: 1;
+  color: var(--z-brand);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+/* The brand entrance: 4 letters, 210ms of stagger + 420ms each = 630ms total,
+   comfortably inside the 800ms budget. Decorative only — nothing waits on it. */
+.z-header__wordmark span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.22em);
+  animation: z-word-in 420ms var(--z-ease) forwards;
+}
+
+.z-header__wordmark span:nth-child(1) { animation-delay: 0ms; }
+.z-header__wordmark span:nth-child(2) { animation-delay: 70ms; }
+.z-header__wordmark span:nth-child(3) { animation-delay: 140ms; }
+.z-header__wordmark span:nth-child(4) { animation-delay: 210ms; }
+
+@keyframes z-word-in {
+  to { opacity: 1; transform: none; }
+}
+
+/* Snapped — the user scrolled, tapped or typed, so finish immediately. */
+.z-header__wordmark[data-snap='true'] span {
+  animation: none;
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-header__wordmark span {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The header CTA is redundant on a phone — the hero's own email field sits
+   directly beneath it, and the sticky bar covers the rest of the page. */
+.z-header__cta { display: none; }
+
+@media (min-width: 48em) {
+  .z-header__cta { display: inline-flex; }
+}
+
+.z-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-4);
+}
+
+/* Secondary nav links are hidden on phones — the page has one job there. */
+.z-header__link {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--z-step-0);
+  color: var(--z-ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.z-header__link:hover { color: var(--z-brand-dark); }
+
+@media (min-width: 48em) {
+  .z-header__link { display: inline-flex; }
+}
+
+/* ─── Hero ───────────────────────────────────────────────────────────────── */
+
+.z-hero {
+  padding-top: var(--z-space-3);
+  padding-bottom: var(--z-section-y);
+}
+
+/* On a phone the product photo leads — this is a food brand, and appetite is
+   the first job. Copy, then the email field, follow immediately beneath so all
+   four hero elements clear an 844px fold.
+
+   The gaps are deliberately tighter on phones than the section rhythm
+   elsewhere. The poster composition added a wordmark at display scale and a
+   per-flavour spec plate, and the ~28px recovered here is what keeps the CTA
+   above the fold at 360px without cutting any content from the mockup. They
+   relax to the normal rhythm at 48em, where there is room. */
+.z-hero__inner {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+.z-hero__media { order: -1; }
+
+.z-hero__copy {
+  display: grid;
+  gap: var(--z-space-2);
+}
+
+@media (min-width: 48em) {
+  .z-hero__inner { gap: var(--z-space-4); }
+  .z-hero__copy { gap: var(--z-space-3); }
+}
+
+/* The tagline half of the brand entrance. Fades up just behind the wordmark's
+   last letter (300ms delay vs the wordmark's 210ms), so the two read as one
+   lockup rather than two separate animations. Decorative only — the text is in
+   the DOM and readable from frame one; only opacity/transform animate. */
+.z-hero__tagline {
+  font-size: var(--z-step-0);
+  font-weight: 500;
+  color: var(--z-ink-muted);
+  max-width: 38ch;
+  margin-inline: auto;
+  animation: z-word-in 480ms var(--z-ease) 300ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-hero__tagline { animation: none; }
+}
+
+/* Hidden on phones — Emil's call: if the badge and the credential tagline can't
+   both fit above the fold, the tagline wins, because it is the more
+   differentiating of the two for cold traffic who have never heard of Zuca.
+   Measured: the badge row costs ~40px whether it holds one badge or two (it is
+   one wrapped row either way), which put the CTA at 857px against an 844px
+   fold. "10g fiber" is also restated in the lede one line below.
+   Returns at tablet width where the space is free. */
+.z-hero__eyebrow {
+  display: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--z-space-2);
+}
+
+@media (min-width: 48em) {
+  .z-hero__eyebrow { display: flex; }
+}
+
+/* One step down on phones — MEASURED, not a hunch, and re-checked after growth
+   shortened the headline from 82 to 56 characters.
+   At --z-step-3 the 56-character line still wraps to FIVE lines at 360px and
+   pushes the CTA 35px below the fold (22px at 390, 15px at 430). It needs
+   exactly one line less at every width.
+   BUDGET IF SOMEONE WANTS THE BIGGER SIZE: ~46-48 characters. That is what
+   gives 4 lines at 360px (~16 chars/line) and 3 at 430px (~18 chars/line) with
+   the wrap waste real sentences produce. At 56 characters, step-2 is correct.
+   Full size from tablet up, where there is no constraint. */
+.z-hero__title {
+  font-size: var(--z-step-2);
+  color: var(--z-ink);
+  margin-block: var(--z-space-1);
+}
+
+@media (min-width: 48em) {
+  .z-hero__title { font-size: var(--z-step-3); }
+}
+
+/* The promise line carries the product's one factual hook. */
+.z-hero__lede {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  max-width: 34ch;
+  margin-inline: auto;
+}
+
+/* --- Hero media ---------------------------------------------------------- */
+
+.z-hero__media {
+  position: relative;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  background: var(--z-surface-alt);
+  box-shadow: var(--z-shadow-md);
+}
+
+/* The media frame is now a container for two products, not a single photo, so
+   it carries no background or shadow of its own — each product card does. */
+.z-hero__media {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* --- The two products --------------------------------------------------- */
+
+.z-hero__products {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--z-space-3);
+  position: relative;
+  /* Three named rows — name, spec, photo — so both columns share them via
+     subgrid below. Without this the columns drift apart: "Chocolate Raspberry
+     Sea Salt" wraps to two lines and "Maple Pecan" does not, which dropped the
+     chocolate side's fiber plate a whole line below the maple one and made the
+     symmetric composition look broken. */
+  grid-template-rows: auto auto auto;
+  align-items: start;
+}
+
+.z-hero__product {
+  display: grid;
+  grid-row: span 3;
+  /* Inherit the parent's row track sizes, so the name box and the fiber plate
+     line up across both columns whatever the caption length. */
+  grid-template-rows: subgrid;
+  gap: var(--z-space-2);
+  margin: 0;
+  min-width: 0;
+  align-content: start;
+}
+
+/* Fallback for engines without subgrid: reserve two lines for the caption so
+   the plates still align. Deterministic — these are two fixed strings, not a
+   late-arriving value, so the wrap count is known rather than guessed. */
+@supports not (grid-template-rows: subgrid) {
+  .z-hero__product { grid-row: auto; grid-template-rows: none; }
+  .z-hero__product-name { min-height: calc(2.4em + var(--z-space-2)); }
+}
+
+.z-hero__product picture {
+  display: block;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  background: var(--z-surface-alt);
+  box-shadow: var(--z-shadow-md);
+}
+
+/* 4:3 on phones, square from tablet up. The stack gained a per-flavour chip row
+   and the count moved into flow beneath it, which together cost ~90px and put
+   the CTA below the fold at 360px. The photograph is the most compressible
+   element in the stack — cropping it shorter costs no information, where
+   dropping a chip or the count would. */
+.z-hero__product img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+@media (min-width: 48em) {
+  .z-hero__product img { aspect-ratio: 1 / 1; }
+}
+
+.z-hero__product-name {
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  /* red-dark, NOT brand red: the mockup's red on cream is 4.33:1 and this is
+     normal-size text, so it fails AA. red-dark is 6.17:1 and reads the same. */
+  color: var(--z-brand-dark);
+  background: var(--z-surface-alt);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-sm);
+  padding: var(--z-space-1) var(--z-space-2);
+}
+
+[data-tone='maple'] .z-hero__product-name { color: var(--z-ink); }
+
+/* --- Poster composition (Emil's mockup) ---------------------------------- */
+
+.z-hero {
+  position: relative;
+  isolation: isolate;
+  text-align: center;
+  background: var(--z-bg);
+}
+
+/* Decorative ingredient wash — Emil's artwork, now supplied with a real alpha
+   channel, so it composites directly. The earlier mix-blend-mode: multiply
+   workaround is gone, along with the two bugs it caused (a washed-out hero when
+   it blended against transparency, and a white band over the header).
+   Opacity stays low deliberately: the artwork is busier than a flat tint, and
+   local contrast under a leaf is not the same as the token pair's contrast.
+   Re-run the accessibility audit if this is ever strengthened. */
+.z-hero__backdrop {
+  position: absolute;
+  /* inset:0, not a negative inset. Two reasons, both found by measuring:
+     a negative left/right made the element wider than the viewport and gave the
+     document a 433px scrollWidth at 360px; and a negative TOP pushed it above
+     .z-hero's own cream fill, where — inside this isolated stacking context —
+     multiply had only transparency to blend with and painted a white band
+     across the header. */
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* image-set so AVIF is served where supported. Phones get a 600w variant:
+     the layer renders at viewport width behind content at 0.55 opacity, so the
+     upscale is imperceptible while the bytes are not — the transparent master
+     costs roughly 2.5x what the flattened one did, because a uniform white
+     field compressed almost to nothing. Referencing the raw PNG cost 4.9s LCP. */
+  background-image: image-set(
+    url('/images/art-backdrop-600.avif') type('image/avif'),
+    url('/images/art-backdrop-600.webp') type('image/webp')
+  );
+  /* The artwork is a wide desktop frame with its ingredients along the left and
+     right edges and an empty middle. `cover` on a tall narrow phone therefore
+     crops to the blank centre and shows nothing at all. Full-width at the top
+     keeps the illustrated edges visible where the composition actually is. */
+  background-size: 100% auto;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.85;
+}
+
+@media (min-width: 48em) {
+  .z-hero__backdrop {
+    background-size: cover;
+    background-image: image-set(
+      url('/images/art-backdrop-1600.avif') type('image/avif'),
+      url('/images/art-backdrop-1600.webp') type('image/webp')
+    );
+  }
+}
+
+/* The wordmark at poster scale. */
+.z-hero__wordmark {
+  font-family: var(--z-font-display);
+  font-size: clamp(2.75rem, 1rem + 12vw, 8rem);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--z-brand);
+  margin-bottom: var(--z-space-2);
+}
+
+.z-hero__wordmark span {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.18em);
+  animation: z-word-in 420ms var(--z-ease) forwards;
+}
+
+.z-hero__wordmark span:nth-child(1) { animation-delay: 0ms; }
+.z-hero__wordmark span:nth-child(2) { animation-delay: 70ms; }
+.z-hero__wordmark span:nth-child(3) { animation-delay: 140ms; }
+.z-hero__wordmark span:nth-child(4) { animation-delay: 210ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .z-hero__wordmark span { animation: none; opacity: 1; transform: none; }
+}
+
+/* The header wordmark would be a second ZUCA in the same viewport, which reads
+   as a mistake. It returns once the hero one has scrolled away — the header is
+   not sticky, so this is purely about the first screen. */
+.z-header__wordmark { visibility: hidden; }
+
+@media (min-width: 48em) {
+  .z-header__wordmark { visibility: visible; }
+}
+
+/* Per-flavour spec stack. Each flavour carries its own accent, taken from the
+   mockup: berry red for the chocolate side, amber for the maple side. */
+.z-hero__spec {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--z-space-1);
+  list-style: none;
+}
+
+.z-hero__spec li {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--z-ink);
+  background: var(--z-surface);
+  border: 1px solid var(--z-border);
+  border-radius: var(--z-radius-full);
+  padding: 3px var(--z-space-2);
+}
+
+/* The fiber figure gets the dark plate, full width of the column.
+   ⚠️ CONTRAST — DO NOT SHRINK THIS BELOW 1.25rem.
+   Brand red on #111 is 3.43:1. That clears AA only under the LARGE-text
+   threshold, which is >=18.66px BOLD (or >=24px regular) — not merely "big
+   looking". An earlier version set this to 15px bold and failed the audit at
+   3.42:1, because 15px is below the threshold no matter how bold it is. 1.25rem
+   = 20px, comfortably over, so 3:1 applies and it passes.
+   Amber on #111 is 10.26:1 and carries no such constraint, but the size is
+   shared so the two flavours stay symmetrical. */
+.z-hero__spec-hero {
+  flex-basis: 100%;
+  font-size: 1.25rem !important;
+  font-weight: 700;
+  padding: var(--z-space-1) var(--z-space-2) !important;
+  background: #111111 !important;
+  border-color: #111111 !important;
+  color: var(--z-brand) !important;
+}
+
+[data-tone='maple'] .z-hero__spec-hero {
+  color: var(--z-warm) !important;
+}
+
+/* The closing figure. Large text, so brand red on cream at 4.33:1 clears the
+   3:1 large-text threshold. */
+.z-hero__bigfig {
+  font-family: var(--z-font-display);
+  font-size: clamp(2.25rem, 0.8rem + 9vw, 5rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--z-brand);
+  margin-top: var(--z-space-5);
+  max-width: none;
+}
+
+
+/* --- The live count, on the centre axis ---------------------------------- */
+/* Reserves its height so an arriving number cannot shift the CTA. Empty, that
+   space reads as breathing room between the product stacks and the copy on a
+   centred composition — not as a gap waiting to be filled. */
+.z-hero__count {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--z-space-2);
+  min-height: 3.25rem;
+  margin-top: var(--z-space-4);
+}
+
+.z-hero__count-num {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-3);
+  line-height: 1;
+  color: var(--z-brand);
+}
+
+/* The fallback occupies the band at the same height as the number, so the two
+   states are dimensionally identical and the swap costs no layout. */
+.z-hero__count-fallback {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink-muted);
+  max-width: 30ch;
+  margin-inline: auto;
+  text-align: center;
+  align-self: center;
+}
+
+.z-hero__count-word {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink);
+  max-width: 12ch;
+  text-align: left;
+  line-height: 1.15;
+}
+
+
+/* --- Hero email capture (SHELL ONLY — see WaitlistSlot) ------------------- */
+
+.z-hero__capture {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+.z-hero__capture-row {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+@media (min-width: 30em) {
+  .z-hero__capture-row {
+    grid-template-columns: 1fr auto;
+    /* end, not start: the Field stacks label + hint above its input, so a
+       top-aligned button would sit level with the label instead of the input. */
+    align-items: end;
+  }
+}
+
+.z-hero__microcopy {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+/* Side-by-side from tablet up. Below this the photo would otherwise grow to
+   ~390px tall and push the CTA far off the fold. */
+@media (min-width: 48em) {
+  .z-hero__inner {
+    grid-template-columns: 1.05fr 0.95fr;
+    align-items: center;
+    gap: var(--z-space-6);
+  }
+  /* Copy leads again once there is room for a side-by-side. */
+  .z-hero__copy { grid-column: 1; }
+  .z-hero__media { grid-column: 2; order: 0; }
+}
+
+@media (min-width: 60em) {
+  .z-hero__inner { gap: var(--z-space-8); }
+}
+
+/* ─── Proof strip ────────────────────────────────────────────────────────── */
+
+.z-proof {
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+  padding-block: var(--z-space-5);
+}
+
+.z-proof__list {
+  display: grid;
+  gap: var(--z-space-4);
+  list-style: none;
+}
+
+.z-proof__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--z-space-3);
+}
+
+/* The first item's figure is the LIVE waitlist count and is empty until
+   /api/count answers — the other two are static strings. Without a reserved
+   line box that empty span collapses, which does two bad things: item one's
+   label rides up out of alignment with items two and three, and the strip grows
+   6px when the number lands. `min-height` reserves exactly one line so the row
+   is aligned before the fetch and unchanged after it.
+
+   This is the reserve-the-space half of the same rule the hero count badge
+   solves by being absent entirely. The difference is deliberate: the hero badge
+   sits alone over the photography, so its absence leaves nothing to misalign;
+   this figure sits in a row of three, so its absence is visible in its
+   neighbours.
+
+   The space is held by rendering a non-breaking space in ProofStrip.jsx rather
+   than by a min-height here. A reserved height has to GUESS the line box, and
+   `min-height: 1lh` guessed 6px too tall against the display font's real
+   metrics — so the strip shrank when the number arrived, which is the same bug
+   pointing the other way. A placeholder glyph takes the identical layout path
+   as the numeral, so the two states cannot disagree. */
+.z-proof__figure {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  color: var(--z-brand-dark);
+  line-height: 1;
+  flex: none;
+}
+
+.z-proof__label {
+  font-size: var(--z-step-0);
+  color: var(--z-ink);
+}
+
+@media (min-width: 48em) {
+  .z-proof__list { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
+}
+
+/* ─── Fiber-gap statistic ───────────────────────────────────────────────── */
+
+.z-gap {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-block: var(--z-section-y);
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+  text-align: center;
+}
+
+.z-gap__inner { display: grid; gap: var(--z-space-2); }
+
+/* Large display text, so brand red on the alt surface clears the 3:1
+   large-text threshold at 5.01:1. Do not reuse this colour at body size. */
+.z-gap__figure {
+  font-family: var(--z-font-display);
+  font-size: clamp(4rem, 1.5rem + 16vw, 9rem);
+  line-height: 0.9;
+  color: var(--z-brand);
+  margin-inline: auto;
+}
+
+.z-gap__label {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  max-width: 24ch;
+  margin-inline: auto;
+}
+
+/* ─── Decorative section artwork ─────────────────────────────────────────────
+   Low-opacity illustration behind a section's content. Every one of these sits
+   BELOW the fold and none is ever the LCP element — they are encoded small,
+   drawn at low opacity, and pinned inside their section so they cannot create
+   a horizontal scrollbar. Measured after adding: LCP unchanged.
+   If one of these is ever moved above the fold, re-measure before shipping. */
+
+/* Any section hosting decorative art needs a containing block and its own
+   stacking context, or the negative-z layer escapes behind the page. */
+.z-has-art {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.z-art {
+  position: absolute;
+  inset: auto 0 0;
+  height: 62%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.3;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+/* ⚠️ The background-image lives ONLY on the .is-in variants below. Browsers
+   fetch CSS backgrounds for off-screen elements eagerly — all three of these
+   were measured loading ~185ms into the page, alongside the LCP image, costing
+   0.2s. Keep the URL out of the base rule. */
+
+.z-gap__art {
+  position: absolute;
+  inset: auto 0 0;
+  height: 55%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.32;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+}
+
+.is-in .z-gap__art,
+.z-gap.is-in .z-gap__art {
+  background-image: image-set(
+    url('/images/art-fruit-row-720.avif') type('image/avif'),
+    url('/images/art-fruit-row-720.webp') type('image/webp')
+  );
+}
+
+.z-art--berries {
+  height: 100%;
+  opacity: 0.42;
+  background-size: cover;
+}
+
+.is-in .z-art--berries {
+  background-image: image-set(
+    url('/images/art-berries-720.avif') type('image/avif'),
+    url('/images/art-berries-720.webp') type('image/webp')
+  );
+}
+
+.z-art--tree { opacity: 0.26; }
+
+.is-in .z-art--tree {
+  background-image: image-set(
+    url('/images/art-tree-growth-720.avif') type('image/avif'),
+    url('/images/art-tree-growth-720.webp') type('image/webp')
+  );
+}
+
+/* ─── Numbers ────────────────────────────────────────────────────────────── */
+
+.z-numbers__grid {
+  display: grid;
+  gap: var(--z-space-4);
+  list-style: none;
+  margin-top: var(--z-space-6);
+}
+
+.z-number {
+  display: grid;
+  gap: var(--z-space-1);
+  text-align: center;
+  padding: var(--z-space-5) var(--z-space-4);
+}
+
+.z-number__value {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-3);
+  line-height: 1;
+  color: var(--z-brand-dark);
+}
+
+.z-number__label {
+  font-size: var(--z-step-0);
+  font-weight: 600;
+  color: var(--z-ink);
+}
+
+.z-number__note {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+@media (min-width: 40em) {
+  .z-numbers__grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ─── How it's made (inverted band) ──────────────────────────────────────── */
+
+.z-process {
+  background: var(--z-ink-surface);
+  color: var(--z-on-ink);
+}
+
+.z-process h2 { color: var(--z-on-ink); }
+
+.z-process__lede {
+  color: var(--z-on-ink-muted);
+  font-size: var(--z-step-1);
+  margin-top: var(--z-space-4);
+}
+
+.z-process__steps {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-7);
+  list-style: none;
+  counter-reset: step;
+}
+
+.z-process__step {
+  counter-increment: step;
+  display: grid;
+  gap: var(--z-space-2);
+  padding-top: var(--z-space-4);
+  border-top: 1px solid rgb(253 224 180 / 0.25);
+}
+
+.z-process__step::before {
+  content: counter(step, decimal-leading-zero);
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-1);
+  color: var(--z-warm);
+  line-height: 1;
+}
+
+.z-process__step h3 {
+  font-size: var(--z-step-2);
+  color: var(--z-on-ink);
+}
+
+.z-process__step p { color: var(--z-on-ink-muted); }
+
+@media (min-width: 48em) {
+  .z-process__steps { grid-template-columns: repeat(3, 1fr); gap: var(--z-space-6); }
+}
+
+/* ─── Process strip (five photographic steps) ────────────────────────────── */
+/* Sits on the dark green band. All colour here comes from the photographs —
+   the tan of the milled pulp and the crimson of the raspberry are more
+   saturated than anything in the token palette, and a photograph carries no
+   contrast obligation. Amber is used only as a numeral on the dark band, where
+   it measures 6.86:1; it is never text on cream. */
+
+.z-process-strip {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-7);
+  list-style: none;
+  counter-reset: none;
+}
+
+/* Two per row from 352px up, so every phone in the test matrix gets the strip
+   rather than five stacked full-width squares. The fifth step takes the full
+   width of the last row, which reads as the finished article rather than an
+   orphan. */
+@media (min-width: 22em) {
+  .z-process-strip { grid-template-columns: repeat(2, 1fr); }
+  .z-process-step:last-child { grid-column: 1 / -1; }
+  /* Matches the width of the four tiles above it rather than being arbitrarily
+     larger. Two reasons: the strip reads as one set instead of one odd tile,
+     and it lets the browser reuse the hero's already-downloaded 360px variant
+     of this same crop. At 60% it rendered wide enough to select the 640px
+     variant instead, costing 53KB for a below-the-fold decorative tile. */
+  .z-process-step:last-child .z-process-step__media {
+    max-width: calc(50% - var(--z-space-3) / 2);
+  }
+}
+
+@media (min-width: 60em) {
+  .z-process-step:last-child { grid-column: auto; }
+  .z-process-step:last-child .z-process-step__media { max-width: none; }
+}
+
+@media (min-width: 60em) {
+  .z-process-strip {
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--z-space-4);
+  }
+}
+
+.z-process-step {
+  display: grid;
+  gap: var(--z-space-2);
+  align-content: start;
+  min-width: 0;
+}
+
+.z-process-step__media {
+  position: relative;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  background: rgb(253 224 180 / 0.08);
+}
+
+.z-process-step__media img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+
+/* Placeholder for a step with no photograph yet. Deliberately reads as an
+   empty numbered plate rather than a broken image or a fake photo. */
+.z-process-step__placeholder {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgb(253 224 180 / 0.06) 0 6px,
+      transparent 6px 12px
+    );
+  border: 1px dashed rgb(253 224 180 / 0.3);
+  border-radius: var(--z-radius-md);
+}
+
+.z-process-step__placeholder span {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  color: rgb(253 224 180 / 0.45);
+}
+
+/* The step number, stamped on the corner of the plate. */
+.z-process-step__num {
+  position: absolute;
+  top: var(--z-space-2);
+  left: var(--z-space-2);
+
+  display: grid;
+  place-items: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding-inline: var(--z-space-1);
+
+  font-family: var(--z-font-display);
+  font-size: var(--z-step--1);
+  line-height: 1;
+
+  color: var(--z-ink);
+  background: var(--z-warm);
+  border-radius: var(--z-radius-full);
+}
+
+.z-process-step__title {
+  font-size: var(--z-step-1);
+  color: var(--z-on-ink);
+}
+
+.z-process-step__body {
+  font-size: var(--z-step--1);
+  line-height: 1.5;
+  color: var(--z-on-ink-muted);
+}
+
+/* ─── Founders ───────────────────────────────────────────────────────────── */
+
+.z-founders__grid {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-6);
+  list-style: none;
+}
+
+.z-founder { display: grid; gap: var(--z-space-3); }
+
+.z-founder__head {
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-4);
+}
+
+/* Real portraits. The source has a drawn rounded border which the crop insets
+   past; the radius here is ours, so the two founders match whatever the
+   original artwork did. */
+.z-founder__portrait {
+  display: block;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--z-radius-full);
+  overflow: hidden;
+  background: var(--z-surface-alt);
+  box-shadow: var(--z-shadow-sm);
+}
+
+.z-founder__portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.z-founder__monogram {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--z-radius-full);
+  background: var(--z-brand-dark);
+  color: var(--z-accent-ink);
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-1);
+  line-height: 1;
+}
+
+.z-founder__name { font-size: var(--z-step-2); }
+
+.z-founder__role {
+  font-size: var(--z-step--1);
+  font-weight: 600;
+  color: var(--z-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.z-founder__creds {
+  display: grid;
+  gap: var(--z-space-2);
+  list-style: none;
+}
+
+.z-founder__creds li {
+  position: relative;
+  padding-left: var(--z-space-5);
+  color: var(--z-ink);
+}
+
+.z-founder__creds li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--z-warm);
+}
+
+@media (min-width: 48em) {
+  .z-founders__grid { grid-template-columns: repeat(2, 1fr); gap: var(--z-space-7); }
+}
+
+/* ─── Flavors ────────────────────────────────────────────────────────────── */
+
+.z-flavors__grid {
+  display: grid;
+  gap: var(--z-space-5);
+  margin-top: var(--z-space-6);
+  list-style: none;
+}
+
+.z-flavor__media { background: var(--z-surface-alt); }
+
+.z-flavor__media img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.z-flavor__body { padding: var(--z-space-5); display: grid; gap: var(--z-space-3); }
+
+.z-flavor__name { font-size: var(--z-step-2); }
+
+.z-flavor__pills { display: flex; flex-wrap: wrap; gap: var(--z-space-2); list-style: none; }
+
+@media (min-width: 40em) {
+  .z-flavors__grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── FAQ ────────────────────────────────────────────────────────────────── */
+
+.z-faq__list { margin-top: var(--z-space-5); }
+
+/* ─── Waitlist slot ──────────────────────────────────────────────────────── */
+
+.z-waitlist-slot {
+  background: var(--z-surface-alt);
+  border-block: 1px solid var(--z-border);
+}
+
+.z-waitlist-slot__inner {
+  display: grid;
+  gap: var(--z-space-5);
+  max-width: 34rem;
+}
+
+.z-waitlist-slot__title { font-size: var(--z-step-3); }
+
+/* The visual frame the conversion agent's form mounts into.
+   ⚠️ Deliberately a bare grid with only a gap: implicit rows, no
+   grid-template-rows, no :nth-child, no fixed heights. Step 2 renders a
+   VARIABLE number of fields — ZIP is hidden entirely for non-US visitors, and
+   the Art 9 motivation consent may or may not be shown — so any rule that
+   counts rows would break for some visitors and not others, which is the worst
+   kind of layout bug to catch. Verified with 8, 7 and 1 children: uniform 16px
+   gap, no overlap. Keep it that way. */
+.z-waitlist-mount {
+  display: grid;
+  gap: var(--z-space-4);
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────── */
+
+.z-footer {
+  background: var(--z-ink-surface);
+  color: var(--z-on-ink);
+  padding-block: var(--z-space-7);
+  /* Clear the sticky CTA so the last line is never hidden behind it. */
+  padding-bottom: calc(var(--z-space-8) + env(safe-area-inset-bottom, 0px));
+}
+
+.z-footer__inner { display: grid; gap: var(--z-space-4); }
+
+.z-footer__wordmark {
+  font-family: var(--z-font-display);
+  font-size: var(--z-step-2);
+  color: var(--z-warm);
+  line-height: 1;
+}
+
+.z-footer__meta { color: var(--z-on-ink-muted); font-size: var(--z-step--1); }
+
+.z-footer a { color: var(--z-on-ink); }
+
+@media (min-width: 48em) {
+  .z-footer { padding-bottom: var(--z-space-7); }
+}
+
+/* ─── Sticky mobile CTA ──────────────────────────────────────────────────── */
+
+.z-sticky-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-layer-sticky);
+
+  padding: var(--z-space-3) var(--z-gutter);
+  /* Sit above the iOS home indicator. */
+  padding-bottom: calc(var(--z-space-3) + env(safe-area-inset-bottom, 0px));
+
+  background: var(--z-surface);
+  border-top: 1px solid var(--z-border);
+  box-shadow: 0 -4px 16px rgb(82 65 40 / 0.10);
+
+  transform: translateY(110%);
+  transition: transform var(--z-dur) var(--z-ease);
+}
+
+.z-sticky-cta[data-visible='true'] { transform: none; }
+
+/* Desktop has the CTA in view constantly; the bar is phone-only. */
+@media (min-width: 48em) {
+  .z-sticky-cta { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .z-sticky-cta { transition: none; }
+}
+
+.z-sticky-cta__row {
+  display: flex;
+  align-items: center;
+  gap: var(--z-space-4);
+}
+
+.z-sticky-cta__text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--z-step--1);
+  color: var(--z-ink);
+  line-height: 1.3;
+}
+
+.z-sticky-cta__text strong { display: block; font-size: var(--z-step-0); }
+
+/* ─── Shared section furniture ───────────────────────────────────────────── */
+
+.z-section__eyebrow {
+  display: block;
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--z-brand-dark);
+  margin-bottom: var(--z-space-3);
+}
+
+.z-section__lede {
+  font-size: var(--z-step-1);
+  color: var(--z-ink);
+  margin-top: var(--z-space-4);
+}
+
+.z-fineprint {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}

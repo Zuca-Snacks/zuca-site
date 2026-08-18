@@ -1,6 +1,28 @@
 node_modules
 dist
 .DS_Store
+
+# Environment files.
+# Deny-all-then-allow, rather than listing variants: the previous list covered
+# .env, .env.local and .env.*.local but would have happily committed
+# .env.production, .env.backup or env.txt.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Hosting / tooling
+.vercel
+*.log
+npm-debug.log*
+
+# Anything a security or data export drops here
+*.csv
+*.tsv
+*.sqlite
+secrets/
+
+# NOTE: art-src/ is deliberately NOT ignored — the artwork masters belong in
+# version control. They are safe there because Vite only copies public/ into the
+# build, so nothing in art-src/ is ever deployed. Keeping them out of public/ is
+# what matters: referencing the raw 534KB backdrop PNG from public/ cost 4.9s of
+# LCP. Generate derivatives with `node scripts/gen-images.mjs` instead.

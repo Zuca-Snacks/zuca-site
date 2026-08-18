@@ -1,9 +1,16 @@
 // ─── Step 1 — one field ──────────────────────────────────────────────────────
 // Email, one consent checkbox, one button. Nothing else. The POST fires here,
 // before step 2 is ever shown, so an abandoned step 2 still leaves us the email.
+//
+// MERGE NOTE: the stand-in primitives this file used to import are gone. It now
+// renders on the UX agent's <Field>/<Input>/<Checkbox>/<Button>. All validation,
+// analytics, consent wording and error copy below is unchanged from growth.
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Button, Consent, Field, Input } from "./primitives.jsx";
+import Button from "../ui/Button.jsx";
+import Input from "../ui/Input.jsx";
+import Field from "../ui/Field.jsx";
+import Checkbox from "../ui/Checkbox.jsx";
 import { step1 as copy, hero } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist } from "./api.js";
 import { EVENTS, observeOnce, track, trackOnce } from "../../lib/analytics.js";
@@ -27,14 +34,13 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
   const [consentError, setConsentError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // The form is mounted twice (hero and footer). Every id must be unique per
-  // instance or the second form's labels resolve to the first form's inputs.
+  // The ids stay unique per instance. The form is mounted once today, but
+  // nothing here assumes that, and a duplicated id silently repoints the second
+  // form's labels at the first form's inputs.
   const uid = useId();
   const emailId = `zw-email-${uid}`;
-  const errorId = `zw-email-error-${uid}`;
   const hpId = `zw-website-${uid}`;
   const consentId = `zw-consent-marketing-${uid}`;
-  const consentErrorId = `zw-consent-error-${uid}`;
 
   const rootRef = useRef(null);
   const inputRef = useRef(null);
@@ -45,6 +51,26 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
     if (!rootRef.current) return undefined;
     return observeOnce(rootRef.current, EVENTS.HERO_CTA_VIEW, { location });
   }, [location]);
+
+  // The hero's email field is a presentational shell that POSTs nowhere — it
+  // dispatches what was typed and scrolls here. Pick the value up so the
+  // visitor never types their address twice. See HANDOFF-ux.md.
+  useEffect(() => {
+    function onHeroEmail(e) {
+      const value = e.detail?.email;
+      if (!value) return;
+      setEmail(value);
+      setError("");
+      // Focus lands on the consent box rather than the prefilled field: the
+      // address is already there, and ticking consent is the remaining step.
+      window.requestAnimationFrame(() => {
+        document.getElementById(consentId)?.focus();
+      });
+      prefetchStep2?.();
+    }
+    window.addEventListener("zuca:hero-email", onHeroEmail);
+    return () => window.removeEventListener("zuca:hero-email", onHeroEmail);
+  }, [consentId, prefetchStep2]);
 
   function handleFocus() {
     if (focusTracked.current) return;
@@ -121,30 +147,30 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
 
   return (
     <div className="zw-card" ref={rootRef}>
-      <form onSubmit={handleSubmit} noValidate>
-        <Field error={error} errorId={errorId}>
-          <Input
-            id={emailId}
-            ref={inputRef}
-            label={copy.label}
-            error={error}
-            errorId={errorId}
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            enterKeyHint="go"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck="false"
-            placeholder={copy.placeholder}
-            value={email}
-            disabled={busy}
-            onFocus={handleFocus}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (error) setError("");
-            }}
-          />
+      <form className="z-waitlist-mount" onSubmit={handleSubmit} noValidate>
+        <Field id={emailId} label={copy.label} error={error}>
+          {(props) => (
+            <Input
+              {...props}
+              ref={inputRef}
+              type="email"
+              name="email"
+              inputMode="email"
+              autoComplete="email"
+              enterKeyHint="go"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck="false"
+              placeholder={copy.placeholder}
+              value={email}
+              disabled={busy}
+              onFocus={handleFocus}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (error) setError("");
+              }}
+            />
+          )}
         </Field>
 
         {/* Honeypot — off-screen, not display:none, so a naive bot fills it. */}
@@ -161,23 +187,23 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
           />
         </div>
 
-        <Consent
+        {/* consentVersion is derived from a hash of the wording itself (see
+            consent.js), so it cannot drift from the text it certifies. */}
+        <Checkbox
           id={consentId}
+          consentVersion={consentCopy.version}
           checked={consent}
-          describedBy={consentError ? consentErrorId : undefined}
-          onChange={(next) => {
+          error={consentError}
+          label={consentCopy.text}
+          legal={<a href={consentCopy.privacyHref}>{consentCopy.privacyLabel}</a>}
+          onChange={(e) => {
+            const next = e.target.checked;
             setConsent(next);
             if (next) setConsentError("");
           }}
-        >
-          {consentCopy.text}{" "}
-          <a href={consentCopy.privacyHref}>{consentCopy.privacyLabel}</a>
-        </Consent>
-        <span className="zw-error" id={consentErrorId} role="alert" aria-live="assertive">
-          {consentError}
-        </span>
+        />
 
-        <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.ctaBusy}>
+        <Button type="submit" size="lg" block disabled={busy} loading={busy}>
           {copy.cta}
         </Button>
 

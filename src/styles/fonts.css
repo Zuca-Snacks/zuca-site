@@ -1,0 +1,71 @@
+/* ============================================================================
+   ZUCA — SELF-HOSTED TYPOGRAPHY
+
+   Both faces come from the brand source of truth, https://zucainvestor.netlify.app/
+     display  'Lazy Dog'  — was served there as an unsubsetted 100KB Lazydog.otf
+     body     'Outfit'    — was loaded there from the Google Fonts CDN
+
+   Both are self-hosted here instead: no CDN connection before LCP, no
+   third-party request from a visitor's browser, and Lazy Dog subset to latin
+   (100KB OTF -> 23KB woff2).
+
+   The *Fallback* faces are the zero-CLS trick: they re-map a system font so its
+   advance widths match the webfont's. Overrides were measured in Chromium
+   against these exact files and tuned for WIDTH parity (0.00% delta), because
+   line-breaking is what actually reflows a page when a font swaps in.
+   ========================================================================== */
+
+/* ---- Real faces ---------------------------------------------------------- */
+
+@font-face {
+  font-family: 'Outfit';
+  src: url('/fonts/outfit-latin-var.woff2') format('woff2-variations'),
+       url('/fonts/outfit-latin-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Lazy Dog ships a single weight. Declared 400-only so the browser is never
+   asked to faux-bold it (the investor site's font-weight:800 on this face was
+   synthetic). Emphasis comes from size, not weight. */
+@font-face {
+  font-family: 'Lazydog';
+  src: url('/fonts/lazydog-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+20AC, U+2122, U+2212, U+FEFF, U+FFFD;
+}
+
+/* ---- Metric-matched fallbacks (zero layout shift on swap) ---------------- */
+
+/* Outfit vs Arial: pangram width delta -1.62% -> 0.00% after size-adjust. */
+@font-face {
+  font-family: 'Outfit Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans');
+  size-adjust: 97.61%;
+  ascent-override: 102.45%;
+  descent-override: 26.64%;
+  line-gap-override: 0%;
+}
+
+/* Lazydog vs Arial Black: pangram width delta -2.27% -> 0.00% after size-adjust.
+   Arial Black is the closest system face by weight and width. */
+@font-face {
+  font-family: 'Lazydog Fallback';
+  src: local('Arial Black'), local('Impact'), local('Arial Bold');
+  size-adjust: 96.76%;
+  ascent-override: 87.85%;
+  descent-override: 20.67%;
+  line-gap-override: 0%;
+}
+
+/* Never let the browser fake a weight or a slant we did not ship. */
+body {
+  font-synthesis: none;
+}

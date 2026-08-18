@@ -1,0 +1,123 @@
+/* ============================================================================
+   ZUCA — DESIGN TOKENS
+   The single source of truth for color, type, space, radius, shadow, motion.
+   Never hardcode a hex value or a px font-size anywhere else in the codebase.
+
+   ─────────────────────────────────────────────────────────────────────────────
+   SOURCE OF TRUTH: https://zucainvestor.netlify.app/
+   Values below were read out of that page's :root block directly, not
+   eyedropped from a screenshot. Provenance is marked on every line:
+       [BRAND]    taken verbatim from the investor site
+       [INVENTED] no equivalent existed on the site; chosen here
+   The brief's token NAMES are all preserved; only the values changed.
+
+   ACCESSIBILITY NOTE
+   Ten real brand pairings fail WCAG AA. They have NOT been silently altered —
+   the brand values are used as-is and every failure is documented in
+   HANDOFF-ux.md with a suggested accessible variant awaiting Emil's approval.
+   Where a failing pair would have carried body text, the layer below reaches
+   for a different *real brand color* that passes (e.g. red-dark instead of red
+   on cream) rather than inventing a new one.
+   ========================================================================== */
+
+:root {
+  /* ---- Surfaces & ink ---------------------------------------------------- */
+  --z-bg: #fde0b4;          /* [BRAND] --cream — the real page ground */
+  --z-surface: #fffdf8;     /* [BRAND] --white — cards, inputs */
+  --z-surface-alt: #fff3e0; /* [BRAND] --cream-2 — banded sections */
+  --z-ink: #524128;         /* [BRAND] --brown — body text (7.69:1 on bg) */
+
+  /* [BRAND-DERIVED, APPROVED] The brand's --gray is #888888, which is 2.78:1 on
+     cream and fails AA at body size. Emil approved darkening it: a
+     barely-perceptible shift is worth more than matching #888888 exactly, since
+     muted text (hints, notes, fine print) appears everywhere on the page.
+     Same hue, same neutrality — just dark enough to read. */
+  --z-ink-muted: #666666;   /* 4.51:1 on bg · 5.65:1 on surface · 5.24:1 on alt */
+
+  --z-border: #e9c88c;        /* [INVENTED] decorative hairline on cream */
+  --z-border-strong: #8a7250; /* [INVENTED] control edges, needs 3:1 */
+
+  /* ---- Brand ------------------------------------------------------------- */
+  --z-brand: #cc1850;       /* [BRAND] --red — identity + CTA fill */
+  --z-brand-dark: #a3112d;  /* [BRAND] --red-dark — hover, and red text on cream */
+  --z-accent: #cc1850;      /* [BRAND] primary CTA is --red on the real site,
+                                so accent intentionally equals brand */
+  --z-accent-ink: #fffdf8;  /* [BRAND] --white on red = 5.42:1 */
+  --z-warm: #fdb026;        /* [BRAND] --amber — fills and dark-band text only */
+
+  /* ---- Status ------------------------------------------------------------ */
+  --z-success: #089b35;     /* [BRAND] --green-accent — fills / dark bands only */
+  --z-danger: #b3261e;      /* [INVENTED] no error color on the site; kept
+                                distinct from the pink-red brand so an error
+                                never reads as a CTA */
+  --z-focus: #cc1850;       /* [BRAND] --red, 4.33:1 on bg (needs 3:1) */
+
+  /* ---- Inverted band ----------------------------------------------------- */
+  --z-ink-surface: #1a3a1a; /* [BRAND] --green — the deep green band */
+  --z-on-ink: #fde0b4;      /* [BRAND] cream on green = 9.91:1 */
+  --z-on-ink-muted: #e9c88c;/* [INVENTED] dimmed cream, still AA on green */
+
+  /* ---- Type families -----------------------------------------------------
+     [BRAND] --font-display: 'Lazy Dog'  (served as Lazydog.otf, self-hosted
+             here as a latin woff2 subset). Ships in ONE weight only; the
+             investor site sets font-weight:800 on it, which the browser
+             faux-bolds. We use its true weight and let size carry emphasis.
+     [BRAND] --font-body: 'Outfit' (was a Google CDN link; self-hosted here). */
+  --z-font-display: 'Lazydog', 'Lazydog Fallback', 'Arial Black', sans-serif;
+  --z-font-body: 'Outfit', 'Outfit Fallback', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Arial, sans-serif;
+
+  /* ---- Fluid type scale --------------------------------------------------
+     [BRAND] The clamp() ramps are the investor site's own, converted px->rem.
+     Exception: --z-step-0 is raised to 16px minimum (site used 15px) because
+     the brief requires body >=16px and iOS zooms any focused input below it. */
+  --z-step--1: clamp(0.8125rem, 0.78rem + 0.16vw, 0.875rem);  /* 13 -> 14 */
+  --z-step-0:  clamp(1rem, 0.97rem + 0.15vw, 1.0625rem);      /* 16 -> 17 */
+  --z-step-1:  clamp(1.125rem, 0.95rem + 2.5vw, 1.625rem);    /* 18 -> 26 [BRAND] */
+  --z-step-2:  clamp(1.375rem, 1.1rem + 3vw, 2.125rem);       /* 22 -> 34 [BRAND] */
+  --z-step-3:  clamp(2rem, 1.2rem + 5vw, 3.625rem);           /* 32 -> 58 [BRAND] */
+  --z-step-4:  clamp(2.75rem, 2rem + 5vw, 4.5rem);            /* 44 -> 72 [BRAND] */
+
+  /* ---- Space scale (4px base) -------------------------------------------- */
+  --z-space-1: 0.25rem;  /*  4 */
+  --z-space-2: 0.5rem;   /*  8 */
+  --z-space-3: 0.75rem;  /* 12 */
+  --z-space-4: 1rem;     /* 16 */
+  --z-space-5: 1.5rem;   /* 24 */
+  --z-space-6: 2rem;     /* 32 */
+  --z-space-7: 3rem;     /* 48 */
+  --z-space-8: 4.5rem;   /* 72 */
+
+  --z-section-y: clamp(3rem, 2rem + 5vw, 6rem);
+  --z-gutter: clamp(1.25rem, 0.9rem + 1.6vw, 2.5rem);
+  --z-measure: 68ch;
+  --z-max: 1140px;       /* [BRAND] --max */
+
+  /* ---- Radius ------------------------------------------------------------ */
+  --z-radius-sm: 8px;    /* [INVENTED] half of the brand radius */
+  --z-radius-md: 16px;   /* [BRAND] --r */
+  --z-radius-full: 999px;/* [INVENTED] */
+
+  /* ---- Shadow ------------------------------------------------------------ */
+  /* [INVENTED] none on the site; tinted with the brand brown, not neutral grey,
+     so shadows sit correctly on cream. */
+  --z-shadow-sm: 0 1px 2px rgb(82 65 40 / 0.08), 0 2px 6px rgb(82 65 40 / 0.06);
+  --z-shadow-md: 0 4px 12px rgb(82 65 40 / 0.10), 0 12px 32px rgb(82 65 40 / 0.12);
+
+  /* ---- Motion ------------------------------------------------------------ */
+  --z-ease: cubic-bezier(0.16, 1, 0.3, 1); /* [INVENTED] */
+  --z-dur: 240ms;
+  --z-dur-fast: 140ms;
+
+  /* ---- Layering ---------------------------------------------------------- */
+  --z-layer-sticky: 40;
+  --z-layer-header: 50;
+  --z-layer-modal: 60;
+}
+
+/* No dark-mode block.
+   The brand is defined entirely as warm cream + berry red + amber; there is no
+   dark counterpart on the investor site to match, and inverting it would mean
+   inventing a second brand plus a second contrast audit. Not "genuinely free",
+   so per the brief it is deliberately skipped. The page declares
+   color-scheme: light so controls render correctly on dark-mode phones. */

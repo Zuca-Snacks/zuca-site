@@ -3,23 +3,30 @@
 //   POST /api/waitlist  →  200 {ok:true} · 400 validation · 409 duplicate
 //                          · 429 rate_limited · 500 server
 //
-// That endpoint is owned by the security agent and does not exist on this
-// branch yet. Until it ships, a 404 or a transport failure falls through to the
-// Google Apps Script webhook the live site already uses, with the same payload,
-// so no signup is lost in either direction. Delete FALLBACK_URL and the
-// postFallback() call once /api/waitlist is deployed — see HANDOFF-growth.md.
+// ── The Apps Script fallback is GONE (sec/hardening merge, 16 Aug) ───────────
+// This module used to hold the Google Apps Script /exec URL and fall back to it
+// with `mode: "no-cors"` whenever /api/waitlist answered 404. Both are removed,
+// and neither may come back:
+//
+//   1. The URL in the client bundle IS the vulnerability (SECURITY.md S3). Any
+//      copy of it published anywhere makes the write path public, unauthen-
+//      ticated and unmetered again. It is now a server-only env var, read by
+//      api/waitlist.js, and it must never appear in browser code.
+//   2. `no-cors` makes the response opaque, so a failed write is indistinguish-
+//      able from a successful one and every submission reports success —
+//      silent, unrecoverable loss of real signups (SECURITY.md S7). That is the
+//      single behaviour this merge exists to eliminate; do not reintroduce a
+//      "safety net" that restores it.
+//
+// A transport failure is now queued for replay (see enqueue/drainQueue) rather
+// than optimistically declared a success. The signup is still not lost — the
+// difference is that we now know it hasn't landed yet.
 
 import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
 import { OTHER_MAX } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
-
-// The webhook the live site posts to today. `no-cors` means the response is
-// opaque — we cannot read a status code from it, so a fallback write is
-// optimistically treated as accepted. That is the reason it is a fallback and
-// not the primary path.
-const FALLBACK_URL =
-  "https://script.google.com/macros/s/AKfycbzbC2iN4t6HdqvIj5SqYCuMv6iogDO03BskH4H1cNjGmUCL6rJDKchfYpdcNUqiTHFh/exec";
+const COUNT_ENDPOINT = "/api/count";
 
 const TIMEOUT_MS = 10000;
 const QUEUE_KEY = "zuca_waitlist_queue_v1";
@@ -65,13 +72,8 @@ export const RESULT = {
  * server drops `motivation` entirely without it, so it is always sent
  * explicitly — including as `false`, because "no" is a fact worth recording.
  */
-/**
- * The 16 keys the server's strict schema accepts today. Anything outside this
- * set is an EXTENSION: valid against the fallback webhook, and a 400 against
- * `waitlistSchema` until security widens it. `post()` uses this to downgrade
- * rather than lose a submission — see stripToCore().
- */
 export const CORE_KEYS = new Set([
+  "downgraded_fields",
   "email", "zip", "motivation", "intent", "price_band", "flavor", "is_clinician",
   "referral_source", "consent_marketing", "consent_health", "consent_text_version",
   "motivation_consent_text_version", "utm", "page_path", "hp_field", "form_render_ts",
@@ -183,16 +185,41 @@ export function buildPayload({
   };
 }
 
-/** The same record with every extension removed. Always schema-legal. */
-function stripToCore(payload) {
-  const core = {};
-  for (const [k, v] of Object.entries(payload)) if (CORE_KEYS.has(k)) core[k] = v;
-  return core;
+
+// ─── Downgrade ladder ────────────────────────────────────────────────────────
+// The server schema is `.strict()`: one unrecognised key rejects the WHOLE
+// submission. So a 400 is retried against progressively narrower key sets
+// rather than straight down to the contract minimum.
+//
+// Stripping to CORE on the first failure was too blunt — it threw away the
+// twelve extension fields the server already accepts because of one field it
+// did not. Each rung keeps everything the rung below would have discarded.
+//
+// SERVER_KNOWN tracks what `waitlistSchema` accepts today. Widen it as security
+// converges; when it reaches every key we send, rung 2 becomes a no-op and the
+// ladder costs nothing.
+export const SERVER_KNOWN_KEYS = new Set([
+  ...CORE_KEYS,
+  "downgraded_fields",
+  "quantity_band", "office_interest", "company", "headcount",
+  "motivation_other", "referral_source_other",
+  "phone", "consent_sms", "sms_consent_text_version",
+  "address_line1", "address_line2", "address_city", "address_region",
+  "address_postal_code", "address_country", "consent_postal",
+  "postal_consent_text_version",
+]);
+
+function stripTo(payload, allowed) {
+  const out = {};
+  for (const [k, v] of Object.entries(payload)) if (allowed.has(k)) out[k] = v;
+  return out;
 }
 
-/** True when the payload carries a non-null value the strict schema rejects. */
-function hasExtensions(payload) {
-  return Object.entries(payload).some(([k, v]) => !CORE_KEYS.has(k) && v !== null && v !== false);
+/** Keys carrying a real value that `allowed` would drop. */
+function droppedBy(payload, allowed) {
+  return Object.keys(payload).filter(
+    (k) => !allowed.has(k) && payload[k] !== null && payload[k] !== false
+  );
 }
 
 // ─── Offline queue ───────────────────────────────────────────────────────────
@@ -247,46 +274,37 @@ function statusToResult(status) {
   return RESULT.SERVER;
 }
 
-async function postFallback(payload) {
-  // Opaque response by design. Success here means "handed to the network".
-  await fetch(FALLBACK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    mode: "no-cors",
-    keepalive: true,
-  });
-  return { status: RESULT.OK, via: "fallback" };
-}
-
-async function post(payload, { downgraded = false } = {}) {
+async function post(payload, rung = 0) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const res = await fetch(ENDPOINT, {
       method: "POST",
+      // Required — the endpoint answers 415 without it.
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: controller.signal,
       keepalive: true,
     });
 
-    // The contract endpoint isn't deployed yet — a static host answers 404 (or
-    // 405, or serves index.html). Fall through rather than lose the signup.
-    if (res.status === 404 || res.status === 405 || res.status === 501) {
-      return await postFallback(payload);
-    }
-
-    // A 400 on a payload carrying extensions is the predictable case while the
-    // server schema is narrower than the form: it is `.strict()`, so ONE
-    // unrecognised key rejects the entire submission. Retry once with the
-    // extensions removed rather than lose every answer to a schema lag.
-    if (res.status === 400 && hasExtensions(payload)) {
-      track(EVENTS.PAYLOAD_DOWNGRADED, {
-        dropped: Object.keys(payload).filter((k) => !CORE_KEYS.has(k)).length,
-      });
-      return await post(stripToCore(payload), { downgraded: true });
+    // Every status is now read and acted on. A 404/405 here means our own
+    // endpoint is missing or misrouted, which is a deploy fault worth surfacing
+    // as an error — not something to paper over with a second write path.
+    // Climb down the ladder on a validation failure, one rung at a time.
+    if (res.status === 400 && rung < 2) {
+      const allowed = rung === 0 ? SERVER_KNOWN_KEYS : CORE_KEYS;
+      const dropped = droppedBy(payload, allowed);
+      if (dropped.length) {
+        track(EVENTS.PAYLOAD_DOWNGRADED, { rung: rung + 1, dropped: dropped.length });
+        // Name what we stripped. The server writes this alongside the record so
+        // a downgraded row LOOKS incomplete in the sheet rather than looking
+        // like someone who simply declined to answer — the two are impossible
+        // to tell apart afterwards without it, and only one of them is our bug.
+        const next = stripTo(payload, allowed);
+        next.downgraded_fields = [...new Set([...(payload.downgraded_fields || []), ...dropped])].slice(0, 64);
+        return await post(next, rung + 1);
+      }
     }
 
     const result = statusToResult(res.status);
@@ -297,14 +315,10 @@ async function post(payload, { downgraded = false } = {}) {
     } catch {
       /* 204, or a body we don't need */
     }
-    return { status: result, position, via: downgraded ? "api-core" : "api" };
+    return { status: result, position, via: rung === 0 ? "api" : `api-rung${rung}` };
   } catch {
-    // Network error, timeout, CORS rejection, or the route not existing at all.
-    try {
-      return await postFallback(payload);
-    } catch {
-      return { status: RESULT.NETWORK, via: "none" };
-    }
+    // Network error, timeout, or abort. Queued for replay by submitWaitlist.
+    return { status: RESULT.NETWORK, via: "none" };
   } finally {
     clearTimeout(timer);
   }
@@ -326,14 +340,17 @@ export async function submitWaitlist(payload) {
 }
 
 // ─── Live count ──────────────────────────────────────────────────────────────
-// Powers "you're #143" on the confirmation screen and the counter in the hero.
-// The contract's 200 response carries no position, so until it does we read the
-// list size from the same webhook the live counter already uses. Requested in
-// HANDOFF-growth.md.
+// Powers "you're #143" on the confirmation screen and the counter in the hero,
+// the proof strip and the sticky bar.
+//
+// Reads our own /api/count, not the Apps Script. The browser has no way to
+// reach the webhook any more, which is the point: the count route re-emits only
+// the `count` field, so a change upstream cannot start leaking rows through it.
 
 export async function fetchCount() {
   try {
-    const res = await fetch(FALLBACK_URL, { method: "GET" });
+    const res = await fetch(COUNT_ENDPOINT, { method: "GET" });
+    if (!res.ok) return null;
     const data = await res.json();
     return typeof data.count === "number" ? data.count : null;
   } catch {

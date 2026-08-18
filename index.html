@@ -3,16 +3,69 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZUCA: Physician-recommended fiber snacks</title>
-    <meta name="description" content="Physician-recommended snacks with 10g fiber. Created by a Michelin-trained chef and a Stanford physician.">
-    <meta property="og:title" content="ZUCA: Physician-recommended fiber snacks">
-    <meta property="og:description" content="Physician-recommended snacks with 10g fiber. Created by a Michelin-trained chef and a Stanford physician.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!--
+      Fonts are preloaded, not just @font-face'd, because both are used above
+      the fold (Lazydog for the wordmark, Outfit for the promise line and the
+      email field). crossorigin is required even for same-origin font preloads.
+    -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/lazydog-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/outfit-latin-var.woff2" crossorigin />
+
+    <!--
+      LCP preload. The hero <img>s are rendered by React, so they do not exist
+      in this document and the browser's preload scanner cannot discover them —
+      the requests would otherwise not start until the JS bundle had downloaded,
+      parsed and mounted.
+
+      BOTH hero products are preloaded, because the hero now shows two and they
+      are the same rendered size, so either can win the LCP measurement. The
+      chocolate one carries fetchpriority=high as the left-hand, first-painted
+      element; the maple one is preloaded without it so it does not compete.
+
+      ⚠️ These mirror the <picture> markup in Hero.jsx, including `sizes`. If the
+      hero art direction changes, change these in the same commit — a preload
+      pointing at an image the page no longer renders is worse than no preload:
+      it downloads a file nobody uses AND leaves the real LCP undiscoverable.
+      That is exactly what happened when the hero went from one photo to two.
+
+      type="image/avif" means non-AVIF browsers skip the preload rather than
+      fetching a format they cannot use.
+    -->
+    <link rel="preload" as="image" type="image/avif" fetchpriority="high"
+          imagesrcset="/images/flavor-chocolate-raspberry-360.avif 360w, /images/flavor-chocolate-raspberry-640.avif 640w"
+          imagesizes="(min-width: 48em) 22vw, 46vw" />
+    <link rel="preload" as="image" type="image/avif"
+          imagesrcset="/images/flavor-maple-pecan-360.avif 360w, /images/flavor-maple-pecan-640.avif 640w"
+          imagesizes="(min-width: 48em) 22vw, 46vw" />
+
+    <meta name="theme-color" content="#FDE0B4" />
+
+    <!--
+      Marks that JS is alive, before first paint. The section-entrance animation
+      hides its elements only under `.z-js`, so if this never runs (JS off, a
+      crawler, a script error) the page renders fully visible instead of blank.
+    -->
+    <script>document.documentElement.classList.add('z-js');</script>
+
+    <!--
+      COPY OWNERSHIP: the conversion agent owns final wording. The previous
+      title and description read "Physician-recommended fiber snacks", which the
+      brief's health-claim guardrails forbid ("physician-recommended" is on the
+      prohibited list). Replaced with the safe nutrient-content form. See
+      HANDOFF-ux.md.
+    -->
+    <title>Zuca — 10g of fiber in a bite you'll look forward to</title>
+    <meta name="description" content="Zuca turns upcycled apple pulp into snack bites with 10g of fiber and 150 calories per serving. Created by a Michelin-trained chef and a Stanford physician. Join the waitlist.">
+
+    <meta property="og:title" content="Zuca — 10g of fiber in a bite you'll look forward to">
+    <meta property="og:description" content="Snack bites made from upcycled apple pulp. 10g fiber, 4g protein, 150 calories.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://zucasnacks.com">
     <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="ZUCA: Physician-recommended fiber snacks">
-    <meta name="twitter:description" content="Physician-recommended snacks with 10g fiber. Created by a Michelin-trained chef and a Stanford physician.">
+    <meta name="twitter:title" content="Zuca — 10g of fiber in a bite you'll look forward to">
+    <meta name="twitter:description" content="Snack bites made from upcycled apple pulp. 10g fiber, 4g protein, 150 calories.">
   </head>
   <body>
     <div id="root"></div>
