@@ -566,29 +566,35 @@ moves a claim from vague-but-defensible to precise-and-wrong is worth catching a
 and adds it to the forbidden list, so my version should win the merge — worth a glance, because a
 brief that still asserts the claim is how it gets reinstated.
 
-## 1h → TWO COUPLED CHANGES — must land in the same pass · **Conversion, BLOCKING**
+## 1h → The two coupled changes · **CLOSED, both sides landed**
 
-Both are Emil's decisions and both break growth's current client if security merges alone.
-Verified against growth @ `3c4e844`: they still send the old shapes.
+`motivation_other` removal and the `dietary_other` 60-char cap were breaking changes that needed
+growth to move in the same pass. **Both are done** — verified at growth `4a3143a`:
+`motivation_other` is deleted from their payload, their fields definition and their ladder, and they
+added `DIETARY_OTHER_MAX = 60` with an `otherMaxFor(def)` helper rather than reusing the shared
+`OTHER_MAX`. The per-field helper is a better shape than the constant I asked for — a second field
+needing its own cap now costs one property instead of another special case.
 
-**1. `motivation_other` is removed from the schema entirely.** No free-text box beside the Art 9
-health question. A fixed list of eight motivations bounds what we can learn about somebody's health;
-an open box does not, and people write things in open boxes they would never pick from a list.
+## 2z-ter → Cross-verified: security `b88fa74` vs growth `4a3143a`
 
-Growth still emits it at [api.js:153](src/components/waitlist/api.js#L153), and it is in their
-`SERVER_KNOWN_KEYS`, so **the downgrade retry would carry it too and 400 a second time** — the valve
-does not save this one. Every signup where a user picks "other" on the motivation question fails.
+| Check | Result |
+|---|---|
+| Keys | 37 emitted / 38 accepted — **zero rejected** |
+| Enum sets | 10 / 10 match |
+| Downgrade ladder | 38 / 38 — no phantom, no would-strip |
+| `dietary_other` cap | 60 both sides |
+| Transport | no `script.google.com`, `downgraded_fields` on retry, reads `position` |
+| Consent ids | 6 / 6 resolve to verbatim text |
+| End-to-end | EEA four-consent **200** · US minimal + zip **200** · `motivation_other` **400** (correct, and now unreachable) |
+| Suites | 129 endpoint · 50 Apps Script |
 
-Remove the field, the `otherKey: "motivation_other"` on the MOTIVATION definition
-([fields.js:72](src/components/waitlist/fields.js#L72)), and the ladder entry.
-
-**2. `dietary_other` is capped at 60, was 120.** Still Art 9, so the same minimisation logic applies
-to how much can be typed: "sesame" and "low FODMAP" fit, a medical history should not. Growth caps
-at the shared `OTHER_MAX = 120`, so a 61–120 character answer now 400s. Needs its own constant
-rather than the shared one.
-
-Three `*_other` fields remain: `referral_source_other`, `channel_other` (both 120),
-`dietary_other` (60).
+**A note on the tooling, because it nearly produced a false report.** The first run of this check
+reported `dietary` as MISMATCHED. It was not — my extractor matched `export const DIETARY` as a
+prefix of `export const DIETARY_OTHER_MAX` and read the wrong block. That is the identical
+substring-versus-token bug I fixed in `consentRegime` when `2026-08-15.august.a` parsed as
+US-targeted. Verification code deserves the same scepticism as the code it verifies; a checker that
+is wrong in the *reassuring* direction is the dangerous kind, and this one happened to be wrong in
+the alarming direction only by luck.
 
 ## 2z-bis → Re-verified against growth @ a615c57 · **for the merge session**
 
