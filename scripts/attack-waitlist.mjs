@@ -765,7 +765,6 @@ await check('Error response never echoes submitted input', 'no email in body', a
     page_path: '/',
     hp_field: null,
     form_render_ts: Date.now() - 9000,
-    motivation_other: null,
     dietary: ['nut_allergy'],
     dietary_other: null,
     referral_source_other: 'Podcast',
@@ -867,7 +866,6 @@ await check('Error response never echoes submitted input', 'no email in body', a
 
   // *_other pairing across all four enums
   for (const [field, withParent, withoutParent] of [
-    ['motivation_other', { motivation: ['other'] }, { motivation: ['energy'] }],
     ['referral_source_other', { referral_source: 'other' }, { referral_source: 'doctor' }],
     ['dietary_other', { dietary: ['other'] }, { dietary: ['vegan'] }],
     ['channel_other', { channel: ['other'] }, { channel: ['grocery'] }],
@@ -878,6 +876,20 @@ await check('Error response never echoes submitted input', 'no email in body', a
       return { pass: a.status === 200 && b.status === 400, actual: `${a.status} / ${b.status}` };
     });
   }
+
+  await check('motivation_other is gone — no free text beside the Art 9 question', '400', async () => {
+    // Removed 2026-08-18. A fixed list bounds what we can learn about someone's
+    // health; an open box does not, and this is the one question where that
+    // matters most. An unknown key 400s, which is the loud outcome.
+    const r = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'anything' }));
+    return { pass: r.status === 400, actual: String(r.status) };
+  });
+
+  await check('dietary_other capped at 60, not 120', '<=60 ok, >60 400', async () => {
+    const ok = await post(growthPayload({ consent_health: true, dietary: ['other'], dietary_other: 'x'.repeat(60) }));
+    const no = await post(growthPayload({ consent_health: true, dietary: ['other'], dietary_other: 'x'.repeat(61) }));
+    return { pass: ok.status === 200 && no.status === 400, actual: `60->${ok.status}, 61->${no.status}` };
+  });
 
   await check('dietary is Art 9 — dropped without consent_health', 'dropped', async () => {
     const v = validateWaitlist(growthPayload({ consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: ['nut_allergy'] }));
