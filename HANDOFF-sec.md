@@ -566,6 +566,30 @@ moves a claim from vague-but-defensible to precise-and-wrong is worth catching a
 and adds it to the forbidden list, so my version should win the merge — worth a glance, because a
 brief that still asserts the claim is how it gets reinstated.
 
+## 1h → TWO COUPLED CHANGES — must land in the same pass · **Conversion, BLOCKING**
+
+Both are Emil's decisions and both break growth's current client if security merges alone.
+Verified against growth @ `3c4e844`: they still send the old shapes.
+
+**1. `motivation_other` is removed from the schema entirely.** No free-text box beside the Art 9
+health question. A fixed list of eight motivations bounds what we can learn about somebody's health;
+an open box does not, and people write things in open boxes they would never pick from a list.
+
+Growth still emits it at [api.js:153](src/components/waitlist/api.js#L153), and it is in their
+`SERVER_KNOWN_KEYS`, so **the downgrade retry would carry it too and 400 a second time** — the valve
+does not save this one. Every signup where a user picks "other" on the motivation question fails.
+
+Remove the field, the `otherKey: "motivation_other"` on the MOTIVATION definition
+([fields.js:72](src/components/waitlist/fields.js#L72)), and the ladder entry.
+
+**2. `dietary_other` is capped at 60, was 120.** Still Art 9, so the same minimisation logic applies
+to how much can be typed: "sesame" and "low FODMAP" fit, a medical history should not. Growth caps
+at the shared `OTHER_MAX = 120`, so a 61–120 character answer now 400s. Needs its own constant
+rather than the shared one.
+
+Three `*_other` fields remain: `referral_source_other`, `channel_other` (both 120),
+`dietary_other` (60).
+
 ## 2z-bis → Re-verified against growth @ a615c57 · **for the merge session**
 
 Measured after fixing my generator, against their current head, not a captured list.

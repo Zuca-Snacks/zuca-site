@@ -186,7 +186,6 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     consent_text_version: '2026-08-15.marketing.a',
     motivation_consent_text_version: '2026-08-15.health.a',
     referral_source_other: 'Podcast',
-    motivation_other: 'Doctor suggested it',
     quantity_band: '4_8',
     office_interest: 'maybe',
     company: 'Acme AS',
@@ -334,10 +333,9 @@ console.log('\n  Scenario B3 — consents withheld, gated data must not land\n')
     consent_sms: false,
     address_line1: 'Storgata 1',
     consent_postal: false,
-    motivation_other: 'gut trouble',
     consent_health: false,
   });
-  for (const f of ['sms_phone', 'address_line1', 'motivation_other']) {
+  for (const f of ['sms_phone', 'address_line1']) {
     check(`"${f}" not stored without its consent`, cellFor(sheet, f).value === '', JSON.stringify(cellFor(sheet, f).value));
   }
 }

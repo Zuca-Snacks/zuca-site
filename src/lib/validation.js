@@ -597,7 +597,10 @@ export const waitlistSchema = z
       .union([z.array(z.enum(DIETARY)).max(3, { message: 'too_many' }), z.null()])
       .optional()
       .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
-    dietary_other: safeString(120).nullish().transform((v) => v || null),
+    // 60, not 120. Still Art 9 health data, and the same minimisation logic
+    // that removed `motivation_other` applies to how much can be typed here:
+    // "sesame" and "low FODMAP" fit comfortably, a medical history does not.
+    dietary_other: safeString(60).nullish().transform((v) => v || null),
 
     // A preference about email we are already permitted to send, so it narrows
     // contact rather than widening it and needs no separate consent.
@@ -610,12 +613,17 @@ export const waitlistSchema = z
     company: safeString(80).nullish().transform((v) => v || null),
     headcount: optionalEnum(HEADCOUNTS),
 
-    // A free-text escape for every enum that offers "Other". Only two enums do
-    // — MOTIVATIONS and REFERRAL_SOURCES — and the pairing is enforced below in
-    // `superRefine`: text without the matching "other" selection is a client
-    // bug or a probe, and text that arrives when a real enum value was chosen
-    // would be silently unreadable data.
-    motivation_other: safeString(120).nullish().transform((v) => v || null),
+    // A free-text escape for the enums that offer "Other". Pairing is enforced
+    // below in `superRefine`: text without the matching "other" selection is a
+    // client bug or a probe, and text arriving when a real enum value was
+    // chosen would be silently unreadable data.
+    //
+    // NOTE what is absent: `motivation_other`. Removed 2026-08-18 — there is no
+    // free-text box beside the Art 9 health question. A dropdown of eight
+    // motivations bounds what we can learn about someone's health; an open box
+    // does not, and people write things in open boxes that they would never
+    // pick from a list. The cheapest special-category data to protect is the
+    // kind you gave nobody a way to type.
     referral_source_other: safeString(120).nullish().transform((v) => v || null),
 
     // SMS. Strict phone format — see phoneSchema for why this one does not
@@ -669,10 +677,9 @@ export const waitlistSchema = z
     // An "other" free-text box only means something next to an "other"
     // selection. Text without the selection is a client bug or a probe; the
     // selection is what makes the text interpretable at all. One rule per
-    // enum that offers "Other" — all four of them, so adding a fifth enum
+    // enum that offers "Other" — all three of them, so adding a fourth enum
     // without its pairing becomes the odd one out rather than the norm.
     const pairs = [
-      ['motivation_other', (x) => (x.motivation ?? []).includes('other')],
       ['referral_source_other', (x) => x.referral_source === 'other'],
       ['dietary_other', (x) => (x.dietary ?? []).includes('other')],
       ['channel_other', (x) => (x.channel ?? []).includes('other')],

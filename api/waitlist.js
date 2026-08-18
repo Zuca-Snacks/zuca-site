@@ -293,7 +293,6 @@ export default async function handler(req, res) {
     is_clinician: data.is_clinician,
     referral_source: data.referral_source,
     referral_source_other: data.referral_source_other,
-    motivation_other: data.consent_health ? data.motivation_other : null,
 
     quantity_band: data.quantity_band,
     channel: data.channel,

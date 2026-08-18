@@ -64,7 +64,6 @@ var COLUMNS = [
   'consent_marketing',
   'consent_health',
   'motivation',
-  'motivation_other',
 
   // ── Extension 2026-08-17 ───────────────────────────────────────────────
   'quantity_band',
@@ -413,10 +412,6 @@ function doPost(e) {
         ? [].concat(payload.motivation).join('|')
         : '',
       referral_source_other: payload.referral_source_other,
-      // Same consent gate as `motivation` itself: the free-text answer to a
-      // health question is health data, and re-checked here rather than trusted
-      // because this is the last gate before it lands somewhere a human opens.
-      motivation_other: payload.consent_health ? payload.motivation_other : '',
 
       quantity_band: payload.quantity_band,
       office_interest: payload.office_interest,
