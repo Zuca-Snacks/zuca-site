@@ -226,7 +226,7 @@ export default async function handler(req, res) {
   const consent = resolveConsentText(data.consent_text_version, 'marketing');
   const healthConsent = resolveConsentText(data.motivation_consent_text_version, 'health');
   const smsConsent = resolveConsentText(data.sms_consent_text_version, 'sms');
-  const postalConsent = resolveConsentText(data.postal_consent_text_version, 'postal');
+  const mailConsent = resolveConsentText(data.mail_consent_text_version, 'mail');
   const ipPrefix = ip.includes(':')
     ? ip.split(':').slice(0, 3).join(':')
     : ip.split('.').slice(0, 3).join('.') + '.0';
@@ -239,7 +239,7 @@ export default async function handler(req, res) {
     marketingVersion: data.consent_text_version,
     healthVersion: data.consent_health ? data.motivation_consent_text_version : null,
     smsVersion: data.consent_sms ? data.sms_consent_text_version : null,
-    postalVersion: data.consent_postal ? data.postal_consent_text_version : null,
+    postalVersion: data.consent_mail ? data.mail_consent_text_version : null,
   });
 
   if (reconciliation.needs_reconsent) {
@@ -270,8 +270,8 @@ export default async function handler(req, res) {
   if (data.consent_sms && !smsConsent.registry_match) {
     audit('consent.sms_text_version_unresolved', { handle, version: smsConsent.version });
   }
-  if (data.consent_postal && !postalConsent.registry_match) {
-    audit('consent.postal_text_version_unresolved', { handle, version: postalConsent.version });
+  if (data.consent_mail && !mailConsent.registry_match) {
+    audit('consent.mail_text_version_unresolved', { handle, version: mailConsent.version });
   }
 
   // 11. Build the record. Bot signals and the honeypot are dropped here — they
@@ -296,9 +296,16 @@ export default async function handler(req, res) {
     motivation_other: data.consent_health ? data.motivation_other : null,
 
     quantity_band: data.quantity_band,
+    channel: data.channel,
+    channel_other: data.channel_other,
+    // Art 9 health data, same gate as `motivation` — the health consent wording
+    // names dietary needs explicitly, so one opt-in lawfully covers both.
+    dietary: data.consent_health ? data.dietary : null,
+    dietary_other: data.consent_health ? data.dietary_other : null,
+    research_optin: data.research_optin,
     office_interest: data.office_interest,
-    company: data.company,
-    headcount: data.headcount,
+    company_name: data.company_name,
+    company_headcount: data.company_headcount,
 
     // Phone and postal address are each stored ONLY behind their own opt-in,
     // the same rule already applied to `motivation`. Someone typing an address
@@ -312,14 +319,14 @@ export default async function handler(req, res) {
     consent_sms: data.consent_sms,
     sms_consent_text_version: data.consent_sms ? smsConsent.version : null,
 
-    address_line1: data.consent_postal ? data.address_line1 : null,
-    address_line2: data.consent_postal ? data.address_line2 : null,
-    address_city: data.consent_postal ? data.address_city : null,
-    address_region: data.consent_postal ? data.address_region : null,
-    address_postal_code: data.consent_postal ? data.address_postal_code : null,
-    address_country: data.consent_postal ? data.address_country : null,
-    consent_postal: data.consent_postal,
-    postal_consent_text_version: data.consent_postal ? postalConsent.version : null,
+    address_line1: data.consent_mail ? data.address_line1 : null,
+    address_line2: data.consent_mail ? data.address_line2 : null,
+    address_city: data.consent_mail ? data.address_city : null,
+    address_region: data.consent_mail ? data.address_region : null,
+    address_postal: data.consent_mail ? data.address_postal : null,
+    address_country: data.consent_mail ? data.address_country : null,
+    consent_mail: data.consent_mail,
+    mail_consent_text_version: data.consent_mail ? mailConsent.version : null,
     consent_marketing: data.consent_marketing,
     utm: data.utm,
     page_path: data.page_path,
@@ -357,7 +364,7 @@ export default async function handler(req, res) {
           ['marketing', data.consent_marketing, consent],
           ['health', data.consent_health, healthConsent],
           ['sms', data.consent_sms, smsConsent],
-          ['postal', data.consent_postal, postalConsent],
+          ['mail', data.consent_mail, mailConsent],
         ].map(([name, granted, resolved]) => [
           name,
           {
@@ -376,6 +383,22 @@ export default async function handler(req, res) {
       user_agent: userAgent,
       method: 'web_form',
     }),
+
+    // A downgraded submission is one the client had to strip to get past a
+    // stricter server. Recording WHICH fields it dropped is the whole point:
+    // without it an incomplete row is indistinguishable from a row where the
+    // person simply skipped step 2, and "looks normal but isn't" is the failure
+    // mode this entire endpoint has been built against.
+    // Confirmed opt-in. Every row is written unconfirmed and STAYS in the
+    // sheet whether or not the link is ever clicked — nobody leaves the
+    // dataset. `confirmed` gates the send list, not the record: the 10–30% who
+    // never click are demand signal, not deletions.
+    email_handle: handle,
+    confirmed: false,
+    confirmed_at: null,
+
+    downgraded_fields: data.downgraded_fields ? data.downgraded_fields.join(' ') : null,
+    is_downgraded: Boolean(data.downgraded_fields),
 
     // Promoted out of the receipt into their own columns so the set is
     // filterable in the sheet. A flag buried in a JSON string is a flag nobody
@@ -442,6 +465,13 @@ export default async function handler(req, res) {
     return send(res, 500, { ok: false, error: 'server' });
   }
 
+  if (data.downgraded_fields) {
+    // Loud on purpose. Once the schemas agree this should never fire in normal
+    // operation, and scripts/attack-waitlist.mjs asserts exactly that — this is
+    // an emergency valve with an alarm on it, not a routine code path.
+    audit('reject.downgraded_payload', { handle, dropped: data.downgraded_fields });
+  }
+
   audit('accepted', {
     handle,
     country,
@@ -449,12 +479,19 @@ export default async function handler(req, res) {
       data.consent_marketing && 'marketing',
       data.consent_health && 'health',
       data.consent_sms && 'sms',
-      data.consent_postal && 'postal',
+      data.consent_mail && 'mail',
     ].filter(Boolean),
   });
   // `count` is additive: the contract's 200 shape is `{"ok":true}` and any
   // client ignoring the extra key behaves exactly as before.
-  return send(res, 200, newCount === null ? { ok: true } : { ok: true, count: newCount });
+  // `position` is growth's name and the better one for a UI that renders
+  // "you're #143"; `count` is kept so nothing already reading it breaks. Same
+  // number, two keys, no second request either way.
+  return send(
+    res,
+    200,
+    newCount === null ? { ok: true } : { ok: true, count: newCount, position: newCount }
+  );
 }
 
 /**

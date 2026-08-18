@@ -69,8 +69,13 @@ var COLUMNS = [
   // ── Extension 2026-08-17 ───────────────────────────────────────────────
   'quantity_band',
   'office_interest',
-  'company',
-  'headcount',
+  'company_name',
+  'company_headcount',
+  'channel',
+  'channel_other',
+  'dietary',
+  'dietary_other',
+  'research_optin',
   // NOT 'phone'. The existing sheet already has a `phone` column holding 137
   // legacy numbers captured by the old modal with no consent of any kind.
   // Writing consent-gated numbers into that same column would make the two
@@ -84,10 +89,23 @@ var COLUMNS = [
   'address_line2',
   'address_city',
   'address_region',
-  'address_postal_code',
+  'address_postal',
   'address_country',
-  'consent_postal',
-  'postal_consent_text_version',
+  'consent_mail',
+  'mail_consent_text_version',
+
+  // Downgrade visibility: a record written without its extensions must LOOK
+  // incomplete, not normal. See api/waitlist.js.
+  'is_downgraded',
+  'downgraded_fields',
+
+  // Confirmed opt-in. A row is written with confirmed=FALSE and stays that way
+  // until the link is clicked. It is never deleted for being unconfirmed —
+  // filter the SEND LIST on confirmed=TRUE, and keep the whole sheet as the
+  // demand record.
+  'email_handle',
+  'confirmed',
+  'confirmed_at',
 
   'utm_source',
   'utm_medium',
@@ -151,7 +169,7 @@ var LEGACY_KEYS = ['name', 'phone', 'hearAbout'];
  * full receipt occupies, and still far below Sheets' 50k cell limit.
  */
 var CELL_MAX_DEFAULT = 500;
-var CELL_MAX = { consent_receipt: 4000, user_agent: 250 };
+var CELL_MAX = { consent_receipt: 4000, user_agent: 250, downgraded_fields: 1000 };
 
 /**
  * Columns Sheets would otherwise mangle. A leading "+" makes sanitizeCell_ add
@@ -160,7 +178,7 @@ var CELL_MAX = { consent_receipt: 4000, user_agent: 250 };
  * a number, or a postal code losing its leading zero, is data loss that looks
  * like data.
  */
-var FORCE_TEXT = ['phone', 'sms_phone', 'address_postal_code', 'zip'];
+var FORCE_TEXT = ['phone', 'sms_phone', 'address_postal', 'zip'];
 
 /**
  * Neutralize spreadsheet formula injection and cell-breaking characters.
@@ -279,6 +297,51 @@ function doGet() {
   }
 }
 
+/**
+ * Mark one row confirmed. Idempotent: confirming twice is a no-op, so a
+ * double-clicked link or a mail client that prefetches URLs cannot corrupt the
+ * timestamp of an already-confirmed row.
+ */
+function confirmRow_(handle, confirmedAt) {
+  if (!/^[0-9a-f]{12}$/.test(handle)) return json_({ ok: false, error: 'validation' });
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return json_({ ok: false, error: 'server' });
+  }
+
+  try {
+    var sheet = getSheet_();
+    var index = ensureColumns_(sheet);
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2 || !index.email_handle) return json_({ ok: false, error: 'not_found' });
+
+    var handles = sheet.getRange(2, index.email_handle, lastRow - 1, 1).getValues();
+    for (var i = handles.length - 1; i >= 0; i--) {
+      if (String(handles[i][0]).trim() !== handle) continue;
+
+      var row = i + 2;
+      if (index.confirmed) {
+        if (String(sheet.getRange(row, index.confirmed).getValue()).toUpperCase() === 'TRUE') {
+          return json_({ ok: true, already: true });
+        }
+        sheet.getRange(row, index.confirmed).setValue('TRUE');
+      }
+      if (index.confirmed_at) {
+        sheet.getRange(row, index.confirmed_at).setNumberFormat('@').setValue(confirmedAt);
+      }
+      return json_({ ok: true });
+    }
+    return json_({ ok: false, error: 'not_found' });
+  } catch (err) {
+    return json_({ ok: false, error: 'server' });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ─── Write path ──────────────────────────────────────────────────────────────
 
 function doPost(e) {
@@ -302,6 +365,13 @@ function doPost(e) {
   // read from the body. It travels over TLS to Google and is never logged.
   if (!secureEquals_(String(payload.token || ''), token)) {
     return json_({ ok: false, error: 'forbidden' });
+  }
+
+  // ── action: confirm ───────────────────────────────────────────────────────
+  // Flips an existing row to confirmed. Looks the row up by `email_handle`, a
+  // keyed hash, so the confirmation path never needs the address itself.
+  if (payload.action === 'confirm') {
+    return confirmRow_(String(payload.email_handle || ''), String(payload.confirmed_at || ''));
   }
 
   // The Vercel function has already validated against the full contract. This
@@ -350,21 +420,32 @@ function doPost(e) {
 
       quantity_band: payload.quantity_band,
       office_interest: payload.office_interest,
-      company: payload.company,
-      headcount: payload.headcount,
+      company_name: payload.company_name,
+      company_headcount: payload.company_headcount,
+      channel: [].concat(payload.channel || []).join('|'),
+      channel_other: payload.channel_other,
+      // Art 9, same gate as motivation — the health consent wording names both.
+      dietary: payload.consent_health && payload.dietary ? [].concat(payload.dietary).join('|') : '',
+      dietary_other: payload.consent_health ? payload.dietary_other : '',
+      research_optin: payload.research_optin,
 
       sms_phone: payload.consent_sms ? payload.phone : '',
       consent_sms: payload.consent_sms,
       sms_consent_text_version: payload.sms_consent_text_version,
 
-      address_line1: payload.consent_postal ? payload.address_line1 : '',
-      address_line2: payload.consent_postal ? payload.address_line2 : '',
-      address_city: payload.consent_postal ? payload.address_city : '',
-      address_region: payload.consent_postal ? payload.address_region : '',
-      address_postal_code: payload.consent_postal ? payload.address_postal_code : '',
-      address_country: payload.consent_postal ? payload.address_country : '',
-      consent_postal: payload.consent_postal,
-      postal_consent_text_version: payload.postal_consent_text_version,
+      address_line1: payload.consent_mail ? payload.address_line1 : '',
+      address_line2: payload.consent_mail ? payload.address_line2 : '',
+      address_city: payload.consent_mail ? payload.address_city : '',
+      address_region: payload.consent_mail ? payload.address_region : '',
+      address_postal: payload.consent_mail ? payload.address_postal : '',
+      address_country: payload.consent_mail ? payload.address_country : '',
+      consent_mail: payload.consent_mail,
+      mail_consent_text_version: payload.mail_consent_text_version,
+      email_handle: payload.email_handle,
+      confirmed: payload.confirmed,
+      confirmed_at: payload.confirmed_at,
+      is_downgraded: payload.is_downgraded,
+      downgraded_fields: payload.downgraded_fields,
 
       utm_source: utm.source,
       utm_medium: utm.medium,

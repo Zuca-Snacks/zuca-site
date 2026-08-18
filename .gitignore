@@ -20,3 +20,6 @@ npm-debug.log*
 *.tsv
 *.sqlite
 secrets/
+
+# Generated from src/content/copy.js at build time.
+src/lib/consent-registry.generated.js

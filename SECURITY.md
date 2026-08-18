@@ -454,6 +454,7 @@ retention policy, and an unjustified period is the same finding as no period at 
 
 | Data | Period | Justification |
 |---|---|---|
+| Unconfirmed record (never clicked the confirmation link) | **12 months** | Kept as demand signal rather than deleted on day one — but an unconfirmed row is still personal data with a clock running, and "interesting" is not a retention basis. Past that, the aggregate count survives; the person does not |
 | Waitlist record | **24 months** from last interaction, or on request | A food product runs pre-order to shelf over one to two years. Past that, consent is stale and the record serves nobody |
 | `motivation` (Art 9 health data) | **12 months**, or on withdrawal of that specific consent | Deliberately shorter than everything else: most sensitive, least necessary |
 | Consent record | Lifetime of the waitlist record **+ 12 months** | It is the evidence the processing was lawful, so it has to outlive what it justifies |
@@ -816,45 +817,57 @@ different claims.
 
 Ranked by urgency. **Items 1–3 must be settled before a single email is sent.**
 
-0. **Do not send the EEA half of the campaign until §5 is resolved.** This is the one item on the
+> **Reordered 2026-08-18.** Items 1 and 2 were previously buried at 6 and 9. They moved because
+> §4.1 changed what a leak costs: the sheet now holds **home postal addresses, phone numbers and
+> health statements** for ~137 mostly-Norwegian people, not an email list. That is the shape of data
+> that supports stalking and targeted fraud, and a breach of it would very likely require notifying
+> **every affected individual** under GDPR Art 34 — not just Datatilsynet. Both items are under an
+> hour of console work and they are the two that decide whether an incident is embarrassing or
+> reportable.
+
+1. **Rotate the Apps Script deployment. ⚠️ TOP PRIORITY.** The current URL is public, write-capable,
+   and sitting in a public GitHub repo. Every hour it stays live is an hour in which anyone who
+   reads the repo can append to — and, via formula injection, exfiltrate — a sheet that now contains
+   home addresses. In Apps Script: Deploy → Manage deployments → **archive the existing deployment**
+   (this is the step that actually kills the old URL) → paste the hardened `Code.gs` → create a
+   *new* deployment → set `SHEETS_WEBHOOK_URL` and `SHEETS_WEBHOOK_TOKEN` in Vercel. I have not
+   touched your credentials. **Ordering matters: do this only after the new client ships** — see
+   HANDOFF-sec.md §3b, because the old modal cannot read a rejection and would fail silently.
+
+2. **Lock down sheet sharing, and audit the existing rows. ⚠️ TOP PRIORITY.** Share settings must be
+   "Restricted", named individuals only, with **no** "anyone with the link" entry — every person on
+   that list can read every home address. While you are there, audit for formula-injection payloads
+   before opening the sheet on a machine you care about: File → Download → CSV, then inspect in a
+   plain text editor for cells starting `=`, `+`, `-` or `@`. Not Excel either.
+
+3. **Do not send the EEA half of the campaign until §5 is resolved.** This is the one item on the
    list that is irreversible: DNS records can be edited, credentials can be rotated, an email to 127
    Norwegians cannot be recalled. The US half (Vituity, 6,000+ physicians) is unaffected and can
    proceed on schedule.
-1. **Send §5 of this document to Cooley** — specifically §5.4, the question of what may lawfully be
+4. **Send §5 of this document to Cooley** — specifically §5.4, the question of what may lawfully be
    done with the existing ~127 records. That is a legal judgement call, not an engineering one, and
    I have given you the analysis rather than an answer. Ask them two things: *(a)* is a single email
    confined to the original pre-order purpose defensible, and *(b)* what does the re-permission
    route look like if not.
-2. **Segment the list by country before anything is sent.** The `+47` prefixes, postal codes, `.no`
+5. **Segment the list by country before anything is sent.** The `+47` prefixes, postal codes, `.no`
    email TLDs and signup origin will get you most of the way. Two lists, two rulebooks. Also
    reconcile the count discrepancy while you are in there — the live counter reads 136 and you said
    127.
-3. **Appoint a GDPR Art 27 EEA representative.** A non-EEA controller offering goods to people in
+6. **Appoint a GDPR Art 27 EEA representative.** A non-EEA controller offering goods to people in
    the EEA must designate one *in writing* in a member state where those people are. The Art 27(2)
    exemption for occasional processing does not apply to us because we process special category
    data. Commercial services cost roughly €200–500/year; several are Norway-based. Their name and
    address then go into `public/privacy.html` — there is a marked placeholder waiting for them.
-4. **Publish DMARC.** No record exists today. Add a TXT record at `_dmarc.zucasnacks.com`:
+7. **Publish DMARC.** No record exists today. Add a TXT record at `_dmarc.zucasnacks.com`:
    `v=DMARC1; p=none; rua=mailto:dmarc@zucasnacks.com; fo=1` — start at `p=none` to collect reports
    without risking legitimate mail, then move to `p=quarantine` after ~2 weeks of clean reports, and
    `p=reject` after a month. Do this *before* the campaign, not after.
-5. **Enable DKIM in Google Workspace.** `google._domainkey.zucasnacks.com` is empty, which means
+8. **Enable DKIM in Google Workspace.** `google._domainkey.zucasnacks.com` is empty, which means
    Workspace DKIM was never switched on. Admin console → Apps → Google Workspace → Gmail →
    Authenticate email → Generate new record → publish the TXT → Start authentication. Without DKIM,
    DMARC cannot pass on forwarded mail.
-6. **Rotate the Apps Script deployment.** The current URL is public and write-capable. In Apps
-   Script: Deploy → Manage deployments → **archive the existing deployment** (this is what actually
-   kills the old URL) → paste the hardened `Code.gs` → create a *new* deployment → put the new URL
-   in Vercel as `SHEETS_WEBHOOK_URL` and the secret as `SHEETS_WEBHOOK_TOKEN`. I have not touched
-   your credentials, per the engagement rules.
-7. **Audit the existing rows for formula-injection payloads** before opening the sheet on a
-   machine you care about. Safest method: File → Download → CSV, then inspect the CSV in a plain
-   text editor for cells starting with `=`, `+`, `-`, or `@`. Do not open it in Excel either.
-8. **Create `privacy@zucasnacks.com`** — the privacy policy names it as the rights address and it
+9. **Create `privacy@zucasnacks.com`** — the privacy policy names it as the rights address and it
    must actually receive mail.
-9. **Decide and record who has access to the sheet.** Check Share settings: it should be
-   "Restricted", named individuals only, with **no** "anyone with the link" entry. Every person on
-   that list can read every pre-order.
 10. **Provision Upstash in an EU region** (`eu-west-1` / `eu-central-1`). Google and Vercel are
     both certified under the EU–US Data Privacy Framework so transfers to them are covered; Upstash
     is not on that list. Choosing an EU region removes the question rather than needing a safeguard
@@ -902,6 +915,11 @@ Three further reasons, any one of which would be disqualifying on its own:
 **A dedicated email service, sending from a subdomain, with the auto-response as a confirmed
 opt-in.** Three separable decisions:
 
+> **DECIDED 2026-08-18: Resend, on `mail.zucasnacks.com`.** Speed and cost win for transactional.
+> The campaign ESP is a separate later decision and goes on `news.` as proposed. Confirmed opt-in is
+> in — implemented as `/api/confirm`, and note the shape below: it gates the **send list**, never the
+> dataset. DNS ordering accepted as written in §10.5.
+
 **(a) Which provider.** I would pick **Resend** or **Postmark**.
 
 | | Resend | Postmark | AWS SES | Apps Script |
@@ -936,10 +954,18 @@ demonstrably controls this mailbox and acted twice"*. Given §5.4 — where the 
 have no demonstrable consent at all — this is the difference between building the same problem again
 and not.
 
-**Tradeoff, stated honestly: 10–30% never click, so your list shrinks.** That is a real cost and you
-should decide it deliberately. My view is it is worth paying: a smaller list you can lawfully email
-beats a larger one you cannot, and unconfirmed addresses are disproportionately typos and spamtraps
-that damage deliverability anyway.
+**Tradeoff, stated honestly: 10–30% never click.** As built, that costs you *send list*, not
+*dataset* — every unconfirmed row stays in the sheet with `confirmed=FALSE` and a timestamp, so the
+non-clickers remain visible as demand signal rather than being deleted. Filter the send on
+`confirmed=TRUE`; keep the sheet whole.
+
+One GDPR note on that, because it is the one place the design has a cost: an unconfirmed row is
+still personal data with a retention clock running. Its lawful basis is the ticked box at the form,
+which is sound — confirmation is extra *evidence*, not the basis itself — but it cannot be kept
+forever on the grounds of being interesting. **Unconfirmed rows are set to a 12-month retention**
+against 24 for confirmed ones, in §6. If what you actually want past that point is the demand signal
+rather than the people, an aggregate count survives deletion indefinitely and carries no obligations
+at all.
 
 ### 10.3 How it interacts with the DNS work already on your list
 

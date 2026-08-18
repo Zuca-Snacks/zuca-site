@@ -62,14 +62,17 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
 `POST /api/waitlist` · `Content-Type: application/json`
 
-> **Amended 2026-08-17 by the Security agent** (supersedes the 2026-08-16 amendment). Still frozen —
+> **Amended 2026-08-18 by the Security agent** (supersedes the 2026-08-16 amendment). Still frozen —
 > code against exactly this. **Additive only: no existing field changed shape or meaning, and every
 > new sheet column is appended, so the 137 rows already collected keep theirs.**
 >
-> 2026-08-16 wrote down `consent_health` and the consent-evidence fields, which were load-bearing and
-> undocumented. 2026-08-17 adds the quantity band, the office-snack path, phone with SMS consent,
-> postal address with its own opt-in, and a `*_other` free-text field for each enum offering
-> "Other".
+>
+> **Field names and enum values are the Conversion agent's, verified against their shipped
+> `api.js`/`fields.js` rather than against any description.** Where the two disagreed, security moved:
+> their names were already live in a four-screen UI, and a contract nobody can implement is not a
+> contract. Renamed here from an earlier draft: `company` → `company_name`, `headcount` →
+> `company_headcount`, `consent_postal` → `consent_mail`, `address_postal_code` → `address_postal`,
+> `postal_consent_text_version` → `mail_consent_text_version`.
 
 ### Client sends
 
@@ -80,7 +83,7 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
   "consent_health":   "boolean, default false — REQUIRED to store `motivation`, see below",
   "consent_sms":      "boolean, default false — REQUIRED to store `phone`",
-  "consent_postal":   "boolean, default false — REQUIRED to store the address block",
+  "consent_mail":     "boolean, default false — REQUIRED to store the address block",
 
   "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
   "motivation":       "array<enum>|null, max 3, one of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
@@ -91,16 +94,30 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "referral_source":  "enum|null: doctor, friend, instagram, tiktok, event, search, email, other",
 
   // ── Added 2026-08-17 ──────────────────────────────────────────────────────
-  "quantity_band":    "enum|null: qty_1 | qty_2_3 | qty_4_6 | qty_7_12 | qty_12_plus   // 12-packs per month",
+  "quantity_band":    "enum|null: lt_4 | 4_8 | 9_16 | 17_30 | gt_30   // 12-packs per MONTH — forecasts reorder rate, not basket size",
 
   // Office-snack path
-  "office_interest":  "boolean|null",
-  "company":          "string|null, <=120 chars",
-  "headcount":        "enum|null: hc_1_10 | hc_11_50 | hc_51_200 | hc_201_1000 | hc_gt_1000",
+  // TRI-STATE, not a boolean. "Maybe" is the most common honest answer to
+  // "would you want these at work?" and is real signal for an office pilot.
+  "office_interest":   "enum|null: yes | maybe | no",
+  "company_name":      "string|null, <=80 chars",
+  "company_headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
+
+  "channel":       "array<enum>|null, max 2: online_dtc | grocery | gym_studio | office | clinic | other",
+  "channel_other": "string|null, <=120 chars   // requires channel to include 'other'",
+
+  // Art 9 HEALTH DATA — an allergy is a health fact. Gated on consent_health,
+  // whose wording names dietary needs explicitly. Dropped without it.
+  "dietary":       "array<enum>|null, max 3: none | nut_allergy | gluten_free | dairy_free | vegan | low_sugar | other",
+  "dietary_other": "string|null, <=120 chars   // requires dietary to include 'other'",
+
+  // A preference about email we may already send, so it narrows contact rather
+  // than widening it and needs no separate consent.
+  "research_optin": "boolean|null",
 
   // Free-text escape for every enum offering "Other". Only two do.
   // Sending one WITHOUT the matching "other" selection is a 400.
-  "motivation_other":       "string|null, <=200 chars   // requires motivation to include 'other'",
+  "motivation_other":       "string|null, <=120 chars   // requires motivation to include 'other'",
   "referral_source_other":  "string|null, <=120 chars   // requires referral_source === 'other'",
 
   // SMS. STRICT E.164 — unlike `zip`, this does not fail soft.
@@ -113,9 +130,13 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "address_line2":       "string|null, <=120 chars",
   "address_city":        "string|null, <=80 chars",
   "address_region":      "string|null, <=80 chars",
-  "address_postal_code": "string|null, <=16 chars, international format",
+  "address_postal":      "string|null, <=16 chars, international format",
   "address_country":     "string|null, ISO 3166-1 alpha-2, user-supplied — NOT the server's `country`",
-  "postal_consent_text_version": "string|null, <=64 chars, [A-Za-z0-9._-] only",
+  "mail_consent_text_version": "string|null, <=64 chars, [A-Za-z0-9._-] only",
+
+  // Set ONLY on a downgrade retry, naming the fields the client had to strip.
+  // See "The downgrade path" below.
+  "downgraded_fields": "array<string>|null, max 64"
   "utm":              "object|null: {source,medium,campaign,content,term} each <=64 chars",
   "page_path":        "string|null, <=200 chars",
 
@@ -203,20 +224,23 @@ identifier, and its own block in the consent receipt. Each one gates a field:
 | Consent | Flag | Version field | Gates |
 |---|---|---|---|
 | Marketing | `consent_marketing` **(required true)** | `consent_text_version` | the signup itself |
-| Health | `consent_health` | `motivation_consent_text_version` | `motivation`, `motivation_other` |
+| Health | `consent_health` | `motivation_consent_text_version` | `motivation`, `motivation_other`, `dietary`, `dietary_other` |
 | SMS | `consent_sms` | `sms_consent_text_version` | `phone` |
-| Postal | `consent_postal` | `postal_consent_text_version` | the six `address_*` fields |
+| Post | `consent_mail` | `mail_consent_text_version` | the six `address_*` fields |
 
 **A gated field supplied without its consent is discarded, not stored.** Same rule `motivation` has
 always had: typing something into a form is not the same as agreeing we may keep it.
 
 **A consent claimed without the thing it gates is a `400`.** `consent_sms` with no phone, or
-`consent_postal` with no address, records an opt-in that can never be acted on and cannot be
+`consent_mail` with no address, records an opt-in that can never be acted on and cannot be
 evidenced against anything.
 
-Register every new wording in `CONSENT_TEXTS` (`src/lib/validation.js`) — id → verbatim text. Add a
-new entry rather than editing an old one; editing retroactively rewrites what past signups are
-recorded as having agreed to.
+**Consent wordings are no longer hand-registered.** The Conversion agent derives each version id by
+fingerprinting the wording itself (`<purpose>-<region>-<authored>-<fnv1a>`), so editing a word mints
+a new id automatically and an id can never go stale. `npm run build:consent` reads
+`src/content/copy.js`, recomputes the same ids, and generates the registry the server uses to embed
+verbatim text in each consent receipt. It runs as part of `npm run build`, so a copy change cannot
+ship with a stale registry. Edit the wording in `copy.js` and nothing else.
 
 ### `phone` is strict — it does not fail soft like `zip`
 
@@ -232,10 +256,33 @@ discarding it while recording an SMS consent against nothing is worse than sayin
 | Field | Format | Purpose | On bad input |
 |---|---|---|---|
 | `zip` | US only, `/^[0-9]{5}$/` | shipping-region signal | **dropped**, signup succeeds |
-| `address_postal_code` | international | part of a real mailing address | `400` |
+| `address_postal` | international | part of a real mailing address | `400` |
 
 Do not merge them and do not widen `zip`. One is a coarse analytics hint that must never cost a
 signup; the other is part of an address someone expects post to arrive at.
+
+### The downgrade path — an emergency valve, with an alarm
+
+The client retries with extensions stripped if the server 400s a payload carrying them. That stops a
+schema lag losing signups, and it stays. But it converts a loud failure into a silent one, so two
+rules make it visible:
+
+1. **A downgraded retry MUST send `downgraded_fields`** naming what it stripped. The row is written
+   with `is_downgraded=TRUE` and the field list, so an incomplete record looks incomplete in the
+   sheet instead of looking like someone who skipped step 2.
+2. **The valve must stay shut.** `npm run security:test` builds the Conversion agent's exact payload
+   and asserts the server takes it whole. If either side renames a field or changes an enum, that
+   test fails immediately rather than the drift being absorbed and surfacing months later as empty
+   columns.
+
+### Confirmed opt-in — gates the send list, never the dataset
+
+Every signup is written with `confirmed=FALSE` and stays in the sheet whether or not the
+confirmation link is ever clicked. **Nobody is deleted for not confirming.** Filter the *send list*
+on `confirmed=TRUE`; keep the whole sheet as the demand record, so the 10–30% who never click remain
+visible as signal.
+
+`confirmed`, `confirmed_at` and `email_handle` are server-set and rejected from a client.
 
 ### Audience token vocabulary for consent version ids
 

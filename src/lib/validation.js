@@ -11,6 +11,7 @@
  */
 
 import { z } from 'zod';
+import { GENERATED_CONSENT_TEXTS } from './consent-registry.generated.js';
 
 // ─── Limits ──────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ import { z } from 'zod';
  * which is the precise thing this exists to prevent. Old entries stay forever
  * so historical records remain resolvable.
  */
-export const CONSENT_TEXTS = {
+const BUILTIN_CONSENT_TEXTS = {
   '2026-08-15.marketing.a': {
     purpose: 'marketing',
     regime: 'global',
@@ -51,19 +52,32 @@ export const CONSENT_TEXTS = {
     regime: 'global',
     text: 'Text me about my order and when pre-orders open. Message rates may apply. Reply STOP to opt out.',
   },
-  '2026-08-17.postal.a': {
-    purpose: 'postal',
+  '2026-08-17.mail.a': {
+    purpose: 'mail',
     regime: 'global',
     text: 'Post me samples and product news at the address above.',
   },
 };
+
+/**
+ * The live registry: wordings resolved from the Conversion agent's copy.js at
+ * build time, plus the built-in fallbacks above.
+ *
+ * Generated entries win. They are derived from the actual source of the text a
+ * user saw, so where the two disagree the generated one is the true record and
+ * the built-in is a stale guess.
+ *
+ * Regenerate with `npm run build:consent` — it runs as part of `npm run build`,
+ * so a copy change cannot ship with a stale registry.
+ */
+export const CONSENT_TEXTS = { ...BUILTIN_CONSENT_TEXTS, ...GENERATED_CONSENT_TEXTS };
 
 /** The four consent purposes, and the field each one gates. */
 export const CONSENT_PURPOSES = {
   marketing: { flag: 'consent_marketing', version: 'consent_text_version', gates: null },
   health: { flag: 'consent_health', version: 'motivation_consent_text_version', gates: 'motivation' },
   sms: { flag: 'consent_sms', version: 'sms_consent_text_version', gates: 'phone' },
-  postal: { flag: 'consent_postal', version: 'postal_consent_text_version', gates: 'address' },
+  mail: { flag: 'consent_mail', version: 'mail_consent_text_version', gates: 'address' },
 };
 
 /**
@@ -412,15 +426,31 @@ export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_brow
 export const PRICE_BANDS = ['lt_24', '24_29', '30_35', '36_42', 'gt_42'];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
 /**
- * How many 12-packs per month. Proposed values — the Conversion agent owns the
- * labels shown to a user and may rename these before merge; tell me and I will
- * change the enum. Do not add a free-text escape: these bands are exhaustive.
+ * Monthly consumption, not units per order. Values are the Conversion agent's,
+ * matching the question actually asked on the form — it forecasts reorder rate,
+ * which is the number that matters, rather than basket size. Exhaustive by
+ * design: no free-text escape.
  */
-export const QUANTITY_BANDS = ['qty_1', 'qty_2_3', 'qty_4_6', 'qty_7_12', 'qty_12_plus'];
+export const QUANTITY_BANDS = ['lt_4', '4_8', '9_16', '17_30', 'gt_30'];
 
 /** Company size, for the office-snack path. Bands, not a number — a headcount
  *  typed as free text is unusable for segmentation and more identifying. */
-export const HEADCOUNTS = ['hc_1_10', 'hc_11_50', 'hc_51_200', 'hc_201_1000', 'hc_gt_1000'];
+export const COMPANY_HEADCOUNTS = ['lt_10', '10_49', '50_199', '200_999', 'gt_1000'];
+
+/** Tri-state, not a boolean. "Maybe" is the most common honest answer to
+ *  "would you want these at work?", and collapsing it into no loses the
+ *  entire middle of the office-pilot funnel. */
+export const OFFICE_INTERESTS = ['yes', 'maybe', 'no'];
+
+/**
+ * Dietary needs. THIS IS ART 9 HEALTH DATA — a nut allergy is a health fact
+ * exactly as a health motivation is — so it is gated on `consent_health`, the
+ * same explicit opt-in, whose wording names both.
+ */
+export const DIETARY = ['none', 'nut_allergy', 'gluten_free', 'dairy_free', 'vegan', 'low_sugar', 'other'];
+
+/** Where they would expect to buy. Not health data, not gated. */
+export const CHANNELS = ['online_dtc', 'grocery', 'gym_studio', 'office', 'clinic', 'other'];
 
 export const REFERRAL_SOURCES = [
   'doctor', 'friend', 'instagram', 'tiktok', 'event', 'search', 'email', 'other',
@@ -555,20 +585,37 @@ export const waitlistSchema = z
     // the sheet keep their meaning, and every new column is appended.
 
     quantity_band: optionalEnum(QUANTITY_BANDS),
+    channel: z
+      .union([z.array(z.enum(CHANNELS)).max(2, { message: 'too_many' }), z.null()])
+      .optional()
+      .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
+    channel_other: safeString(120).nullish().transform((v) => v || null),
 
-    // Office-snack path. `company` is free text and therefore goes through the
-    // same normalise → reject-control-chars → length-cap path as every other
-    // free-text field, and is formula-sanitised before it reaches a cell.
-    office_interest: z.boolean().nullish().transform((v) => (v === undefined ? null : v)),
-    company: safeString(120).nullish().transform((v) => v || null),
-    headcount: optionalEnum(HEADCOUNTS),
+    // Art 9 health data — allergies and dietary restrictions are health facts.
+    // Gated on `consent_health`, whose wording names dietary needs explicitly.
+    dietary: z
+      .union([z.array(z.enum(DIETARY)).max(3, { message: 'too_many' }), z.null()])
+      .optional()
+      .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
+    dietary_other: safeString(120).nullish().transform((v) => v || null),
+
+    // A preference about email we are already permitted to send, so it narrows
+    // contact rather than widening it and needs no separate consent.
+    research_optin: z.boolean().nullish().transform((v) => (v === undefined ? null : v)),
+
+    // Office-snack path. Free text goes through the same normalise →
+    // reject-control-chars → length-cap path as every other free-text field,
+    // and is formula-sanitised before it reaches a cell.
+    office_interest: optionalEnum(OFFICE_INTERESTS),
+    company_name: safeString(80).nullish().transform((v) => v || null),
+    company_headcount: optionalEnum(COMPANY_HEADCOUNTS),
 
     // A free-text escape for every enum that offers "Other". Only two enums do
     // — MOTIVATIONS and REFERRAL_SOURCES — and the pairing is enforced below in
     // `superRefine`: text without the matching "other" selection is a client
     // bug or a probe, and text that arrives when a real enum value was chosen
     // would be silently unreadable data.
-    motivation_other: safeString(200).nullish().transform((v) => v || null),
+    motivation_other: safeString(120).nullish().transform((v) => v || null),
     referral_source_other: safeString(120).nullish().transform((v) => v || null),
 
     // SMS. Strict phone format — see phoneSchema for why this one does not
@@ -583,7 +630,7 @@ export const waitlistSchema = z
     address_line2: safeString(120).nullish().transform((v) => v || null),
     address_city: safeString(80).nullish().transform((v) => v || null),
     address_region: safeString(80).nullish().transform((v) => v || null),
-    address_postal_code: z
+    address_postal: z
       .union([postalCodeSchema, z.literal(''), z.null()])
       .optional()
       .transform((v) => v || null),
@@ -591,8 +638,17 @@ export const waitlistSchema = z
       .union([addressCountrySchema, z.literal(''), z.null()])
       .optional()
       .transform((v) => v || null),
-    consent_postal: z.boolean().optional().default(false),
-    postal_consent_text_version: consentVersionField(),
+    consent_mail: z.boolean().optional().default(false),
+    mail_consent_text_version: consentVersionField(),
+
+    // Set by the client ONLY on a downgrade retry, naming the fields it had to
+    // strip to get past a stricter server. See the handling in api/waitlist.js:
+    // a record written without its extensions must look incomplete in the
+    // sheet, not normal.
+    downgraded_fields: z
+      .union([z.array(safeString(64)).max(64, { message: 'too_many' }), z.null()])
+      .optional()
+      .transform((v) => (v == null || v.length === 0 ? null : v)),
 
     intent: optionalEnum(INTENTS),
     price_band: optionalEnum(PRICE_BANDS),
@@ -611,13 +667,20 @@ export const waitlistSchema = z
   .strict() // Reject unknown keys outright.
   .superRefine((d, ctx) => {
     // An "other" free-text box only means something next to an "other"
-    // selection. Text without the selection is a client bug or a probe; a
-    // selection is what makes the text interpretable at all.
-    if (d.motivation_other && !(d.motivation ?? []).includes('other')) {
-      ctx.addIssue({ code: 'custom', path: ['motivation_other'], message: 'other_not_selected' });
-    }
-    if (d.referral_source_other && d.referral_source !== 'other') {
-      ctx.addIssue({ code: 'custom', path: ['referral_source_other'], message: 'other_not_selected' });
+    // selection. Text without the selection is a client bug or a probe; the
+    // selection is what makes the text interpretable at all. One rule per
+    // enum that offers "Other" — all four of them, so adding a fifth enum
+    // without its pairing becomes the odd one out rather than the norm.
+    const pairs = [
+      ['motivation_other', (x) => (x.motivation ?? []).includes('other')],
+      ['referral_source_other', (x) => x.referral_source === 'other'],
+      ['dietary_other', (x) => (x.dietary ?? []).includes('other')],
+      ['channel_other', (x) => (x.channel ?? []).includes('other')],
+    ];
+    for (const [field, parentSelectedOther] of pairs) {
+      if (d[field] && !parentSelectedOther(d)) {
+        ctx.addIssue({ code: 'custom', path: [field], message: 'other_not_selected' });
+      }
     }
 
     // A consent is a claim about something. Claiming SMS consent with no phone,
@@ -626,8 +689,8 @@ export const waitlistSchema = z
     if (d.consent_sms && !d.phone) {
       ctx.addIssue({ code: 'custom', path: ['consent_sms'], message: 'sms_consent_without_phone' });
     }
-    if (d.consent_postal && !(d.address_line1 && d.address_city && d.address_country)) {
-      ctx.addIssue({ code: 'custom', path: ['consent_postal'], message: 'postal_consent_without_address' });
+    if (d.consent_mail && !(d.address_line1 && d.address_city && d.address_country)) {
+      ctx.addIssue({ code: 'custom', path: ['consent_mail'], message: 'mail_consent_without_address' });
     }
   });
 

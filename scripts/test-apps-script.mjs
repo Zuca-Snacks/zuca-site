@@ -54,6 +54,9 @@ function makeSheet(headerRow, dataRows = []) {
           });
           return this;
         },
+        getValue() {
+          return grid[row - 1]?.[col - 1] ?? '';
+        },
         setValue(v) {
           const r = row - 1;
           while (grid.length <= r) grid.push([]);
@@ -184,23 +187,26 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     motivation_consent_text_version: '2026-08-15.health.a',
     referral_source_other: 'Podcast',
     motivation_other: 'Doctor suggested it',
-    quantity_band: 'qty_2_3',
-    office_interest: true,
-    company: 'Acme AS',
-    headcount: 'hc_11_50',
+    quantity_band: '4_8',
+    office_interest: 'maybe',
+    company_name: 'Acme AS',
+    company_headcount: '10_49',
     phone: '+4791234567',
     consent_sms: true,
     sms_consent_text_version: '2026-08-17.sms.a',
     address_line1: 'Storgata 1',
     address_city: 'Oslo',
-    address_postal_code: '0150',
+    address_postal: '0150',
     address_country: 'NO',
-    consent_postal: true,
-    postal_consent_text_version: '2026-08-17.postal.a',
+    consent_mail: true,
+    mail_consent_text_version: '2026-08-17.mail.a',
     consent_timestamp: '2026-08-15T12:00:00.000Z',
     country: 'NO',
     needs_reconsent: false,
     consent_regime_status: 'ok',
+    email_handle: 'ab12cd34ef56',
+    confirmed: false,
+    confirmed_at: null,
     reconsent_reason: null,
     consent_receipt: JSON.stringify({
       schema: 'zuca.consent.v2',
@@ -239,9 +245,9 @@ console.log('  (the target path: new client via /api/waitlist)\n');
     ['utm_source', 'newsletter'],
     ['zip', "'94305"], // force-text: a US zip like 01234 must keep its leading zero
     ['flavor', 'both'],
-    ['quantity_band', 'qty_2_3'],
-    ['company', 'Acme AS'],
-    ['headcount', 'hc_11_50'],
+    ['quantity_band', '4_8'],
+    ['company_name', 'Acme AS'],
+    ['company_headcount', '10_49'],
     ['referral_source_other', 'Podcast'],
     ['address_city', 'Oslo'],
     ['address_country', 'NO'],
@@ -299,10 +305,10 @@ console.log('\n  Scenario B2 — the extension fields\n');
     phone: '+4791234567',
     consent_sms: true,
     address_line1: 'Storgata 1',
-    address_postal_code: '0150',
+    address_postal: '0150',
     address_country: 'NO',
-    consent_postal: true,
-    company: 'Acme AS',
+    consent_mail: true,
+    company_name: 'Acme AS',
   });
 
   check('write returns the post-append count', Number.isFinite(response?.count), `count = ${response?.count}`);
@@ -312,11 +318,11 @@ console.log('\n  Scenario B2 — the extension fields\n');
     JSON.stringify(cellFor(sheet, 'sms_phone').value)
   );
   check(
-    'address_postal_code forced to text so 0150 keeps its leading zero',
-    String(cellFor(sheet, 'address_postal_code').value) === "'0150",
-    JSON.stringify(cellFor(sheet, 'address_postal_code').value)
+    'address_postal forced to text so 0150 keeps its leading zero',
+    String(cellFor(sheet, 'address_postal').value) === "'0150",
+    JSON.stringify(cellFor(sheet, 'address_postal').value)
   );
-  check('company stored', cellFor(sheet, 'company').value === 'Acme AS', JSON.stringify(cellFor(sheet, 'company').value));
+  check('company_name stored', cellFor(sheet, 'company_name').value === 'Acme AS', JSON.stringify(cellFor(sheet, 'company_name').value));
 }
 
 console.log('\n  Scenario B3 — consents withheld, gated data must not land\n');
@@ -327,13 +333,48 @@ console.log('\n  Scenario B3 — consents withheld, gated data must not land\n')
     phone: '+4791234567',
     consent_sms: false,
     address_line1: 'Storgata 1',
-    consent_postal: false,
+    consent_mail: false,
     motivation_other: 'gut trouble',
     consent_health: false,
   });
   for (const f of ['sms_phone', 'address_line1', 'motivation_other']) {
     check(`"${f}" not stored without its consent`, cellFor(sheet, f).value === '', JSON.stringify(cellFor(sheet, f).value));
   }
+}
+
+console.log('\n  Scenario B4 — confirmed opt-in: rows persist unconfirmed\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'ola@example.no', email_handle: 'ab12cd34ef56', confirmed: false, confirmed_at: null });
+
+  check('row written with confirmed=FALSE', cellFor(sheet, 'confirmed').value === 'FALSE', JSON.stringify(cellFor(sheet, 'confirmed').value));
+  check('email_handle stored for lookup', cellFor(sheet, 'email_handle').value === 'ab12cd34ef56', JSON.stringify(cellFor(sheet, 'email_handle').value));
+
+  const { response: c1 } = post(sheet, { action: 'confirm', email_handle: 'ab12cd34ef56', confirmed_at: '2026-08-18T10:00:00.000Z' });
+  check('confirm flips the row', c1?.ok === true && cellFor(sheet, 'confirmed').value === 'TRUE', `${JSON.stringify(c1)} cell=${cellFor(sheet, 'confirmed').value}`);
+  check('confirmed_at recorded', String(cellFor(sheet, 'confirmed_at').value).startsWith('2026-08-18'), JSON.stringify(cellFor(sheet, 'confirmed_at').value));
+
+  const { response: c2 } = post(sheet, { action: 'confirm', email_handle: 'ab12cd34ef56', confirmed_at: '2026-09-01T10:00:00.000Z' });
+  check('confirming twice is idempotent', c2?.already === true && String(cellFor(sheet, 'confirmed_at').value).startsWith('2026-08-18'), JSON.stringify(c2));
+
+  const { response: c3 } = post(sheet, { action: 'confirm', email_handle: 'ffffffffffff', confirmed_at: '2026-08-18T10:00:00.000Z' });
+  check('unknown handle -> not_found, nothing mutated', c3?.error === 'not_found', JSON.stringify(c3));
+
+  const { response: c4 } = post(sheet, { action: 'confirm', email_handle: '../../etc', confirmed_at: 'x' });
+  check('malformed handle rejected', c4?.error === 'validation', JSON.stringify(c4));
+
+  const rowsAfter = sheet._grid.length - 1;
+  check('the unconfirmed row was never deleted', rowsAfter >= 1, `${rowsAfter} data rows retained`);
+}
+
+console.log('\n  Scenario B5 — downgrade visibility\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'ola@example.no', is_downgraded: true, downgraded_fields: 'dietary channel research_optin' });
+  check('is_downgraded flagged on the row', cellFor(sheet, 'is_downgraded').value === 'TRUE', JSON.stringify(cellFor(sheet, 'is_downgraded').value));
+  check('dropped field names recorded, so the row looks incomplete',
+    String(cellFor(sheet, 'downgraded_fields').value).includes('dietary'),
+    JSON.stringify(cellFor(sheet, 'downgraded_fields').value));
 }
 
 console.log('\n  Scenario C — health data without the separate consent\n');

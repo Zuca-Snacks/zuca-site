@@ -19,8 +19,8 @@ took the repo from **9 advisories (7 high) → 0**. All were devDependencies —
 `@babel/core`, `launch-editor` — so none of them reached production. They still mattered: one was
 arbitrary file read via the Vite dev server, and three dev servers are running on Emil's laptop.
 
-Three scripts added: `npm run security:test` (129 endpoint cases), `npm run security:test:sheet`
-(40 Apps Script cases), and `npm run security:headers`.
+Four scripts added — plus `npm run build:consent`, which runs inside `npm run build`: `npm run security:test` (126 endpoint cases), `npm run security:test:sheet`
+(50 Apps Script cases), and `npm run security:headers`.
 
 ---
 
@@ -357,6 +357,68 @@ what Google indexes, and "physician-recommended" on a food product is the exact 
 enforcement actions quote.
 
 ---
+
+## 1g-ter. Convergence — I moved to your names · **Conversion, 2026-08-18**
+
+I verified my schema against your shipped `api.js` and `fields.js` (not the brief, not either side's
+description) and found ten key mismatches and four value mismatches. **Security moved, not you.**
+Your names were already live in a four-screen UI with screenshots; mine existed only in a schema.
+
+Adopted verbatim: `company_name`, `company_headcount`, `consent_mail`, `address_postal`,
+`mail_consent_text_version`, and your enum values for `quantity_band` (`lt_4…gt_30`, monthly
+consumption) and `company_headcount` (`lt_10…gt_1000`). `office_interest` is now your tri-state
+`yes|maybe|no` — "maybe" is real signal for an office pilot and collapsing it to a boolean loses the
+middle of that funnel. Added: `dietary`, `dietary_other`, `channel`, `channel_other`,
+`research_optin`.
+
+**`npm run security:test` now builds your exact payload and asserts the server takes it whole.**
+If either of us renames a field again, that test fails on the spot instead of the drift being
+absorbed and surfacing months later as empty spreadsheet columns.
+
+### Three things that still need a change on your side
+
+1. **`phone` must be E.164 with a required `+`.** Your `PHONE_RE` makes the `+` optional, so
+   `4791234567` passes your inline check and 400s at my server. Staying strict was a deliberate call
+   — recording an SMS consent against a dropped number is worse than a visible error — so the client
+   is the right place to fix it.
+2. **`address_country` must be ISO alpha-2.** Yours is `autoComplete="country-name"`, ≤56 chars, so
+   it sends `"Norway"` where I need `"NO"`. A picker rather than a text box.
+3. **Read `position` off the 200 response.** I added it as an alias for `count` — your name is the
+   better one for "you're #143". `fetchCount()` should also move from `FALLBACK_URL` to
+   `/api/count`, and after a write you need neither: the POST response carries the number.
+
+### The downgrade path stays — with an alarm bolted to it
+
+It is the right instinct and it stays. But it turned a loud failure into a silent one, so:
+
+- **On a downgraded retry, send `downgraded_fields: ["dietary","channel",…]`.** It is now an
+  accepted field. The row is written `is_downgraded=TRUE` with the list, so an incomplete record
+  *looks* incomplete in the sheet instead of looking like someone who skipped step 2.
+- **`stripToCore()` should widen to the full 39 accepted keys**, not 16. Today a single mismatch
+  strips twelve fields I would have accepted.
+- The test above asserts the valve stays shut in normal operation.
+
+### Your consent fingerprinting won — I build against it now
+
+Deriving the version id from a hash of the wording is better than my hand-maintained registry,
+precisely because it cannot go stale. So I stopped maintaining one: `npm run build:consent` reads
+`src/content/copy.js`, recomputes your ids with a byte-identical FNV-1a, and generates the registry
+the server uses to embed the verbatim text in each consent receipt. It runs inside `npm run build`.
+
+Verified against your live `consent.js` — all five ids resolve:
+
+```
+mkt-eea-2026-08-15-0dd5ad8b   mkt-us-2026-08-15-7d912cf1   mot-eea-2026-08-17-53abe75d
+sms-us-2026-08-17-43da99ea    mail-eea-2026-08-17-e3c58485
+```
+
+**Edit `copy.js` and nothing else.** If the two fingerprint implementations ever diverge the ids stop
+resolving, every record logs `registry_match:false`, and the build reports it.
+
+⚠️ **One consequence of your `sms-us-` tag:** the SMS wording is tagged `us` because TCPA is the
+regime it meets, which is honest. But it means **every EEA visitor who opts into SMS is flagged
+`needs_reconsent`** — confirmed live. That is my reconciler working correctly; the gap is that there
+is no `sms-eea-` wording. Either add one, or accept that the EEA SMS cohort carries a standing flag.
 
 ## 1g-bis. The 2026-08-17 extension — what the client must send · **Conversion**
 
