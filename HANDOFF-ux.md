@@ -134,6 +134,37 @@ and the sticky bar, all unchanged.
 - **`$25/ton` is absent**, as required. It was already cut on merge.
 - **No price figures**, no pre-order language, no new allergen assertions.
 
+## R3.7 ⚠️ THE HERO ROW MODEL — read before touching the poster grid
+
+**Content rows are `min-content`. Only GAP rows are fractions.** Run
+`npm run audit:hero` after any change to the poster grid.
+
+Every poster row used to be `minmax(0, Nfr)` — a fixed fraction of the
+*viewport*, with no relationship to what it held. An element taller than its
+share does not expand its row; it silently overflows and paints on top of
+whatever is beneath. An audit on 17–18 Aug found **four of five rows
+overflowing**:
+
+| row | overflow | visible? |
+|---|---|---|
+| wordmark | +3px | no — landed in a gap |
+| artwork | +101px (desktop) | no — landed in gaps |
+| JOIN THE WAITLIST | +7–9px | **yes — drew over the email field** |
+| lower stack | +45px (desktop) | no |
+
+Three were harmless only by luck. That is the danger: the fault was present in
+four places and announced itself in one, on short viewports, on a real phone —
+never in the 844-high simulator everything was being checked at.
+
+`npm run audit:hero` (needs `npm run preview`) checks nine viewports from
+360×844 down to 390×640 and out to 1280×900, for three things: no in-flow grid
+child exceeds its own track, no two hero elements share screen space, and the
+CTA stays above the fold. It has been verified to FAIL when a content row is
+given a fraction again — a guard that cannot fail is not a guard.
+
+⚠️ If spacing needs changing, change a **gap**. Do not give a content row a
+fraction to make it fit.
+
 ## R3.0 STANDING RULES (Emil, 16 Aug) — do not re-ask
 
 **Contrast.** Never alter a brand colour to pass AA. Route around it, as with

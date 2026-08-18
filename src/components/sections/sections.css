@@ -490,11 +490,13 @@
   gap: var(--z-space-3);
 }
 
-/* ── Treatment A · PLATE ──────────────────────────────────────────────────
-   The waitlist block sits on the same device the artwork uses for its flavour
-   name plates — a hand-drawn plate, not a rectangle — so the destination is
-   built out of the poster's own vocabulary rather than bolted on. */
-.z-hero[data-waitlist='plate'] .z-hero__capture-group {
+/* ── THE PLATE ────────────────────────────────────────────────────────────
+   Chosen 18 Aug. The waitlist block sits on the same device the artwork uses
+   for its flavour name plates — a hand-drawn plate, not a rectangle — so the
+   destination is built out of the poster's own vocabulary rather than bolted
+   on. The rejected alternative (marker rule + arrow, no card) is deleted, not
+   parked behind a data attribute. */
+.z-hero__capture-group {
   width: min(20rem, calc(100% - 2 * var(--z-gutter)));
   padding: var(--z-space-5) var(--z-space-5) var(--z-space-6);
 }
@@ -512,56 +514,8 @@
   filter: drop-shadow(0 6px 0 color-mix(in srgb, var(--z-ink) 14%, transparent));
 }
 
-.z-hero[data-waitlist='plate'] .z-hero__join {
+.z-hero__join {
   color: var(--z-brand-ink);
-}
-
-/* ── Treatment B · MARKED UP ──────────────────────────────────────────────
-   No card at all. The heading gets a marker rule and an arrow curves down to
-   the field, so the composition points at the destination instead of boxing
-   it. Lighter than the plate and sits in the page plane with the artwork. */
-/* Only the selected treatment's marks are shown. */
-.z-hero[data-waitlist='plate'] .z-hero__join-rule,
-.z-hero[data-waitlist='plate'] .z-hero__join-arrow,
-.z-hero[data-waitlist='marked'] .z-hero__plate-frame { display: none; }
-
-.z-hero[data-waitlist='marked'] .z-hero__capture-group {
-  width: min(19rem, calc(100% - 2 * var(--z-gutter)));
-  padding-block-end: var(--z-space-2);
-}
-
-/* Positioned against the heading it underlines, so it costs the block no
-   height and tracks the words at any size. */
-.z-hero__join-rule {
-  position: absolute;
-  inset-inline: 2%;
-  inset-block-start: 100%;
-  block-size: 0.42rem;
-  fill: none;
-  stroke: var(--z-brand);
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-
-/* Sits beside the field rather than above it, so it costs the block no height
-   — the poster's rows are tight and an arrow is not worth a band. */
-.z-hero__join-arrow {
-  position: absolute;
-  inset-block-start: 2.1rem;
-  inset-inline-end: -0.35rem;
-  inline-size: 2.2rem;
-  block-size: 2.6rem;
-  fill: none;
-  stroke: var(--z-brand);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.z-hero[data-waitlist='marked'] .z-hero__capture .z-input {
-  background: transparent;
-  border-width: 2px;
-  border-color: var(--z-ink);
 }
 
 .z-hero__capture {
@@ -608,21 +562,6 @@
   padding-block: var(--z-space-2);
   padding-inline: var(--z-space-6);
   font-size: var(--z-step-0);
-}
-
-/* Variant B — outlined. Same green, no fill: the lightest the CTA can be while
-   still reading as the primary action. Green on cream is 6.65:1 for both the
-   label and the 2px edge. */
-.z-hero[data-cta='ghost'] .z-hero__capture .z-btn {
-  --btn-bg: transparent;
-  --btn-ink: var(--z-accent);
-  --btn-border: var(--z-accent);
-  border-width: 2px;
-}
-
-.z-hero[data-cta='ghost'] .z-hero__capture .z-btn:hover:not(:disabled) {
-  --btn-bg: color-mix(in srgb, var(--z-accent) 12%, transparent);
-  --btn-ink: var(--z-accent-dark);
 }
 
 /* --- Supporter wall ------------------------------------------------------ */
