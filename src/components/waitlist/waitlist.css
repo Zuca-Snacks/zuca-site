@@ -91,6 +91,107 @@
   margin-bottom: var(--z-space-3);
 }
 
+/* ─── Progress ───────────────────────────────────────────────────────────── */
+
+.zw-progress {
+  margin-bottom: var(--z-space-5);
+}
+
+.zw-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--z-space-3);
+  margin-bottom: var(--z-space-2);
+}
+
+.zw-progress-step {
+  font-size: var(--z-step--1);
+  font-weight: 700;
+  color: var(--z-brand-ink);
+  /* "1 of 4" is three words the eye reads as one token — never let it wrap. */
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.zw-progress-label {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  text-align: right;
+  min-inline-size: 0;
+}
+
+.zw-progress-track {
+  block-size: 0.25rem;
+  background: var(--z-surface-alt);
+  border-radius: var(--z-radius-full);
+  overflow: hidden;
+}
+
+.zw-progress-fill {
+  display: block;
+  block-size: 100%;
+  background: var(--z-brand);
+  border-radius: var(--z-radius-full);
+  transition: inline-size var(--z-dur) var(--z-ease);
+}
+
+/* ─── "Other" free text ──────────────────────────────────────────────────── */
+
+.zw-other {
+  margin-top: var(--z-space-3);
+  position: relative;
+}
+
+.zw-count {
+  display: block;
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+  text-align: right;
+  margin-top: var(--z-space-1);
+}
+
+/* Conditional follow-ups sit indented under the answer that revealed them, so
+   the dependency is visible rather than implied by proximity alone. */
+.zw-nested {
+  margin: 0 0 var(--z-space-5);
+  padding-left: var(--z-space-4);
+  border-left: 2px solid var(--z-border);
+}
+
+/* ─── Live count ─────────────────────────────────────────────────────────── */
+
+.zw-live {
+  display: flex;
+  align-items: baseline;
+  gap: var(--z-space-2);
+}
+
+.zw-live-num {
+  font-size: var(--z-step-2);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--z-brand);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One-shot acknowledgement of the visitor's own signup. Deliberately short and
+   non-looping: it marks an event, it is not an attention device. */
+.zw-live-num[data-bumped="true"] {
+  animation: zw-bump 620ms var(--z-ease);
+}
+
+@keyframes zw-bump {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zw-live-num[data-bumped="true"] { animation: none; }
+  .zw-progress-fill { transition: none; }
+}
+
 /* ─── Progressive disclosure ─────────────────────────────────────────────── */
 /* Native <details>: no JS, keyboard-complete, and collapsed height is stable so
    opening it cannot shift anything above it. */
@@ -124,7 +225,10 @@
   content: "+";
   margin-left: auto;
   font-weight: 400;
-  color: var(--z-brand);
+  /* Renders at 1rem and font-weight 400, so it is body text for contrast
+     purposes, not a large-text exception — the weight on the summary does not
+     carry into the pseudo-element. */
+  color: var(--z-brand-ink);
 }
 
 .zw-disclosure[open] > summary::after {
@@ -194,7 +298,7 @@
 .zw-when {
   font-size: var(--z-step--1);
   font-weight: 700;
-  color: var(--z-brand);
+  color: var(--z-brand-ink);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }

@@ -22,7 +22,8 @@
 // than optimistically declared a success. The signup is still not lost — the
 // difference is that we now know it hasn't landed yet.
 
-import { getUtm, getPagePath } from "../../lib/analytics.js";
+import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
+import { OTHER_MAX } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 const COUNT_ENDPOINT = "/api/count";
@@ -71,41 +72,154 @@ export const RESULT = {
  * server drops `motivation` entirely without it, so it is always sent
  * explicitly — including as `false`, because "no" is a fact worth recording.
  */
+export const CORE_KEYS = new Set([
+  "downgraded_fields",
+  "email", "zip", "motivation", "intent", "price_band", "flavor", "is_clinician",
+  "referral_source", "consent_marketing", "consent_health", "consent_text_version",
+  "motivation_consent_text_version", "utm", "page_path", "hp_field", "form_render_ts",
+]);
+
+const str = (v, max) => {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t ? t.slice(0, max) : null;
+};
+const arr = (v, max) => (Array.isArray(v) && v.length ? v.slice(0, max) : null);
+const hasOther = (v) => (Array.isArray(v) ? v.includes("other") : v === "other");
+
+/** E.164 or null. Matches the server's rule exactly rather than approximating it. */
+export function toE164(raw) {
+  const digits = String(raw || "").trim().replace(/[\s\-().]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(digits) ? digits : null;
+}
+
+/** Two uppercase letters or null. */
+const iso2 = (v) => {
+  const c = String(v || "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(c) ? c : null;
+};
+
 export function buildPayload({
   email,
   consentMarketing,
   consentHealth = false,
+  consentSms = false,
+  consentPostal = false,
   consentTextVersion = null,
   motivationConsentTextVersion = null,
+  smsConsentTextVersion = null,
+  postalConsentTextVersion = null,
   profile = {},
   formRenderTs,
   hpField = "",
 }) {
-  const healthGranted = consentHealth === true;
+  const health = consentHealth === true;
+  const sms = consentSms === true;
+  const postal = consentPostal === true;
+  const p = profile;
 
   return {
+    // ── Core: accepted by the strict schema today ───────────────────────────
     email: String(email || "").trim().toLowerCase().slice(0, 254),
-    zip: profile.zip || null,
-    motivation:
-      healthGranted && profile.motivation && profile.motivation.length
-        ? profile.motivation.slice(0, 3)
-        : null,
-    intent: profile.intent ?? null,
-    price_band: profile.price_band ?? null,
-    flavor: profile.flavor ?? null,
-    is_clinician: typeof profile.is_clinician === "boolean" ? profile.is_clinician : null,
-    referral_source: profile.referral_source ?? null,
+    zip: p.zip || null,
+    // Health-adjacent values never travel without their Art 9 opt-in, on our
+    // side as well as the server's.
+    motivation: health ? arr(p.motivation, 3) : null,
+    intent: p.intent ?? null,
+    price_band: p.price_band ?? null,
+    flavor: p.flavor ?? null,
+    is_clinician: typeof p.is_clinician === "boolean" ? p.is_clinician : null,
+    referral_source: p.referral_source ?? null,
     consent_marketing: consentMarketing === true,
-    consent_health: healthGranted,
+    consent_health: health,
     consent_text_version: consentTextVersion || null,
-    motivation_consent_text_version: healthGranted ? motivationConsentTextVersion || null : null,
-    // consent_timestamp — server-set. Never sent from here.
-    // country          — server-derived from request IP. Never sent, never asked.
+    motivation_consent_text_version: health ? motivationConsentTextVersion || null : null,
     utm: getUtm(),
     page_path: getPagePath(),
     hp_field: hpField || null,
     form_render_ts: typeof formRenderTs === "number" ? formRenderTs : null,
+
+    // ── Extensions ──────────────────────────────────────────────────────────
+    // Key names match the server's schema exactly. They are the server's
+    // vocabulary where it already had one (`company`, `headcount`,
+    // `address_postal_code`, `consent_postal`) and ours where it adopted ours
+    // (`quantity_band` values, tri-state `office_interest`, headcount bands).
+    //
+    // FREE TEXT IS PAIRED WITH ITS SELECTION. The server's superRefine rejects
+    // `*_other` text that arrives without the matching "other" choice, and it is
+    // right to: text with no selection is uninterpretable. So the pairing is
+    // enforced here as well, because state outlives the UI that set it — pick
+    // "Other", type, switch to "Friend", and the string is still sitting in
+    // state waiting to 400 the whole submission.
+    motivation_other: health && hasOther(p.motivation) ? str(p.motivation_other, OTHER_MAX) : null,
+    dietary: health ? arr(p.dietary, 3) : null,
+    dietary_other: health && hasOther(p.dietary) ? str(p.dietary_other, OTHER_MAX) : null,
+    referral_source_other:
+      p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
+    quantity_band: p.quantity_band ?? null,
+    channel: arr(p.channel, 2),
+    channel_other: hasOther(p.channel) ? str(p.channel_other, OTHER_MAX) : null,
+    office_interest: p.office_interest ?? null,
+    company: str(p.company, 80),
+    headcount: p.headcount ?? null,
+    research_optin: typeof p.research_optin === "boolean" ? p.research_optin : null,
+
+    // Phone and address are inert without their own opt-in. Sending either
+    // while its consent is false would be collecting on a basis we do not have.
+    consent_sms: sms,
+    // E.164 or nothing. The server requires /^\+[1-9]\d{7,14}$/ and rejects
+    // anything else outright, so a number that cannot be normalised is dropped
+    // rather than sent to fail — losing a phone number beats losing the record.
+    phone: sms ? toE164(p.phone) : null,
+    sms_consent_text_version: sms ? smsConsentTextVersion || null : null,
+
+    consent_postal: postal,
+    address_line1: postal ? str(p.address_line1, 120) : null,
+    address_line2: postal ? str(p.address_line2, 120) : null,
+    address_city: postal ? str(p.address_city, 80) : null,
+    address_region: postal ? str(p.address_region, 80) : null,
+    address_postal_code: postal ? str(p.address_postal_code, 16) : null,
+    // ISO 3166-1 alpha-2, from a picker. Free text could never satisfy the
+    // server's /^[A-Z]{2}$/ reliably.
+    address_country: postal ? iso2(p.address_country) : null,
+    postal_consent_text_version: postal ? postalConsentTextVersion || null : null,
   };
+}
+
+
+// ─── Downgrade ladder ────────────────────────────────────────────────────────
+// The server schema is `.strict()`: one unrecognised key rejects the WHOLE
+// submission. So a 400 is retried against progressively narrower key sets
+// rather than straight down to the contract minimum.
+//
+// Stripping to CORE on the first failure was too blunt — it threw away the
+// twelve extension fields the server already accepts because of one field it
+// did not. Each rung keeps everything the rung below would have discarded.
+//
+// SERVER_KNOWN tracks what `waitlistSchema` accepts today. Widen it as security
+// converges; when it reaches every key we send, rung 2 becomes a no-op and the
+// ladder costs nothing.
+export const SERVER_KNOWN_KEYS = new Set([
+  ...CORE_KEYS,
+  "quantity_band", "office_interest", "company", "headcount",
+  "motivation_other", "referral_source_other",
+  "channel", "channel_other", "dietary", "dietary_other", "research_optin",
+  "phone", "consent_sms", "sms_consent_text_version",
+  "address_line1", "address_line2", "address_city", "address_region",
+  "address_postal_code", "address_country", "consent_postal",
+  "postal_consent_text_version",
+]);
+
+function stripTo(payload, allowed) {
+  const out = {};
+  for (const [k, v] of Object.entries(payload)) if (allowed.has(k)) out[k] = v;
+  return out;
+}
+
+/** Keys carrying a real value that `allowed` would drop. */
+function droppedBy(payload, allowed) {
+  return Object.keys(payload).filter(
+    (k) => !allowed.has(k) && payload[k] !== null && payload[k] !== false
+  );
 }
 
 // ─── Offline queue ───────────────────────────────────────────────────────────
@@ -160,7 +274,7 @@ function statusToResult(status) {
   return RESULT.SERVER;
 }
 
-async function post(payload) {
+async function post(payload, rung = 0) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -177,6 +291,22 @@ async function post(payload) {
     // Every status is now read and acted on. A 404/405 here means our own
     // endpoint is missing or misrouted, which is a deploy fault worth surfacing
     // as an error — not something to paper over with a second write path.
+    // Climb down the ladder on a validation failure, one rung at a time.
+    if (res.status === 400 && rung < 2) {
+      const allowed = rung === 0 ? SERVER_KNOWN_KEYS : CORE_KEYS;
+      const dropped = droppedBy(payload, allowed);
+      if (dropped.length) {
+        track(EVENTS.PAYLOAD_DOWNGRADED, { rung: rung + 1, dropped: dropped.length });
+        // Name what we stripped. The server writes this alongside the record so
+        // a downgraded row LOOKS incomplete in the sheet rather than looking
+        // like someone who simply declined to answer — the two are impossible
+        // to tell apart afterwards without it, and only one of them is our bug.
+        const next = stripTo(payload, allowed);
+        next.downgraded_fields = [...new Set([...(payload.downgraded_fields || []), ...dropped])].slice(0, 64);
+        return await post(next, rung + 1);
+      }
+    }
+
     const result = statusToResult(res.status);
     let position = null;
     try {
@@ -185,7 +315,7 @@ async function post(payload) {
     } catch {
       /* 204, or a body we don't need */
     }
-    return { status: result, position, via: "api" };
+    return { status: result, position, via: rung === 0 ? "api" : `api-rung${rung}` };
   } catch {
     // Network error, timeout, or abort. Queued for replay by submitWaitlist.
     return { status: RESULT.NETWORK, via: "none" };

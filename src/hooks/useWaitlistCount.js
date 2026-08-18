@@ -45,36 +45,41 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 import { useEffect, useState } from 'react';
-import { fetchCount } from '../components/waitlist/api.js';
+import { getCount, loadCount, subscribe } from '../components/waitlist/countStore.js';
 
-let cached = null;
-let inFlight = null;
-const listeners = new Set();
+/* ─── DELEGATES TO countStore ────────────────────────────────────────────────
+   The hook's contract is unchanged: it returns the number, or null until one
+   lands. What changed is where the number comes from.
 
-function load() {
-  if (cached !== null) return Promise.resolve(cached);
-  if (!inFlight) {
-    inFlight = fetchCount()
-      .then((count) => {
-        if (typeof count === 'number') {
-          cached = count;
-          for (const fn of listeners) fn(cached);
-        }
-        return cached;
-      })
-      .catch(() => null);
-  }
-  return inFlight;
-}
+   countStore adds the one thing this file could not do — an OPTIMISTIC +1 the
+   instant a signup succeeds, reconciled against the server a beat later, with
+   the server always winning. Emil asked for the count to move in front of the
+   person who caused it, and that has to be a shared store because four places
+   render the number and all four must move together.
+
+   Delegating rather than duplicating matters: two independent caches would
+   drift the moment one of them incremented, and the bug would look like a
+   rendering glitch rather than two sources of truth. */
 
 export default function useWaitlistCount() {
-  const [count, setCount] = useState(cached);
+  const [state, setState] = useState(getCount);
 
   useEffect(() => {
-    listeners.add(setCount);
-    load();
-    return () => listeners.delete(setCount);
+    const off = subscribe(setState);
+    loadCount();
+    return off;
   }, []);
 
-  return count;
+  return state.value;
+}
+
+/** `{ value, bumped }` — for the one place that animates the increment. */
+export function useWaitlistCountState() {
+  const [state, setState] = useState(getCount);
+  useEffect(() => {
+    const off = subscribe(setState);
+    loadCount();
+    return off;
+  }, []);
+  return state;
 }

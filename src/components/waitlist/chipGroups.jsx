@@ -17,9 +17,10 @@
  * change to ui.css was needed here.
  */
 import Chip, { ChipGroup } from '../ui/Chip.jsx';
+import { OtherInput } from '../ui/index.js';
 
 /** Single-choice chips. Radio semantics, so a screen reader announces 1 of N. */
-export function ChipRadioGroup({ legend, name, options, value, onChange, hint }) {
+export function ChipRadioGroup({ legend, name, options, value, onChange, hint, other }) {
   const hintId = hint ? `${name}-hint` : undefined;
 
   return (
@@ -46,12 +47,15 @@ export function ChipRadioGroup({ legend, name, options, value, onChange, hint })
           );
         })}
       </div>
+      {other && value === "other" ? (
+        <OtherInput {...other} />
+      ) : null}
     </ChipGroup>
   );
 }
 
 /** Multi-choice chips with a hard cap. Over-cap chips disable rather than hide. */
-export function ChipMultiGroup({ legend, options, values, onChange, max, hint, disabled }) {
+export function ChipMultiGroup({ legend, options, values, onChange, max, hint, disabled, other }) {
   const atMax = max != null && values.length >= max;
   const hintId = hint ? `${legend.replace(/\s+/g, '-').toLowerCase()}-hint` : undefined;
 
@@ -79,6 +83,9 @@ export function ChipMultiGroup({ legend, options, values, onChange, max, hint, d
           );
         })}
       </div>
+      {other && values.includes("other") ? (
+        <OtherInput {...other} />
+      ) : null}
     </ChipGroup>
   );
 }

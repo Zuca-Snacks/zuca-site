@@ -25,7 +25,10 @@ const FLAVORS = [
   },
 ];
 
-const PILLS = ['10g fiber', '4g protein', '150 cal', 'No added sugar'];
+// 'No added sugar' removed 18 Aug: maple syrup is added as a sweetener and
+// counts as an added sugar under FDA rules. No replacement sugar claim until
+// the manufacturer confirms which flavours contain syrup and at what grams.
+const PILLS = ['10g fiber', '4g protein', '150 cal'];
 
 export default function Flavors() {
   return (

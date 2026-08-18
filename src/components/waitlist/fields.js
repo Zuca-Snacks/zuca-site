@@ -66,6 +66,11 @@ export const MOTIVATION = {
     { value: "family_health", label: "Feeding my family better" },
     { value: "other", label: "Something else" },
   ],
+  // Selecting `other` reveals a capped free-text box; the string travels as
+  // `motivation_other`. Health-adjacent, so it is gated by the same Art 9
+  // opt-in as the enum values themselves.
+  otherKey: "motivation_other",
+  otherLabel: "What's drawing you to it?",
 };
 
 /** Where demand clusters — shipping zones, and which cities to seed retail in. */
@@ -100,6 +105,8 @@ export const REFERRAL_SOURCE = {
     { value: "search", label: "Search" },
     { value: "other", label: "Somewhere else" },
   ],
+  otherKey: "referral_source_other",
+  otherLabel: "Where did you hear about us?",
 };
 
 /**
@@ -117,6 +124,170 @@ export const IS_CLINICIAN = {
     { value: false, label: "No" },
   ],
 };
+
+
+// ─── Added 17 Aug 2026 ───────────────────────────────────────────────────────
+// Every field below is optional and lives in step 2 or later, after the email
+// is already banked. Step 1 is email + consent and nothing else — these trade
+// data completeness against nothing, never against a signup.
+
+/** How much they would actually eat. Sizes the first run in units, not vibes. */
+export const QUANTITY_BAND = {
+  key: "quantity_band",
+  label: "Realistically, how many would you eat a month?",
+  why: "Turns a headcount into a production quantity.",
+  options: [
+    { value: "lt_4", label: "Fewer than 4" },
+    { value: "4_8", label: "4–8" },
+    { value: "9_16", label: "9–16" },
+    { value: "17_30", label: "17–30" },
+    { value: "gt_30", label: "More than 30" },
+  ],
+};
+
+/**
+ * Where they would expect to find it.
+ *
+ * EARNS ITS PLACE: this is the single cheapest input to the distribution
+ * decision. A list that says "grocery" and a list that says "online" lead to
+ * different companies — one chases retail buyers, the other chases ads. One
+ * chip row answers it before a single dollar is committed either way.
+ */
+export const CHANNEL = {
+  key: "channel",
+  label: "Where would you expect to buy it?",
+  why: "Decides whether we chase retail or sell direct first.",
+  max: 2,
+  options: [
+    { value: "online_dtc", label: "Online, from you" },
+    { value: "grocery", label: "Grocery store" },
+    { value: "gym_studio", label: "Gym or studio" },
+    { value: "office", label: "At work" },
+    { value: "clinic", label: "A clinic or pharmacy" },
+    { value: "other", label: "Somewhere else" },
+  ],
+  otherKey: "channel_other",
+  otherLabel: "Where?",
+};
+
+/**
+ * Dietary needs.
+ *
+ * EARNS ITS PLACE, and it is the highest-value field added today. Both flavors
+ * contain tree nuts. Someone with a nut allergy can never buy this, no matter
+ * how well the campaign converts them — so this is the difference between list
+ * size and *addressable* list size, which is the number that actually forecasts
+ * revenue. It also answers whether a nut-free SKU is worth a production line,
+ * and it stops us emailing a launch offer to someone who would have to decline
+ * it, which costs trust we cannot buy back.
+ *
+ * ⚠️ ART 9. An allergy is health data under GDPR, exactly like `motivation`.
+ * It is gated by the SAME single explicit health opt-in, whose wording names
+ * both. One consent covering both is correct; two would be friction without
+ * added protection, and collecting either without one is unlawful.
+ *
+ * No condition names beyond the allergy itself — no "diabetic", no "IBS". The
+ * claim guardrails apply to the options we offer, not only to our own copy.
+ */
+export const DIETARY = {
+  key: "dietary",
+  label: "Anything we should know before we make yours?",
+  why: "Tells us the addressable share of the list, and whether a nut-free run is worth it.",
+  max: 3,
+  options: [
+    { value: "none", label: "Nothing to flag" },
+    { value: "nut_allergy", label: "Tree nut allergy" },
+    { value: "gluten_free", label: "Gluten free" },
+    { value: "dairy_free", label: "Dairy free" },
+    { value: "vegan", label: "Vegan" },
+    { value: "low_sugar", label: "Watching sugar" },
+    { value: "other", label: "Something else" },
+  ],
+  otherKey: "dietary_other",
+  otherLabel: "What should we know?",
+};
+
+/** Office channel. A yes here is worth many consumer signups. */
+export const OFFICE_INTEREST = {
+  key: "office_interest",
+  label: "Would you want these as an office snack?",
+  why: "One office order is worth dozens of individual ones.",
+  options: [
+    { value: "yes", label: "Yes" },
+    { value: "maybe", label: "Maybe" },
+    { value: "no", label: "No" },
+  ],
+};
+
+export const COMPANY_HEADCOUNT = {
+  key: "headcount",
+  label: "Roughly how many people?",
+  why: "Sizes the office opportunity.",
+  options: [
+    { value: "lt_10", label: "Under 10" },
+    { value: "10_49", label: "10–49" },
+    { value: "50_199", label: "50–199" },
+    { value: "200_999", label: "200–999" },
+    { value: "gt_1000", label: "1,000+" },
+  ],
+};
+
+export const COMPANY_NAME = {
+  key: "company",
+  label: "Company",
+  placeholder: "Where do you work?",
+  maxLength: 80,
+};
+
+/**
+ * EARNS ITS PLACE: the scarcest asset a pre-launch brand has is people who will
+ * talk to it. This converts a passive list into a research panel at the cost of
+ * one chip, and it identifies the people worth asking for a referral later.
+ * A preference about email we are already permitted to send, so it needs no
+ * separate consent — it narrows contact rather than widening it.
+ */
+export const RESEARCH_OPTIN = {
+  key: "research_optin",
+  label: "Open to 15 minutes of feedback before we launch?",
+  why: "Turns the list into a research panel.",
+  options: [
+    { value: true, label: "Happy to" },
+    { value: false, label: "No thanks" },
+  ],
+};
+
+/** SMS. Gated by its own TCPA-grade express consent — see consent.js. */
+export const PHONE = {
+  key: "phone",
+  label: "Mobile number",
+  placeholder: "+1 555 000 0000",
+  maxLength: 24,
+};
+
+/**
+ * Postal address, for the handwritten notes. Gated by its own opt-in AND only
+ * offered after they have answered something else — asking a stranger for their
+ * address as the opening move is how you lose the stranger.
+ *
+ * Deliberately international-shaped: free-form lines, no US postcode regex.
+ * `zip` stays the US-only structured field; this is the one that has to work in
+ * Oslo and Tokyo.
+ */
+export const ADDRESS = {
+  key: "address",
+  fields: [
+    { key: "address_line1", label: "Street address", autoComplete: "address-line1", maxLength: 120 },
+    { key: "address_line2", label: "Apartment, floor (optional)", autoComplete: "address-line2", maxLength: 120 },
+    { key: "address_city", label: "City", autoComplete: "address-level2", maxLength: 80 },
+    { key: "address_region", label: "State or region", autoComplete: "address-level1", maxLength: 80 },
+    { key: "address_postal_code", label: "Postal code", autoComplete: "postal-code", maxLength: 16 },
+    // Rendered as a select, not a text input — the server needs ISO alpha-2.
+    { key: "address_country", label: "Country", autoComplete: "country", select: true },
+  ],
+};
+
+/** Max length for every `*_other` free-text box. Enforced client and server. */
+export const OTHER_MAX = 120;
 
 export const STEP2_FIELDS = [FLAVOR, INTENT, PRICE_BAND, MOTIVATION, ZIP, REFERRAL_SOURCE, IS_CLINICIAN];
 

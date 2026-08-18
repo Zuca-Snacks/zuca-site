@@ -15,6 +15,7 @@ import { step1 as copy, hero } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist } from "./api.js";
 import { EVENTS, observeOnce, track, trackOnce } from "../../lib/analytics.js";
 import { marketingConsent } from "./consent.js";
+import { bumpCount } from "./countStore.js";
 
 // Deliberately permissive: the server is the authority on validity, and a
 // strict client regex rejects real addresses. This catches typos, not edge cases.
@@ -125,6 +126,10 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
         duplicate: result.status === RESULT.DUPLICATE ? 1 : 0,
         via: result.via,
       });
+      // Optimistic +1, reconciled against the server a beat later. Not fired
+      // for a duplicate: they were already counted, and showing them adding a
+      // person who does not exist is a small lie the server would undo anyway.
+      if (result.status !== RESULT.DUPLICATE) bumpCount();
       onSuccess({
         email: value,
         duplicate: result.status === RESULT.DUPLICATE,

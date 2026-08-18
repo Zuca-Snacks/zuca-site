@@ -102,7 +102,7 @@ export const HEADLINES = {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Two flavors, no added sugar, and about 40% of your daily fiber in one bite.",
+      "Two flavors, and about 40% of your daily fiber in one bite.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -110,7 +110,7 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "10g of fiber, 150 calories, no added sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
+      "10g of fiber, 150 calories. Chocolate Raspberry Sea Salt or Maple Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
@@ -118,7 +118,7 @@ export const HEADLINES = {
     id: "c",
     headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories. No added sugar. Made from apple pulp a juicery was about to throw away.",
+      "150 calories. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
@@ -226,12 +226,25 @@ export const proof = {
 };
 
 // ─── Three-number block ──────────────────────────────────────────────────────
+// ⚠️ SUGAR CLAIMS ARE WITHDRAWN, NOT REWORDED (18 Aug 2026).
+// Maple syrup is added as a sweetener. Under FDA rules syrups count as ADDED
+// SUGARS, so two separate claims were false and both are gone from every
+// string on the site:
+//   • "no added sugar" / "0g added sugar" — false outright.
+//   • "6g natural sugar" — false too: some of that sugar is added, not
+//     naturally occurring in the fruit. It went in the same pass rather than
+//     being left as the surviving half of a wrong pair.
+// Nothing replaces them yet. Naming the sweetener beats claiming an absence,
+// but the replacement needs two facts we do not have: whether Chocolate
+// Raspberry Sea Salt also contains syrup, and the exact added-sugar grams.
+// Emil is chasing both. DO NOT write a sugar line until they are confirmed —
+// a wrong claim in the other direction is not an improvement.
 export const numbers = {
   title: "What's actually in one.",
   items: [
     { value: "10g", unit: "fiber", note: "About 40% of your daily fiber, and twice what the leading bars carry." },
-    { value: "150", unit: "calories", note: "Plus 4g of protein and 6g of natural sugar." },
-    { value: "0g", unit: "added sugar", note: "The sweetness is the fruit. Nothing is added to it." },
+    { value: "150", unit: "calories", note: "Plus 4g of protein." },
+    { value: "4g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
   footnote: "Per serving. Contains tree nuts — almonds and pecans.",
 };
@@ -298,7 +311,7 @@ export const faq = [
   },
   {
     q: "What's in it, and what about allergens?",
-    a: "Both flavors contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein, 6g natural sugar, no added sugar. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
+    a: "Both flavors contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein, The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
   },
   {
     q: "What will it cost?",
@@ -362,9 +375,48 @@ export const consentTexts = {
   },
   // Health-adjacent data, and under GDPR Art 9 the consent most likely to be
   // challenged. Its wording is versioned separately from marketing.
+  // Covers BOTH the reason-for-interest chips and the dietary chips. An allergy
+  // is health data under Art 9 exactly as a health motivation is, so one
+  // explicit opt-in naming both is correct — two separate boxes would be
+  // friction without added protection, and either field without a box is
+  // unlawful. Wording changed 17 Aug to name dietary needs, which mints a new
+  // version automatically.
   motivation: {
-    authored: "2026-08-15",
-    text: "I'm happy to tell Zuca why fiber matters to me. This is optional, it's stored with my signup, it's never sold and never sent to an ad or analytics tool, and I can ask Zuca to delete it at any time.",
+    authored: "2026-08-17",
+    text: "I'm happy to tell Zuca why fiber matters to me and anything dietary it should know. This is optional, it's stored with my signup, it's never sold and never sent to an ad or analytics tool, and I can ask Zuca to delete it at any time.",
+  },
+
+  // ⚠️ TCPA-GRADE. US SMS marketing needs prior EXPRESS WRITTEN consent, a
+  // higher bar than the email checkbox: it must identify the sender, say the
+  // messages are marketing, say they are automated, state that agreeing is not
+  // a condition of buying anything, and disclose that rates may apply. Every
+  // one of those clauses is load-bearing — do not trim this for length.
+  // Unchecked, separate, and never bundled with the email consent.
+  sms: {
+    // US — TCPA prior express written consent. Every clause is load-bearing:
+    // sender identified, marketing named, automated named, not-a-condition-of-
+    // purchase, rates disclosed, STOP given. Do not trim this for length.
+    us: {
+      authored: "2026-08-17",
+      text: "Text me about Zuca. I agree to receive automated marketing texts from Zuca at the number I give — a handful around launch, not a stream. Agreeing is not a condition of buying anything, message and data rates may apply, and I can stop them any time by replying STOP.",
+    },
+    // EEA/UK — GDPR wants freely given, specific, informed and withdrawable,
+    // and says nothing about the TCPA formula. Serving the US string to an EEA
+    // number is not a false alarm on the re-consent report: it is wording
+    // written to the wrong rulebook, which is exactly what that report exists
+    // to surface.
+    eea: {
+      authored: "2026-08-18",
+      text: "Yes, text me about Zuca. I'm agreeing to texts about the launch date and my first-access window — a handful around launch, not a stream. Zuca won't text me without this, my number isn't shared with anyone, and I can withdraw it any time by replying STOP.",
+    },
+  },
+
+  // Postal. Framed as what it actually is, because the honest version is also
+  // the appealing one — nobody minds a handwritten note, and pretending it is
+  // something else would be the only way to make this creepy.
+  mail: {
+    authored: "2026-08-17",
+    text: "You can post me something. We send handwritten notes to early supporters — that's what this is for, it's not shared with anyone, and you can ask us to delete it whenever you like.",
   },
 };
 
@@ -401,6 +453,44 @@ export const step2 = {
   // who doesn't want it. The consent box stays INSIDE and ABOVE the chips —
   // consent before collection, never the reverse.
   motivationDisclosure: "Want to help shape what we make?",
+
+  // ── Screens ────────────────────────────────────────────────────────────────
+  // Grouped cards, not a wall. Each screen states what its answers DECIDE —
+  // people finish a form when they can see the lever they are pulling, and
+  // "which flavour we make first" is a lever in a way that "help us improve" is
+  // not. Each screen saves on advance, so leaving at screen 3 keeps 1 and 2.
+  screens: [
+    {
+      id: "product",
+      title: "What would you actually eat?",
+      why: "This decides which flavor we produce first, and how much of it.",
+    },
+    {
+      id: "value",
+      title: "What's it worth to you?",
+      why: "You're setting the launch price. We haven't fixed it yet.",
+    },
+    {
+      id: "reach",
+      title: "Where would you find it?",
+      why: "This decides whether we chase shelves or sell direct.",
+    },
+    {
+      id: "extras",
+      title: "A few optional extras",
+      why: "All opt-in, all skippable. Nothing here is needed to hold your spot.",
+    },
+  ],
+  next: "Continue",
+  nextBusy: "Saving…",
+  back: "Back",
+  finish: "Done",
+  savedNote: "Saved as you go — you can stop anywhere.",
+
+  officeName: "Company",
+  smsDisclosure: "Want launch texts too?",
+  mailDisclosure: "We send handwritten notes. Want one?",
+  mailGate: "Answer anything above first and this opens up.",
 };
 
 // ─── Confirmation ────────────────────────────────────────────────────────────
