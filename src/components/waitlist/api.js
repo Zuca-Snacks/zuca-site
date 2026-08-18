@@ -200,9 +200,9 @@ export function buildPayload({
 // ladder costs nothing.
 export const SERVER_KNOWN_KEYS = new Set([
   ...CORE_KEYS,
-  "downgraded_fields",
   "quantity_band", "office_interest", "company", "headcount",
   "motivation_other", "referral_source_other",
+  "channel", "channel_other", "dietary", "dietary_other", "research_optin",
   "phone", "consent_sms", "sms_consent_text_version",
   "address_line1", "address_line2", "address_city", "address_region",
   "address_postal_code", "address_country", "consent_postal",
