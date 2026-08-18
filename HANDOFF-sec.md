@@ -515,8 +515,9 @@ Re-ran the mechanical diff against growth's current shipped code, not a captured
 
 Three of my five open items are closed on their side: `toE164()` with a required `+`, an ISO
 alpha-2 picker in `countries.js`, and `position` read off the 200 response. Two remain:
-`fetchCount()` still reads `FALLBACK_URL` rather than `/api/count`, and nothing sends
-`downgraded_fields` yet — the latter is optional and does not 400, so it blocks nothing.
+`fetchCount()` reads `/api/count` on `polish/round-2` (verified — and the Apps Script URL is absent
+from `src/` entirely), so that item is **closed**; my open list was itself stale. Only
+`downgraded_fields` remains unsent, and it is optional and does not 400, so it blocks nothing.
 
 **We crossed in the post on naming.** I renamed to their names; at 214b639 they renamed to mine.
 Same five keys, inverted, still mismatched. I reverted mine, because their rename is already
@@ -528,26 +529,64 @@ To stop this recurring, the suite no longer hand-copies a fixture: it reads grow
 accepted. Pre-merge it reports SKIPPED rather than passing vacuously. A hand-maintained list of
 "what growth sends" is the same failure mode as a hand-maintained consent registry.
 
-## 3a-bis → One surviving sugar claim, not in my files · **UX + Conversion**
+## 3a-bis → Sugar claims: my flag was the visible corner · **corrected 2026-08-18**
 
-`AGENTS_BRIEF.md` no longer states any sugar figure — I removed "6g natural sugar, no added sugar"
-and added a guardrail so it cannot be reinstated from an older draft. I swept every file on this
-branch; the legal pages, `SECURITY.md` and this handoff never carried a sugar claim.
+I originally flagged one hit, at `src/zuca-gate-v4.jsx:1247`. **That was under-scoped and the file
+no longer exists** — it was deleted during integration. I had swept my own branch instead of the
+integrated state, which is the same staleness that made my earlier field-verification wrong. Caught
+by the merge session; re-counted independently against `polish/round-2` and their number is exact.
 
-**One hit outside my ownership:**
+**Nine live locations in shipped code:**
 
-| Location | Current | Why it needs a look |
+| File | Line | Claim |
 |---|---|---|
-| [zuca-gate-v4.jsx:1247](src/zuca-gate-v4.jsx#L1247) | hero stat pill `["0g","Refined sugar"]` | See below |
+| `index.html` | 63 | `og:description` — "…150 calories, no added sugar." |
+| `index.html` | 68 | `twitter:description` — same |
+| `src/components/sections/Flavors.jsx` | 28 | `PILLS` — "No added sugar", rendered on **both** flavour cards |
+| `src/content/copy.js` | 105 | hero subhead, variant a — **live on screen today** |
+| `src/content/copy.js` | 113 | subhead variant |
+| `src/content/copy.js` | 121 | subhead variant |
+| `src/content/copy.js` | 233 | "Plus 4g of protein and 6g of natural sugar." |
+| `src/content/copy.js` | 234 | figure tile — "**0g** added sugar", "The sweetness is the fruit. Nothing is added to it." |
+| `src/content/copy.js` | 301 | allergen FAQ — repeats the full "6g natural sugar, no added sugar" line |
 
-"0g refined sugar" is *probably* still literally true — maple syrup is unrefined, so the claim as
-worded may survive. But "refined sugar" is a marketing term with no regulatory definition, and the
-net impression a shopper takes from a `0g` pill next to `10g fiber` is "this has no added sugar",
-which is now false. The FTC tests net impression, not literal truth.
+Copy is the Conversion agent's and the merge session has sent them the list. Three notes from here:
 
-My recommendation is to drop the pill rather than reword it. Three stats read better than four
-anyway, and the fourth is the only one that invites a fight. If you want a sweetener claim at all,
-wait for the finished label and say something checkable.
+**The two `index.html` meta tags are the ones I would fix first.** They are the link-preview text
+for the outbound campaign email — the claim renders in Slack, LinkedIn and every inbox that unfurls
+a URL, which is the widest distribution any of these has and the hardest to retract.
+
+**`copy.js:234` got worse, not better.** Growth's own handoff records changing the hero pill from
+"0g **Refined** sugar" to "0g **Added** sugar". "Refined sugar" has no regulatory definition and was
+arguably defensible; "0g added sugar" is a precise, checkable, **false** number, and the supporting
+line "Nothing is added to it" is flatly untrue of a product called Maple Pecan. A tightening that
+moves a claim from vague-but-defensible to precise-and-wrong is worth catching as a class.
+
+**`AGENTS_BRIEF.md:9` still carries the old line on `polish/round-2`.** My branch already removes it
+and adds it to the forbidden list, so my version should win the merge — worth a glance, because a
+brief that still asserts the claim is how it gets reinstated.
+
+## 3a-ter → Failure mode worth naming: simultaneous convergence
+
+Recorded at the merge session's suggestion, because it cost a round trip and would have cost a
+broken merge.
+
+Emil told me to adopt the Conversion agent's field names. Independently, they were told to adopt
+mine. **Both sides moved, at once, in opposite directions** — the same five keys, inverted, still
+mismatched. Every individual step was correct and the net result was zero progress plus a fresh
+mismatch that *looked* like convergence, because both commits truthfully said "adopted the other
+side's names".
+
+It is specific to parallel agents told to converge without a nominated direction, and the tell is
+that neither side's diff looks wrong on its own.
+
+Two cheap defences, both now in place:
+
+1. **Nominate which side moves**, explicitly, before either does.
+2. **Verify against the other side's shipped code, never a captured list or a description.** The
+   suite now reads growth's real `buildPayload` rather than a hand-copied fixture — a maintained
+   list of "what the other side sends" drifts exactly like a hand-maintained consent registry, and
+   for the same reason.
 
 ## 3a → "Pre-order" is a claim we cannot support · **UX + Conversion**
 
