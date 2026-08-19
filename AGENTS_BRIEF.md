@@ -107,6 +107,17 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   // "would you want these at work?" and is real signal for an office pilot.
   "office_interest":   "enum|null: yes | maybe | no",
   "company":      "string|null, <=80 chars",
+
+  // ── Added 2026-08-19 ──────────────────────────────────────────────────────
+  // Optional FIRST NAME. Maps onto the sheet's existing legacy `Name` column,
+  // deliberately, so historical and new rows share one place.
+  //
+  // Cap 40 is agreed EQUAL on both sides, not independently chosen. First name
+  // only — no surname is asked for, and the privacy policy already declares it
+  // as "First name (optional)". No pairing rule and NO consent gate: it is
+  // ordinary contact data covered by the marketing consent, and since
+  // `consent_marketing` is mandatory a gate would never fire.
+  "name":         "string|null, <=40 chars",
   "headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
 
   "channel":       "array<enum>|null, no product cap: online_dtc | grocery | gym_studio | office | clinic | other",

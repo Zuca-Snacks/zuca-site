@@ -920,6 +920,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     channel_other: null,
     office_interest: 'maybe',
     company: 'Acme AS',
+    name: 'Sarah',
     headcount: '10_49',
     research_optin: true,
     consent_sms: true,
@@ -1137,6 +1138,49 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const v = validateWaitlist(growthPayload({ consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: ['nut_allergy'] }));
     const stored = v.ok && v.data.consent_health ? v.data.dietary : null;
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
+  });
+
+  // ── name: optional first name, added 2026-08-19 ─────────────────────────
+  // Maps onto the legacy `Name` column. Before this it was in Code.gs COLUMNS
+  // but NOT in the schema, so a client sending it got a 400 on unrecognized_keys
+  // and the downgrade ladder stripped it — the name lost silently while every
+  // save cost two round trips. A column with no schema entry, which is the exact
+  // mirror of price_band_other having a schema entry with no column.
+
+  await check('name accepted', 'stored', async () => {
+    const v = validateWaitlist(growthPayload({ name: 'Sarah' }));
+    return { pass: v.ok && v.data.name === 'Sarah', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  await check('name is optional — omitting it is not an error', 'null', async () => {
+    const p = growthPayload(); delete p.name;
+    const v = validateWaitlist(p);
+    return { pass: v.ok && v.data.name === null, actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  await check('name at the 40 cap accepted', '40 chars ok', async () => {
+    const v = validateWaitlist(growthPayload({ name: 'x'.repeat(40) }));
+    return { pass: v.ok && v.data.name.length === 40, actual: v.ok ? String(v.data.name.length) : 'rejected' };
+  });
+
+  await check('name at 41 rejected — cap is EQUAL to the client cap', 'too_long', async () => {
+    // Equal, not merely "each reasonable". A client cap above the server cap
+    // turns the gap into a 400 nobody sees in either codebase on its own.
+    const v = validateWaitlist(growthPayload({ name: 'x'.repeat(41) }));
+    const issue = v.ok ? null : v.issues.find((i) => i.path === 'name');
+    return { pass: !v.ok && issue?.rule === 'too_long', actual: v.ok ? 'ACCEPTED' : JSON.stringify(issue) };
+  });
+
+  await check('name with a formula is neutralised before the sheet', "prefixed with '", async () => {
+    const out = sanitizeForSheet('=HYPERLINK("https://attacker.example","hi")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 28) + '…' };
+  });
+
+  await check('name survives with no health consent — it is not Art 9', 'stored', async () => {
+    // Distinct from motivation/dietary. A first name is ordinary contact data,
+    // so it must NOT be caught by the Art 9 gate.
+    const v = validateWaitlist(growthPayload({ name: 'Sarah', consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: null }));
+    return { pass: v.ok && v.data.name === 'Sarah', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
   });
 
   await check('Formula payload in company neutralised', "prefixed with '", async () => {

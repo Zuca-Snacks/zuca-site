@@ -310,6 +310,11 @@ export default async function handler(req, res) {
     company: data.company,
     headcount: data.headcount,
 
+    // First name, optional. Written to the legacy `Name` column so new and
+    // historical rows share one place. Ungated on purpose: `consent_marketing`
+    // is mandatory, so a gate here would be a condition that is always true.
+    name: data.name,
+
     // Phone and postal address are each stored ONLY behind their own opt-in,
     // the same rule already applied to `motivation`. Someone typing an address
     // into a form is not the same as consenting to us keeping it, and a home

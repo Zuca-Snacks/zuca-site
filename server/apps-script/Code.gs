@@ -238,11 +238,17 @@ var COLUMNS = [
   'consent_ip_prefix',
   'user_agent',
 
-  // ── Legacy columns ────────────────────────────────────────────────────────
-  // Written only by the OLD modal, which posts straight to this script and
-  // sends `name`, `phone` and `hearAbout`. Without these entries every one of
-  // those values is silently dropped, because a key absent from COLUMNS is
-  // never written anywhere.
+  // ── Shared and legacy columns ────────────────────────────────────────────────────────
+  // `name` is NO LONGER legacy-only. As of 2026-08-19 the new form collects an
+  // optional first name and writes it to this same column on purpose, so that
+  // historical and current rows line up in one place rather than splitting
+  // across a `name_v2`. Safe here in a way it was not for `phone`: a name is
+  // not a contact channel, so no query over this column can reach anyone, and
+  // consented rows stay identifiable by `consent_timestamp` regardless.
+  //
+  // `phone` and `hearAbout` remain written ONLY by the OLD modal, which posts
+  // straight to this script. Without these entries every one of those values is
+  // silently dropped, because a key absent from COLUMNS is never written.
   //
   // They are kept as separate columns rather than folded into `referral_source`
   // on purpose: the two use different vocabularies (`physician` vs `doctor`,

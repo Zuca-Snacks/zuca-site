@@ -702,6 +702,34 @@ export const waitlistSchema = z
     // and is formula-sanitised before it reaches a cell.
     office_interest: optionalEnum(OFFICE_INTERESTS),
     company: safeString(80).nullish().transform((v) => v || null),
+
+    /**
+     * First name, optional. Added 2026-08-19.
+     *
+     * NOT a new field on the sheet — it maps onto the `Name` column the old
+     * modal already wrote to, so historical and new rows line up in one place.
+     * That is safe here in a way it explicitly was NOT for `phone`, and the
+     * difference is worth stating because the two look alike:
+     *
+     *   A name is not a contact channel. The phone hazard was that "text
+     *   everyone with a number" would reach 137 people who never agreed, so
+     *   the consented numbers needed a column of their own. There is no query
+     *   over the name column that contacts anybody — you cannot send to a
+     *   name — so merging costs nothing and the rows stay distinguishable by
+     *   `consent_timestamp` anyway.
+     *
+     * Cap 40, agreed with Conversion so the two caps are EQUAL rather than
+     * each independently reasonable — the failure mode we already hit once,
+     * where a client cap of 120 above a server cap of 40 turned the gap into
+     * a 400. 40 is first-name-only: Emil does not ask for a surname, and the
+     * privacy policy's entry already reads "First name (optional)".
+     *
+     * No pairing rule and no consent gate. `consent_marketing` is mandatory —
+     * the schema rejects its absence AND its being false — so there is no such
+     * thing as a stored row without it, and gating this on a condition that
+     * holds for every row would be a control that never fires.
+     */
+    name: safeString(40).nullish().transform((v) => v || null),
     headcount: optionalEnum(HEADCOUNTS),
 
     // A free-text escape for the enums that offer "Other". Pairing is enforced
