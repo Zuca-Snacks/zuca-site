@@ -1140,6 +1140,48 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
+  // ── C0/C1 control characters: STRIPPED, not rejected (S21) ──────────────
+  // Conversion shipped the same strip client-side FIRST, because this is a
+  // REMOVE-class change. These assertions exist in two halves and the second
+  // half is the important one: it pins that CR, LF, NUL and bidi overrides are
+  // STILL a hard rejection. Widening a strip over them would silently downgrade
+  // a security control into a cleanup, and every other test here would keep
+  // passing while it happened.
+
+  for (const [label, code] of [['BEL', 7], ['DEL', 127], ['C1', 0x9b], ['SOH', 1]])
+    await check(`${label} in a free-text field is stripped`, 'Sarah', async () => {
+      const v = validateWaitlist(growthPayload({ name: 'Sar' + String.fromCharCode(code) + 'ah' }));
+      return { pass: v.ok && v.data.name === 'Sarah', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+    });
+
+  await check('stripping does not leave a double space', 'Anne Marie', async () => {
+    // Strip runs BEFORE normalizeText so the collapse and trim clean up after
+    // it. Strip afterwards and this returns "Anne  Marie".
+    const v = validateWaitlist(growthPayload({ name: 'Anne ' + String.fromCharCode(7) + ' Marie' }));
+    return { pass: v.ok && v.data.name === 'Anne Marie', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  await check('a control-only value becomes null, not an empty cell', 'null', async () => {
+    const v = validateWaitlist(growthPayload({ name: String.fromCharCode(7, 7) }));
+    return { pass: v.ok && v.data.name === null, actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  for (const [label, code] of [['CR', 13], ['LF', 10], ['NUL', 0], ['bidi override', 0x202e]])
+    await check(`${label} is STILL rejected, not swept into the strip`, 'illegal_chars', async () => {
+      const v = validateWaitlist(growthPayload({ name: 'Sar' + String.fromCharCode(code) + 'ah' }));
+      const issue = v.ok ? null : v.issues.find((i) => i.path === 'name');
+      return { pass: !v.ok && issue?.rule === 'illegal_chars', actual: v.ok ? 'ACCEPTED — CONTROL DOWNGRADED' : JSON.stringify(issue) };
+    });
+
+  await check('email is NOT silently repaired by the strip', 'invalid_email', async () => {
+    // safeString only. Stripping inside the shared normalizeText would have
+    // turned "a<BEL>@b.com" into a DIFFERENT, valid address and sent mail to it
+    // — accuracy, Art 5(1)(d). An identifier is not a cosmetic field.
+    const v = validateWaitlist(growthPayload({ email: 'a' + String.fromCharCode(7) + '@b.com' }));
+    const issue = v.ok ? null : v.issues.find((i) => i.path === 'email');
+    return { pass: !v.ok && issue?.rule === 'invalid_email', actual: v.ok ? `ACCEPTED as ${v.data.email}` : JSON.stringify(issue) };
+  });
+
   // ── name: optional first name, added 2026-08-19 ─────────────────────────
   // Maps onto the legacy `Name` column. Before this it was in Code.gs COLUMNS
   // but NOT in the schema, so a client sending it got a 400 on unrecognized_keys

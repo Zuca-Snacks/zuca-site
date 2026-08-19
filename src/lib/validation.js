@@ -345,11 +345,37 @@ function normalizeText(value) {
 }
 
 /** A trimmed, normalized, header-injection-free string with a hard length cap. */
+/**
+ * C0 and C1 control characters that get STRIPPED rather than rejected.
+ *
+ * Deliberately EXCLUDES \u0000, \r and \n — those stay in FORBIDDEN_CHARS and
+ * are still a hard rejection. Stripping them here would silently downgrade an
+ * existing security control into a cleanup, which is the worse kind of change
+ * because the tests would keep passing.
+ *
+ * Also excludes \t \u000B \u000C: normalizeText already folds them to a space,
+ * and "a<TAB>b" should read "a b", not "ab".
+ *
+ * What is left — \u0001-\u0008, \u000E-\u001F, DEL, and the C1 block — is
+ * invisible junk. A bell character in a first name is never intentional, so
+ * stripping loses nothing a person meant to type, and unlike rejecting it
+ * cannot 400 a submission somebody cannot see the problem with.
+ *
+ * Added 2026-08-19, AFTER Conversion shipped the same strip client-side. Order
+ * matters: this is a REMOVE-class change, so the client goes first. Doing it
+ * server-side while an older client was still posting would have turned
+ * payloads that client considers valid into rejections in flight.
+ */
+// eslint-disable-next-line no-control-regex -- matching control chars is the point
+const STRIPPED_CONTROLS = /[\u0001-\u0008\u000E-\u001F\u007F-\u009F]/g;
+
 function safeString(max) {
   return z
     .string()
     .max(max * 4, { message: 'too_long' }) // Cheap pre-check before we spend cycles normalizing.
-    .transform(normalizeText)
+    // Strip BEFORE normalizing so the space-collapse and trim run afterwards:
+    // "a <BEL> b" becomes "a b", not "a  b".
+    .transform((v) => normalizeText(v.replace(STRIPPED_CONTROLS, '')))
     .refine((v) => !FORBIDDEN_CHARS.test(v), { message: 'illegal_chars' })
     .refine((v) => v.length <= max, { message: 'too_long' });
 }
