@@ -485,8 +485,16 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
               {copy.back}
             </Button>
           )}
-          {/* The full exit, kept quieter than the per-screen skip above it. */}
-          <Button type="button" variant="ghost" onClick={finish} disabled={busy} className="zw-exit">
+          {/* The full exit, on UX's `quiet` weight — shipped for exactly this.
+              Three controls need three weights: primary Continue, ghost skip
+              that advances, quiet exit that leaves. On ghost the skip and the
+              exit rendered the same colour, so the hierarchy was two weights
+              pretending to be three and the loud control was the one that
+              ends the flow.
+              QUIET IS VISUAL ONLY: still a full 44px target, still clears
+              4.5:1. If it looks too prominent, that is the correct amount of
+              prominent — an exit nobody can find is a dark pattern. */}
+          <Button type="button" variant="quiet" onClick={finish} disabled={busy} className="zw-exit">
             {copy.exit}
           </Button>
         </div>
