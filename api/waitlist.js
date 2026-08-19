@@ -169,28 +169,53 @@ export default async function handler(req, res) {
       req.destroy();
       return;
     }
-    return send(res, 400, { ok: false, error: 'validation' });
+    // Same rule as below: never refuse without saying why. There is no field to
+    // name here — the body never became one — so the reason names the body.
+    return send(res, 400, { ok: false, error: 'validation', refused: [{ field: '(body)', rule: 'unreadable' }] });
   }
 
   let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return send(res, 400, { ok: false, error: 'validation' });
+    return send(res, 400, { ok: false, error: 'validation', refused: [{ field: '(body)', rule: 'invalid_json' }] });
   }
 
   // An array or a bare string parses as valid JSON but is not an object, and
   // handing either to the schema produces a confusing error rather than a clean
   // rejection.
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return send(res, 400, { ok: false, error: 'validation' });
+    return send(res, 400, { ok: false, error: 'validation', refused: [{ field: '(body)', rule: 'not_an_object' }] });
   }
 
   // 7. Validate against the frozen contract.
   const result = validateWaitlist(parsed);
   if (!result.ok) {
     audit('reject.validation', { issues: result.issues.map((i) => `${i.path}:${i.rule}`) });
-    return send(res, 400, { ok: false, error: 'validation' });
+    /**
+     * ─── THE RULE: this endpoint does not discard input silently. ───────────
+     *
+     * S24, and the fourth refusal-rendering-as-success in one day. The field
+     * and rule were ALREADY COMPUTED and ALREADY LOGGED here; the response
+     * omitted them on an anti-enumeration argument that does not apply to them.
+     *
+     * That argument protects two things, and only two:
+     *   · whether an ADDRESS exists          -> the 409 stays opaque
+     *   · how the BOT heuristics work        -> the honeypot 200 stays opaque
+     *
+     * Neither covers "which of the fields YOU sent we would not take". That
+     * names our own schema, which already ships in the public client bundle,
+     * and echoes no values — `result.issues` carries path and rule only, by
+     * construction, so a rejection cannot become a copy of the payload.
+     *
+     * The line is: anything about the requester's OWN submission is theirs to
+     * know. Anything about other people, or about how we spot bots, is not.
+     */
+    return send(res, 400, {
+      ok: false,
+      error: 'validation',
+      refused: result.issues.map((i) => ({ field: i.path, rule: i.rule })),
+    });
   }
   const data = result.data;
 
@@ -210,6 +235,8 @@ export default async function handler(req, res) {
   }
 
   const handle = await emailHandle(data.email);
+  /** Consent-gated discards, surfaced on the 200. See the block that fills it. */
+  let droppedForResponse = [];
 
   // 9. Duplicates. 409 per the contract; the UI is told to treat it as success,
   //    so this is not an enumeration oracle in practice — but note the honest
@@ -551,6 +578,14 @@ export default async function handler(req, res) {
     ].filter(Boolean);
     if (withheld.length) {
       audit('gated.dropped_no_consent', { handle, fields: withheld });
+      // Carried out on the 200. THIS IS THE S24 CASE: we ask someone for a
+      // postal address, discard it for want of an opt-in, and answer ok:true.
+      // The row is honest — the field is empty — but the PERSON was told it
+      // saved, and they are the only party who can do anything about it.
+      //
+      // Categories, not values: naming `address` says what was lost without
+      // repeating what we just refused to keep.
+      droppedForResponse = withheld;
     }
   }
 
@@ -688,6 +723,7 @@ export default async function handler(req, res) {
     payload.position = newCount;
   }
   if (editToken) payload.edit_token = editToken;
+  if (droppedForResponse.length) payload.dropped = droppedForResponse;
   return send(res, 200, payload);
 }
 

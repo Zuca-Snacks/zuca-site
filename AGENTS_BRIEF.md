@@ -212,6 +212,27 @@ ignoring the extra key behaves exactly as before. Use it to update the live coun
 issuing a follow-up `GET /api/count`, which an edge cache can answer with a number from *before*
 this very write. If you genuinely need a separate read, `GET /api/count?fresh=1` bypasses the cache.
 
+**⚠️ THE ENDPOINT NO LONGER REFUSES SILENTLY (S24, 2026-08-19).** Every response that
+discards any part of a submission now says which part:
+
+| | |
+|---|---|
+| `400` | `refused: [{field, rule}]` — names every field it would not take. Never echoes a submitted **value**; path and rule only, by construction. |
+| `200` | `dropped: ["address", …]` — present only when a consent gate discarded something. Categories, not values. Absent entirely on a clean accept. |
+
+**This reverses the earlier "a 400 names nothing" rule, deliberately.** That rule came from
+anti-enumeration, which protects exactly two things: whether an *address* exists (the `409`, still
+opaque) and how the *bot* heuristics work (the honeypot `200`, still opaque). It never covered
+which of the fields **you** sent we refused — that names our own schema, which already ships in
+your bundle.
+
+Over-applying it cost S24: a client stripped seventeen fields on a fallback and nobody could see
+which single field the server had objected to, because the answer was computed, logged, and then
+withheld from the one party who could act on it.
+
+**Please surface both to the person.** "We couldn't save your address because the post box wasn't
+ticked" is a sentence they can act on. `ok: true` is not.
+
 **Response contract — ALL NINE statuses.** Every body is exactly `{"ok":false,"error":"<slug>"}`
 and carries **nothing else**. There is no field naming which input failed: the validator's
 per-field `rule` goes to the server audit log only, and assuming otherwise is a mistake I made

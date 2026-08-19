@@ -1700,10 +1700,55 @@ await check('Error response never echoes submitted input', 'no email in body', a
   // goes to the audit log. They found that by reading api/waitlist.js instead of
   // believing me. These pin both halves so the next person gets it from a test.
 
-  await check('400 body carries no field names or rule strings', 'error only', async () => {
+  // ⚠️ THIS REVERSES A DELIBERATE EARLIER DECISION. Until 2026-08-19 this test
+  // asserted the OPPOSITE — that a 400 names nothing. Recorded rather than
+  // quietly swapped, so nobody re-derives the original argument from scratch.
+  //
+  // The old rule came from anti-enumeration. That argument protects exactly
+  // two things: whether an ADDRESS exists (the 409, still opaque) and how the
+  // BOT heuristics work (the honeypot 200, still opaque). It never covered
+  // "which of the fields YOU sent we would not take" — that names our own
+  // schema, which already ships in the public client bundle.
+  //
+  // The cost of over-applying it was S24: a client fell back and stripped
+  // seventeen fields, and neither we nor the visitor could see which single
+  // field the server had objected to, because the answer was computed, logged,
+  // and then withheld from the one party who could act on it.
+  await check('a 400 NAMES the fields it refused', 'field + rule', async () => {
     const r = await post(growthPayload({ name: 'x'.repeat(41) }));
-    const keys = Object.keys(r.json ?? {}).sort().join(',');
-    return { pass: r.status === 400 && keys === 'error,ok', actual: `${r.status} ${JSON.stringify(r.json)}` };
+    const refused = r.json?.refused ?? [];
+    const hit = refused.find((f) => f.field === 'name');
+    return { pass: r.status === 400 && hit?.rule === 'too_long', actual: JSON.stringify(r.json) };
+  });
+
+  await check('but a 400 still echoes NO submitted values', 'no payload copy', async () => {
+    // The invariant that has to survive the reversal. `result.issues` carries
+    // path and rule only, by construction — so a rejection can never become a
+    // copy of the payload, in the response or in the log.
+    const secret = 'zz-canary-value-zz';
+    const r = await post(growthPayload({ name: secret.repeat(4) }));
+    const body = JSON.stringify(r.json ?? {});
+    return { pass: r.status === 400 && !body.includes('canary'), actual: body.includes('canary') ? 'VALUE ECHOED' : 'field and rule only' };
+  });
+
+  await check('a malformed body is refused with a distinguishable reason', 'not just validation', async () => {
+    const r = await post(null, { raw: '[1,2,3]' });
+    return { pass: r.status === 400 && r.json?.refused?.[0]?.rule === 'not_an_object', actual: JSON.stringify(r.json) };
+  });
+
+  await check('a 200 that DROPPED a consent-gated field says so', 'dropped surfaced', async () => {
+    // S24 proper: we ask for a postal address, discard it for want of an
+    // opt-in, and used to answer a bare ok:true.
+    const { json } = await post(growthPayload({
+      consent_postal: false, postal_consent_text_version: null,
+      address_line1: 'Storgata 1', address_city: 'Oslo',
+    }));
+    return { pass: Array.isArray(json?.dropped) && json.dropped.includes('address'), actual: JSON.stringify(json?.dropped ?? json) };
+  });
+
+  await check('a clean 200 carries no dropped key at all', 'silent when nothing lost', async () => {
+    const { json } = await post(growthPayload());
+    return { pass: !('dropped' in (json ?? {})), actual: JSON.stringify(json) };
   });
 
   await check('415 is a DISTINCT status, not a 400', 'not validation', async () => {
