@@ -256,6 +256,19 @@ await check('consent_marketing:"true" (string) rejected', '400 validation', asyn
 // 8 — enum and length enforcement
 // The max-3 cap was removed 2026-08-19. "Choose up to 3" makes someone rank
 // reasons they hold equally, and the answer comes back a ranking artefact.
+await check('New motivation values accepted (fullness, whole_foods)', '200', async () => {
+  const r = await post(goodPayload({ consent_health: true, motivation: ['fullness', 'whole_foods'] }));
+  return { pass: r.status === 200, actual: String(r.status) };
+});
+await check('No medication value in the enum', '400 — not collected', async () => {
+  // Deliberately absent. Not a phrasing problem — it fails necessity, and the
+  // guardrails bar acting on it. See the note above MOTIVATIONS.
+  const codes = await Promise.all(
+    ['glp1', 'medication', 'on_medication', 'weight_loss'].map((v) =>
+      post(goodPayload({ consent_health: true, motivation: [v] })))
+  );
+  return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+});
 await check('motivation accepts every value at once — no product cap', '200', async () => {
   const { MOTIVATIONS } = await import('../src/lib/validation.js');
   const r = await post(goodPayload({ consent_health: true, motivation: [...MOTIVATIONS] }));

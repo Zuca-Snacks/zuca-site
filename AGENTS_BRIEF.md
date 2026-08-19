@@ -91,7 +91,7 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "consent_postal":     "boolean, default false — REQUIRED to store the address block",
 
   "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
-  "motivation":       "array<enum>|null, NO product cap — pick as many as apply. One of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
+  "motivation":       "array<enum>|null, NO product cap — pick as many as apply. One of: digestion, regularity,\n  //                     gut_health, energy, sustainability, doctor_suggested, family_health,\n  //                     fullness, whole_foods, other",
   "intent":           "enum|null: preorder_now | very_interested | curious | just_browsing",
   "price_band":       "enum|null: lt_24 | 24_29 | 30_35 | 36_42 | gt_42   // for a 12-pack",
   "flavor":           "enum|null: choc_rasp_salt | maple_pecan | both | undecided",
@@ -224,6 +224,21 @@ the client's guard, not a replacement for it — still only render the field to 
 all still return `400`. A non-string `zip` also still returns `400`: that is a malformed client or a
 probe, not somebody's postcode. Dropped values are logged as `zip.dropped_not_us_format` with the
 derived country, which is the feedback loop for tuning the region guess.
+
+### Enum changes: ADD server-first, REMOVE client-first
+
+The two directions are not symmetric, and getting the order wrong loses signups.
+
+| Change | Order | Why |
+|---|---|---|
+| **Adding** a value | **Server, then client** | The client sending a value the server does not know is a *value* error. It 400s the whole submission, and the downgrade ladder cannot recover it — the ladder strips unknown **keys**, and this is a known key with an unknown value. Land the enum first and the window never exists. |
+| **Removing** a value, or a field | **Client, then server** | The mirror image: stop sending it before the server stops accepting it. This is what made `motivation_other` a coupled change. |
+
+Neither is caught by the downgrade path. It is an emergency valve for schema
+lag on keys, and value errors are outside what it can see — the endpoint
+deliberately does not say *which* field failed, because that turns a 400 into an
+enumeration oracle. That opacity is correct and it is exactly why the ordering
+rule has to be written down instead of discovered.
 
 ### Multi-selects have no product cap
 

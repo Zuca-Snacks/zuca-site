@@ -440,8 +440,35 @@ const emailSchema = z
 
 export const MOTIVATIONS = [
   'digestion', 'regularity', 'gut_health', 'energy',
-  'sustainability', 'doctor_suggested', 'family_health', 'other',
+  'sustainability', 'doctor_suggested', 'family_health',
+  // Added 2026-08-19. Both are facts about the person and neither raises the
+  // sensitivity of this field beyond what it already carries — they sit inside
+  // the same `consent_health` gate as the rest.
+  'fullness', 'whole_foods',
+  'other',
 ];
+
+/**
+ * NOT here, deliberately: any value naming a medication.
+ *
+ * "I'm on a GLP-1" is a better phrasing than "GLP-1 support" — it states a fact
+ * about the person rather than an effect of the product — but the phrasing was
+ * never the problem. It reveals treatment, and by inference diagnosis, which is
+ * Art 9 at the hard end rather than the arguable end where `gut_health` sits.
+ *
+ * What decides it is necessity, not consent. The health-claim guardrails forbid
+ * GLP-1 and weight-loss claims outright, so such a segment would be special
+ * category data we are barred from acting on: collected, stored, subject to
+ * access requests, and useless. Art 5(1)(c) asks what decision the answer
+ * changes; if the answer is none, no consent cures that.
+ *
+ * Where the intent is "a clinician told me to eat more fiber",
+ * `doctor_suggested` already carries it and touches no medication.
+ *
+ * Adding one is Emil's call and needs the health consent wording to name
+ * medication specifically — which mints a new consent version automatically,
+ * but the sentence has to say it. Do not add on a peer's say-so.
+ */
 export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_browsing'];
 export const PRICE_BANDS = ['lt_24', '24_29', '30_35', '36_42', 'gt_42'];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
