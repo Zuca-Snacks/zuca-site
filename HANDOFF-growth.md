@@ -465,7 +465,7 @@ payload for it.
 **A guard cannot be reviewed into correctness. Break it deliberately and watch
 whether it notices.** Four mutations were run against this suite; one passed.
 
-### `npm run mutate` — nine plausible defects, ~45s, non-zero on survival
+### `npm run mutate` — ten plausible defects, ~50s, non-zero on survival
 
 I proposed doing that by hand whenever a field is added. Security's answer was
 better and it is now a script on both sides: forty seconds is cheap enough to do
@@ -491,6 +491,36 @@ down — and passed security's server gate too. That would leave a shared mailbo
 signed up on a sentence asserting nothing about the organisation, which is the
 only thing making it lawful. Each load-bearing element is now asserted
 separately: the basis, the naming, the stop mechanism, the exclusion.
+
+Security tightened their gate to a conjunction and deliberately did **not**
+mirror my four elements — a legitimate rephrasing should not become a server
+rejection. Stricter where the words are authored, looser where they are
+verified. That asymmetry is correct and is now the settled position.
+
+### 🌍 THE CONSENT GATES ARE ENGLISH, AND THAT IS A PRODUCT DECISION
+
+Security raised this and it belongs on the copy side. Two wordings —
+`business` and `motivation` — are gated on their TEXT rather than on a flag,
+because checking that the sentence actually says the thing is what makes the
+evidence mean anything. The consequence:
+
+```
+"Jeg spør på vegne av arbeidsplassen min…"   refused — basis, exclusion, stop
+```
+
+It fails closed, so nothing unlawful is stored. But from a translator's seat
+the office path and the health opt-in just stop working, with a rejection
+naming a rule they cannot find in the copy they wrote. **It is not fixable with
+a better regex** — a gate that checks a sentence says specific things is
+language-bound by construction.
+
+If a second language is coming, it is a decision before it is an edit: a
+per-language element list on the server, or a structured claim the copy declares
+alongside its text. A test fails the moment either wording is translated, so the
+question gets asked at the keyboard rather than after launch.
+
+**Emil has not been asked whether localisation is on the roadmap.** Nobody
+should infer from this note that it is.
 A new always-present key fails that test, which is the moment to ask whether
 its server is deployed yet.
 

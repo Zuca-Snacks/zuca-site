@@ -429,6 +429,19 @@ export const faq = [
 //
 // `authored` is the date the wording was written. It is cosmetic; the hash is
 // what makes the identifier trustworthy.
+// ⚠️ TWO OF THESE WORDINGS ARE READ BY THE SERVER, NOT JUST SHOWN.
+// `business` and `motivation` are gated on their TEXT: the server checks that
+// the sentence the person read actually says the thing, rather than trusting a
+// flag we set. That is the right design — it is what makes the consent evidence
+// mean something — and it has one consequence worth knowing before you edit:
+//
+//   THE GATES ARE ENGLISH. A translated wording matches nothing, fails closed,
+//   and the path it protects silently stops working.
+//
+// Not fixable with a better regex; it is language-bound by construction. If a
+// second language is coming, that is a decision to take with security first —
+// a per-language element list, or a structured claim declared alongside the
+// text. There is a test that fails the moment either wording is translated.
 export const consentTexts = {
   marketing: {
     // US and comparable opt-out regimes.

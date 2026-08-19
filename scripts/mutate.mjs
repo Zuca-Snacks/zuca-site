@@ -82,6 +82,13 @@ const MUTATIONS = [
     also: { find: '  "business_enquiry", "business_consent_text_version",\n]);', with: ']);' },
   },
   {
+    label: 'a gated consent wording is translated',
+    why: 'the server gates on the TEXT, so a translation fails closed and the path silently stops working',
+    file: COPY,
+    find: "I'm asking on behalf of my workplace.",
+    with: 'Jeg spør på vegne av arbeidsplassen min.',
+  },
+  {
     label: 'the consent wording drops its exclusion promise',
     why: 'the row is excluded from the personal list but is no longer TOLD so',
     file: COPY,

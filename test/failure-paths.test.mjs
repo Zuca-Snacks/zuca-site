@@ -364,6 +364,33 @@ test('the business wording still contains the phrases the server gates on', asyn
   assert.match(text, /personal mailing list/i, 'and the exclusion must be stated to them, not merely enforced');
 });
 
+test('every gated consent wording stays in the language the server reads', async () => {
+  const { consentTexts } = await import('../src/content/copy.js');
+
+  // ⚠️ TWO CONSENTS ARE GATED ON THEIR TEXT, AND THE GATES ARE ENGLISH.
+  // The server does not check a flag for these, it checks that the sentence the
+  // person read actually says the thing — which is right, and which makes the
+  // check language-bound by construction. It is not fixable with a better
+  // regex. "Jeg spør på vegne av arbeidsplassen min" is a perfectly good
+  // consent and matches nothing.
+  //
+  // It fails CLOSED — nothing unlawful is stored — but from a translator's seat
+  // the office path and the health opt-in simply stop working, with a rejection
+  // that names a rule they cannot find in the copy they just wrote.
+  //
+  // So this test exists to fail at the moment somebody translates one, rather
+  // than after it ships. If that is you: the fix is a decision, not an edit —
+  // either a per-language element list on the server or a structured claim the
+  // copy declares alongside its text. Ask security before shipping the string.
+  const GATES = [
+    ['business', consentTexts.business.text, /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i],
+    ['motivation', consentTexts.motivation.text, /\bmedicat|\bGLP-?\s?1\b/i],
+  ];
+  for (const [name, text, gate] of GATES) {
+    assert.match(text, gate, `${name}: the server's gate cannot read this wording`);
+  }
+});
+
 test('the business keys survive every rung of the downgrade ladder', async () => {
   const mod = await import('../src/components/waitlist/api.js');
   for (const [name, set] of [['CORE', mod.CORE_KEYS], ['MINIMAL', mod.MINIMAL_KEYS]]) {
