@@ -471,9 +471,16 @@ export const consentTexts = {
   // Postal. Framed as what it actually is, because the honest version is also
   // the appealing one — nobody minds a handwritten note, and pretending it is
   // something else would be the only way to make this creepy.
+  // ⚠️ PROMISES NOTHING SPECIFIC, ON PURPOSE (Emil, 18 Aug 2026).
+  // The earlier wording said "we send handwritten notes to early supporters",
+  // which commits us to a thing we may not do at scale — and a warm promise
+  // you quietly drop costs more goodwill than never making it. "May" is the
+  // load-bearing word. Do not upgrade it to "will", and do not name what gets
+  // sent, until there is something we are certain we can send to everyone who
+  // ticked this box.
   mail: {
-    authored: "2026-08-17",
-    text: "You can post me something. We send handwritten notes to early supporters — that's what this is for, it's not shared with anyone, and you can ask us to delete it whenever you like.",
+    authored: "2026-08-18",
+    text: "You can post me something. We'd like to show early supporters some love and may send you something — no promises about what or when. Your address isn't shared with anyone, and you can ask us to delete it whenever you like.",
   },
 };
 
@@ -551,7 +558,7 @@ export const step2 = {
 
   officeName: "Company",
   smsDisclosure: "Want launch texts too?",
-  mailDisclosure: "We send handwritten notes. Want one?",
+  mailDisclosure: "Want us to be able to send you something?",
   mailGate: "Answer anything above first and this opens up.",
 };
 
@@ -570,5 +577,6 @@ export const confirmation = {
   shareBody: "Every person you send moves the first production run closer to actually happening.",
   shareCta: "Share Zuca",
   shareCopied: "Link copied.",
+  shareManual: "Copy this link:",
   shareText: "Zuca: 10g of fiber, 150 calories, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
 };

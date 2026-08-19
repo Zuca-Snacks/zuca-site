@@ -118,6 +118,40 @@ Two things that live in your files, not mine:
 
 ---
 
+## 📉 WATCH THE AVERAGE SELECTION COUNT
+
+The max-3 / max-2 caps are gone from every multi-select (motivation, dietary,
+channel) at Emil's instruction: if someone has four reasons, take four.
+
+**Unlimited selection weakens the signal, and that is a real cost, not a
+quibble.** A cap forces a ranking — picking 3 from 8 says *these matter most*.
+Without one, the person who ticks everything and the person who ticks two are
+recorded the same way, and the first tells you almost nothing: if 70% of the
+list selects "gut health", that is only useful if selecting it meant choosing it
+over something else.
+
+**So watch it once traffic arrives.** `step2_submit` already carries
+`motivation_count`; the number to watch is the **mean selections per respondent
+per field**.
+
+| Mean | Reading |
+|---|---|
+| ~2–3 | Working as intended. People are choosing. |
+| ~4–5 | Weakening. Cross-tabs get muddy. |
+| >5, or a large share selecting *everything* | The field has stopped discriminating. Treat it as "interested in fiber" and nothing finer. |
+
+If it drifts high, the fix is **not** to reinstate a hard cap — that re-opens
+the truncation problem and annoys people mid-form. Better options, in order:
+ask for a single *primary* reason alongside the multi-select; or rank the top
+two; or leave collection alone and weight the analysis by 1/n selections, so
+someone who picked six contributes a sixth of a vote each.
+
+Note the server now bounds each list by the number of distinct valid values, so
+"uncapped" is bounded by the enum and de-duplicated — there is no unbounded
+growth to defend against, only signal dilution.
+
+---
+
 ## ⚖️ FOR COOLEY REVIEW — two items, both added on instruction, neither to be assumed safe
 
 Emil instructed both of these on 18 Aug 2026 and asked that counsel **bless them
