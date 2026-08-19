@@ -513,7 +513,11 @@ export const step2 = {
   body: "Seven quick taps. It decides which flavor we produce first and what we charge — and it moves you up the list for the first run.",
   cta: "Save my answers",
   ctaBusy: "Saving…",
-  skip: "Skip — just the email is fine",
+  // Two exits, deliberately different weights. The per-screen skip advances;
+  // the full exit leaves. Previously one control did the second thing from the
+  // first one's position, so anyone who used it never saw screens 3 and 4.
+  skipScreen: "Skip this one",
+  exit: "Finish — just the email is fine",
   // The health-motivation opt-in is deliberately separate from the marketing
   // consent. It is never bundled and never pre-checked.
   motivationConsent: consentTexts.motivation.text,
@@ -537,7 +541,10 @@ export const step2 = {
     {
       id: "value",
       title: "What's it worth to you?",
-      why: "You're setting the launch price. We haven't fixed it yet.",
+      // States the unit, deliberately without a per-serving figure. Nobody can
+      // price a quantity they are guessing at — but a per-unit price would be
+      // an anchor, and prices were removed from the whole site on purpose.
+      why: "A 12-pack is 12 servings — 60 bites. You're setting the launch price; we haven't fixed it yet.",
     },
     {
       id: "reach",
@@ -564,17 +571,32 @@ export const step2 = {
 
 // ─── Confirmation ────────────────────────────────────────────────────────────
 export const confirmation = {
-  title: "You're #{position} on the list.",
-  titleFallback: "You're on the list.",
-  duplicate: "You're already on the list — nice.",
-  duplicateBody: "Nothing to do. You'll get the ship date with everyone else who got in early.",
+  // ── The highest-attention moment on the site ────────────────────────────────
+  // Someone has just committed and is looking straight at us. Three rules:
+  //   • Open with a welcome, not a receipt. "You're #143" is a queue ticket;
+  //     "Welcome to Zuca" is a greeting to a person who just chose us.
+  //   • No urgency mechanics, no scarcity, no obligation in either direction.
+  //   • The dated timeline stays. It is the honest part, and it is what earns
+  //     the address — a warm greeting with nothing behind it is worth less than
+  //     a plain one that says exactly what will happen and when.
+  //
+  // REMOVED, and not to be reinstated: "Every person you send moves the first
+  // production run closer to actually happening." It made the reader
+  // responsible for our production run — pressure they did not ask for — and
+  // promised something outside our control.
+  title: "Welcome to Zuca.",
+  position: "You're the {position} person in the Zuca family.",
+  titleFallback: "Welcome to Zuca.",
+  duplicate: "You're already one of us.",
+  duplicateBody: "Nothing to do — you're on the list, and you'll hear from us with everyone else who got in early.",
   whatNext: [
     { when: "Right now", what: "Your spot is saved. No card, no charge, nothing to confirm." },
     { when: "Before launch", what: "One email with the ship date and your ordering window, ahead of the public." },
     { when: "Launch week", what: "Waitlist members order first, at launch pricing, while the first run lasts." },
   ],
-  shareTitle: "Know someone who'd want a bite?",
-  shareBody: "Every person you send moves the first production run closer to actually happening.",
+  // An invitation, not a task. No count, no goal, no consequence for declining.
+  shareTitle: "Know someone you'd like to share Zuca with?",
+  shareBody: "Send them the link — that's all, and there's nothing riding on it.",
   shareCta: "Share Zuca",
   shareCopied: "Link copied.",
   shareManual: "Copy this link:",

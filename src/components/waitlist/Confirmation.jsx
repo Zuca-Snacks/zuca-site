@@ -8,6 +8,13 @@ import { confirmation as copy } from "../../content/copy.js";
 import { fetchCount } from "./api.js";
 import { EVENTS, track } from "../../lib/analytics.js";
 
+/** 1st, 2nd, 3rd, 4th… including the 11–13 exceptions. */
+function ordinal(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  return `${n}${{ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"}`;
+}
+
 function shareUrl() {
   if (typeof window === "undefined") return "";
   const url = new URL(window.location.origin + window.location.pathname);
@@ -38,32 +45,46 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
   }, [position]);
 
   /**
-   * Share, with every fallback reachable.
+   * Share, and never appear dead.
    *
-   * The old version returned immediately after `navigator.share`, so a share
-   * sheet that THREW — which is the normal desktop outcome, where the API
-   * exists but refuses the payload — fell into a catch that swallowed it and
-   * did nothing at all. The button looked dead because it was: an unsupported
-   * path was treated as a completed one.
+   * THREE FAILURES, FOUND IN ORDER, ALL LOOKING IDENTICAL FROM THE OUTSIDE:
+   *   1. `return` after navigator.share, so a sheet that THREW was swallowed.
+   *   2. Every branch caught silently, so a clipboard denial did nothing.
+   *   3. And the one that actually kept biting: navigator.share EXISTS in
+   *      browsers where it never settles. `await` on a promise that neither
+   *      resolves nor rejects hangs forever — no fallback, no feedback, no
+   *      analytics event, button unchanged. Feature detection was the bug:
+   *      the API being present is not the API working.
    *
-   * Now every branch ends in visible feedback, including the failure.
+   * So: the attempt is recorded BEFORE the await (a click we cannot explain is
+   * still a click we should see), the native path is raced against a timeout so
+   * a hang falls through instead of stopping, and every route ends in something
+   * the eye can see.
    */
+  const NATIVE_TIMEOUT_MS = 1500;
+
   async function handleShare() {
     const url = shareUrl();
+    // Recorded first. If everything below fails, we still know it was pressed.
+    track(EVENTS.SHARE_CLICK, { method: "attempt" });
 
-    if (navigator.share) {
+    if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: "Zuca", text: copy.shareText, url });
-        track(EVENTS.SHARE_CLICK, { method: "native", ok: 1 });
-        return;
+        const settled = await Promise.race([
+          navigator.share({ title: "Zuca", text: copy.shareText, url }).then(() => "shared"),
+          new Promise((r) => window.setTimeout(() => r("timeout"), NATIVE_TIMEOUT_MS)),
+        ]);
+        if (settled === "shared") {
+          track(EVENTS.SHARE_CLICK, { method: "native", ok: 1 });
+          return;
+        }
+        // Timed out: the sheet never came. Fall through rather than wait.
       } catch (err) {
-        // AbortError means they opened the sheet and chose not to share. That
-        // is a completed interaction, not a failure to fall back from.
+        // Dismissing the sheet is a completed interaction, not a failure.
         if (err && err.name === "AbortError") {
           track(EVENTS.SHARE_CLICK, { method: "native", ok: 0 });
           return;
         }
-        // Anything else: the API is present but unusable here. Keep going.
       }
     }
 
@@ -74,34 +95,31 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
       window.setTimeout(() => setShared(false), 3000);
       return;
     } catch {
-      /* No clipboard permission, or an insecure context. One path left. */
+      /* No permission, or an insecure context. One route left. */
     }
 
-    // Last resort: put the link on screen so it can be copied by hand. A
-    // visible link they can select beats a button that silently does nothing.
+    // Last resort: show the link. Something selectable beats a dead button.
     track(EVENTS.SHARE_CLICK, { method: "manual", ok: 1 });
     setManualUrl(url);
   }
 
-  const title = duplicate
-    ? copy.duplicate
-    : position !== null
-      ? copy.title.replace("{position}", position.toLocaleString())
-      : copy.titleFallback;
+  const title = duplicate ? copy.duplicate : copy.title;
+  const welcome =
+    !duplicate && position !== null
+      ? copy.position.replace("{position}", ordinal(position))
+      : null;
 
   return (
     <div className="zw-card zw-card--tall">
       <div aria-live="polite">
-        {!duplicate && position !== null ? (
-          <p className="zw-position">#{position.toLocaleString()}</p>
-        ) : null}
         <h2 className="zw-title">{title}</h2>
+        {welcome ? <p className="zw-welcome">{welcome}</p> : null}
         <p className="zw-body">
           {duplicate
             ? copy.duplicateBody
             : profileSaved
-              ? "Thanks — those answers go straight into what we produce first."
-              : "Your spot is saved. Here's what happens from here."}
+              ? "Thanks — those answers go straight into what we make first."
+              : "Here's what happens from here."}
         </p>
       </div>
 

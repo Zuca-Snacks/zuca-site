@@ -211,6 +211,14 @@
   margin-top: var(--z-space-2);
 }
 
+.zw-welcome {
+  font-size: var(--z-step-1);
+  line-height: 1.3;
+  color: var(--z-brand-ink);
+  margin: 0 0 var(--z-space-3);
+  text-wrap: balance;
+}
+
 /* ─── Confirmation ───────────────────────────────────────────────────────── */
 
 .zw-position {
