@@ -306,6 +306,32 @@ await check('Non-medication motivations unaffected by the gate', '200', async ()
   return { pass: r.status === 200, actual: String(r.status) };
 });
 
+await check('Servings quantity bands accepted', '200', async () => {
+  const codes = await Promise.all(['srv_1_2', 'srv_3_5', 'srv_6_10', 'srv_11_20', 'srv_gt_20']
+    .map((v) => post(goodPayload({ quantity_band: v }))));
+  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+});
+await check('Legacy bite bands still accepted — REMOVE is client-first', '200', async () => {
+  const codes = await Promise.all(['lt_4', '4_8', '9_16', '17_30', 'gt_30']
+    .map((v) => post(goodPayload({ quantity_band: v }))));
+  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+});
+await check('srv_ prefix present on every current band', 'unit is visible in the value', async () => {
+  // The prefix is what stops a query pooling bites and servings silently.
+  const { QUANTITY_BANDS } = await import('../src/lib/validation.js');
+  const current = QUANTITY_BANDS.filter((v) => v.startsWith('srv_'));
+  const legacy = QUANTITY_BANDS.filter((v) => !v.startsWith('srv_'));
+  return {
+    pass: current.length === 5 && legacy.length === 5 && !legacy.some((v) => v.startsWith('srv_')),
+    actual: `${current.length} servings, ${legacy.length} bites, no overlap in prefix`,
+  };
+});
+await check('price_band_other cap holds a real answer but not an essay', '40', async () => {
+  const ok = await post(goodPayload({ price_band: 'other', price_band_other: '$25-30 depends on size' }));
+  const no = await post(goodPayload({ price_band: 'other', price_band_other: 'x'.repeat(41) }));
+  return { pass: ok.status === 200 && no.status === 400, actual: `22ch->${ok.status}, 41ch->${no.status}` };
+});
+
 // price_band: new bands live, legacy still accepted until the client switches.
 await check('New price bands accepted', '200', async () => {
   const codes = await Promise.all(['25_34', '35_44', 'gt_45'].map((v) => post(goodPayload({ price_band: v }))));

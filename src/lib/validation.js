@@ -528,12 +528,28 @@ export const PRICE_BANDS = [
 ];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
 /**
- * Monthly consumption, not units per order. Values are the Conversion agent's,
- * matching the question actually asked on the form — it forecasts reorder rate,
- * which is the number that matters, rather than basket size. Exhaustive by
- * design: no free-text escape.
+ * Monthly consumption. Two generations, and the units differ — which is the
+ * whole reason for the `srv_` prefix.
+ *
+ * The legacy values count BITES. The new ones count SERVINGS, and one serving
+ * is five bites, so the scales differ fivefold. Unprefixed, `9_16` and `6_10`
+ * overlap as ranges while meaning entirely different quantities, and nothing in
+ * either value says which unit it is. The prefix makes a query that pools them
+ * obviously wrong instead of quietly wrong — the Conversion agent's argument,
+ * and a good one: a mistake you can see beats a mistake you cannot.
+ *
+ * They are NOT one series. A row answering `9_16` and a row answering
+ * `srv_6_10` cannot be compared, averaged or bucketed together. Same class of
+ * discontinuity as the legacy `social` -> instagram/tiktok split.
+ *
+ * REMOVE the legacy five once the client stops sending them — client-first.
  */
-export const QUANTITY_BANDS = ['lt_4', '4_8', '9_16', '17_30', 'gt_30'];
+export const QUANTITY_BANDS = [
+  // Current — servings per month
+  'srv_1_2', 'srv_3_5', 'srv_6_10', 'srv_11_20', 'srv_gt_20',
+  // Legacy — BITES per month. Different unit, not comparable.
+  'lt_4', '4_8', '9_16', '17_30', 'gt_30',
+];
 
 /** Company size, for the office-snack path. Bands, not a number — a headcount
  *  typed as free text is unusable for segmentation and more identifying. */
@@ -722,11 +738,18 @@ export const waitlistSchema = z
     // Freehand price. Stored verbatim, never parsed: "£30ish", "$25-30",
     // "40 NOK a bar" and "depends on the size" are all legitimate answers, and
     // a number extracted from any of them would be a guess presented as data.
-    // Same treatment as every other free-text box — normalised, control chars
-    // rejected, capped, and formula-sanitised before it reaches a cell. That
-    // last one matters more here than elsewhere: a price answer beginning "-"
-    // or "=" is a plausible thing for someone to type.
-    price_band_other: safeString(120).nullish().transform((v) => v || null),
+    // Normalised, control chars rejected, capped, and formula-sanitised before
+    // it reaches a cell — that last one matters more here than elsewhere, since
+    // a price answer beginning "-" or "=" is a plausible thing to type.
+    //
+    // 40, between the 120 I first shipped and the 16 the Conversion agent
+    // proposed. 120 invites prose into a field that should hold a figure. 16
+    // fails "$25-30 depends on size" at 22 characters, and an over-length
+    // answer is a 400 on the WHOLE submission — losing a signup to protect a
+    // price note is the wrong trade, and it is the failure this project has
+    // spent the week designing against. 40 holds every realistic answer and
+    // still has no room for an essay.
+    price_band_other: safeString(40).nullish().transform((v) => v || null),
 
     // SMS. Strict phone format — see phoneSchema for why this one does not
     // fail soft the way `zip` does.
