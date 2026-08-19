@@ -424,7 +424,13 @@ function doPost(e) {
       dietary_other: payload.consent_health ? payload.dietary_other : '',
       research_optin: payload.research_optin,
 
-      sms_phone: payload.consent_sms ? payload.phone : '',
+      // `sms_phone`, not `phone`. The Vercel function renames it on the wire so
+      // the consent-gated number never lands in the legacy `phone` column that
+      // holds 137 numbers captured without consent. Reading `payload.phone`
+      // here silently wrote nothing — the endpoint had already renamed it.
+      // Found by the local test drive, because it was the first thing to run
+      // both halves in sequence; each suite tested its own side of this seam.
+      sms_phone: payload.consent_sms ? payload.sms_phone : '',
       consent_sms: payload.consent_sms,
       sms_consent_text_version: payload.sms_consent_text_version,
 
