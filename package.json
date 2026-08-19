@@ -15,7 +15,8 @@
     "security:compat": "node scripts/check-merge-compat.mjs",
     "security:columns": "node scripts/sheet-columns.mjs",
     "security:columns:check": "node scripts/sheet-columns.mjs --check",
-    "security:livewrite": "node scripts/live-write-test.mjs"
+    "security:livewrite": "node scripts/live-write-test.mjs",
+    "security:mutate": "node scripts/mutate-compat.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

@@ -676,6 +676,47 @@ words"* invites less than *"Tell us more"* does.
 **Ordering:** server first, per the rule below. The schema accepts it as of
 19 Aug, so the chip's text box is safe to ship whenever growth is ready.
 
+## 0a → AND: `npm run security:mutate` · **run this BEFORE trusting item 0**
+
+`security:compat` has had **three separate blindness bugs**, each of which reported
+COMPATIBLE while not looking at the thing that had changed:
+
+| Bug | Found by |
+|---|---|
+| parsed zero enums, said COMPATIBLE | agent 4's calibration gate |
+| read 40 of 42 keys, said COMPATIBLE | Conversion's key count disagreeing with mine |
+| key charset excluded uppercase, so any camelCase key was invisible | mutating a key and watching it stay green |
+
+**Not one was found by reading the code.** Conversion then ran the same method against their
+own suite and found the mirror — a pinned key list that built a payload with no business
+enquiry, so the conditionally-spread pair's spelling was never checked.
+
+Their diagnosis is why this is a command and not a habit:
+
+> A guard encodes the shape of the code **at the moment it was written**, and the next field
+> added is the one most likely to fall outside that shape. So a guard is most trustworthy about
+> the code it was written against, and least trustworthy about exactly what it will next be
+> asked to catch.
+
+So re-mutating belongs at every **field addition**, not every checker rewrite. A forty-second
+ritual that depends on remembering is not a control — that is the `NEVER_WRITTEN` lesson in
+process form.
+
+```
+npm run security:mutate            # ~10s, exits non-zero if anything survives
+```
+
+Six plausible defects, each of which `security:compat` must catch. **The negative control runs
+first**: an unmutated tree must report COMPATIBLE, or a checker that failed on everything would
+pass all six and be useless.
+
+A mutation that fails to APPLY is counted as a failure, not a pass — a pattern that no longer
+matches means the code moved and that mutation now tests nothing, which is the same silent
+drift the file exists to prevent.
+
+Verified against itself: reintroducing the uppercase-blind charset makes exactly the two
+camelCase mutations survive, and the harness says so.
+
 ## 0 → BEFORE ANY MERGE: `npm run security:compat <client-ref>`
 
 ```
