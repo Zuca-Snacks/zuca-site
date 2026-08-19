@@ -115,8 +115,8 @@ export function lastRow() {
 }
 
 const ROWS = path.resolve('testdrive-rows.jsonl');
-const STUB_PORT = 4310;
-const API_PORT = 4320;
+const STUB_PORT = Number(process.env.TESTDRIVE_STUB_PORT || 4310);
+const API_PORT  = Number(process.env.TESTDRIVE_API_PORT  || 4320);
 const WEB_PORT = Number(process.env.TESTDRIVE_PORT || 3010);  // 3010 = the single URL Emil is given
 
 /** Where the counter starts, so it looks like a real list rather than an empty one. */
@@ -287,13 +287,27 @@ try {
 // Report the port the server actually bound, never the constant we asked for.
 const boundPort = vite.httpServer?.address()?.port ?? WEB_PORT;
 
+/* ⚠️ WRITE THE PID AND PRINT IT.
+   On 18 Aug this rig was stopped with `pkill -9 -f testdrive.mjs`, which matches
+   on the command line and is blind to the directory — so it killed a second rig
+   running the same script from a different worktree, and the URL a human had
+   just been given went dead. `pkill -f` cannot tell the process it is aimed at
+   from the one beside it, which is the same defect as a checker that cannot tell
+   "no drift" from "read nothing".
+   Stop this rig by PID:   kill $(cat .testdrive.pid)
+   Never by pattern while more than one worktree exists. */
+try {
+  fs.writeFileSync('.testdrive.pid', String(process.pid));
+} catch { /* non-fatal: the banner still prints the pid below */ }
+
+
 const region = process.env.TESTDRIVE_COUNTRY || 'NO';
 console.log(`
   ┌──────────────────────────────────────────────────────────────┐
   │  ZUCA TEST DRIVE — local only, production untouched          │
   └──────────────────────────────────────────────────────────────┘
 
-     Open        http://localhost:${boundPort}
+     PID         ${process.pid}  (stop with: kill \$(cat .testdrive.pid))\n     Open        http://localhost:${boundPort}
      Sheet       ${SHEET}          (the real column grid)
      Readable    ${ROWS}   (one row per line)
      Watch them  tail -f testdrive-rows.jsonl
