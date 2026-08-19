@@ -857,14 +857,14 @@ Surfaced while answering Conversion's question about email-rejection copy. Two t
 built this week disagree, and the disagreement is demonstrated, not theoretical:
 
 ```
-office@bakeriet.no    REJECTED  role_address
-team@bakeriet.no      REJECTED  role_address
-contact@bakeriet.no   REJECTED  role_address
-info@bakeriet.no      REJECTED  role_address
-admin@bakeriet.no     REJECTED  role_address
-sales@bakeriet.no     REJECTED  role_address
-post@bakeriet.no      OK          ← the standard Norwegian business prefix, and it passes
-emil@bakeriet.no      OK
+office@bakeriet.example    REJECTED  role_address
+team@bakeriet.example      REJECTED  role_address
+contact@bakeriet.example   REJECTED  role_address
+info@bakeriet.example      REJECTED  role_address
+admin@bakeriet.example     REJECTED  role_address
+sales@bakeriet.example     REJECTED  role_address
+post@bakeriet.example      OK          ← the standard Norwegian business prefix, and it passes
+emil@bakeriet.example      OK
 ```
 
 Filling in `office_interest: yes`, `company` and `headcount` does not help — the email is

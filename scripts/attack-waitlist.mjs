@@ -261,7 +261,7 @@ await check('CRLF in page_path rejected', '400 validation', async () => {
   return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
 });
 await check('CRLF in email rejected', '400 validation', async () => {
-  const r = await post(goodPayload({ email: 'a@b.com\r\nBcc: victim@example.com' }));
+  const r = await post(goodPayload({ email: 'a@example.com\r\nBcc: victim@example.com' }));
   return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
 });
 await check('RTL override char in utm.campaign rejected', '400 validation', async () => {
@@ -589,7 +589,7 @@ await check('Spoofed X-Forwarded-For does not reset the limiter', 'still 429', a
     return { pass: out.startsWith("'"), actual: out.slice(0, 40) };
   });
   await check('sanitizeRecord reaches nested utm values', "utm.source prefixed with '", async () => {
-    const out = sanitizeRecord({ email: 'a@b.com', utm: { source: '=1+1' } });
+    const out = sanitizeRecord({ email: 'a@example.com', utm: { source: '=1+1' } });
     return { pass: out.utm.source === "'=1+1", actual: JSON.stringify(out.utm) };
   });
 }
@@ -1211,42 +1211,58 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
-  // ── No shipped source may print an address at a domain we do not own ────
-  // Conversion swept every address in the codebase at Emil's request and found
-  // `support@zuca.com` in a docblock of mine. zuca.com is NOT ours — an
-  // illustrative address in shipped source pointing at a third party's domain.
+  // ── No committed file may print an address at a domain we do not own ────
+  // Emil asked Conversion for every address in the codebase before publish.
+  // That turned up one of mine at zuca.com — a domain Zuca does not own —
+  // illustrating a docblock. Sweeping for the class rather than the instance
+  // found two more of mine, then Conversion's own sweep found the trap in the
+  // rule itself: `.co` is Colombia and `.no` is Norway. Both LOOK like example
+  // TLDs and neither is reserved.
   //
-  // Sweeping for the CLASS rather than fixing the instance found two more, both
-  // mine: `x@y.com` in the Code.gs verification command (y.com is somebody's,
-  // and that one is in a line people actually run), and Emil's personal Gmail
-  // in five places — in a repository confirmed PUBLIC, which is a scraping
-  // target rather than a broken link.
+  // Checked rather than assumed, because "probably nobody owns it" is the
+  // assumption under the whole class:
   //
-  // RFC 2606 reserves example.com/.net/.org precisely so illustrations cannot
-  // land on a real party. Fixtures are exempt: they never leave the test files.
-  await check('shipped source prints no address at a domain we do not own', 'ours or reserved', async () => {
-    const { readFileSync, readdirSync, statSync } = await import('node:fs');
-    const { join } = await import('node:path');
+  //   example.no    REGISTERED   bakeriet.no   REGISTERED
+  //   example.co    REGISTERED   x.com         REGISTERED (Twitter/X)
+  //
+  // I had ~15 addresses at example.no and would have read every one as safe.
+  //
+  // SCOPE IS THE WHOLE COMMITTED TREE, not the shipped directories. Conversion's
+  // point, and it is right: in a PUBLIC repository "shipped" and "published" are
+  // different sets, and the second is the one a scraper reads. A guard over
+  // src/ would have missed all fifteen of mine, which were in tests and a
+  // handoff.
+  //
+  // RFC 2606 reserves example.com/.net/.org and the .test/.example/.invalid/
+  // .localhost TLDs. Nothing else. "Looks like an example" is not a property.
+  await check('no committed file prints an address at a domain we do not own', 'ours or reserved', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { execFileSync } = await import('node:child_process');
     const root = new URL('..', import.meta.url).pathname;
-    const walk = (d) => readdirSync(d).flatMap((f) => {
-      const p = join(d, f);
-      return statSync(p).isDirectory() ? walk(p) : [p];
-    });
-    const files = ['public', 'api', 'src/lib', 'server'].flatMap((d) => walk(join(root, d)))
-      .filter((f) => /\.(js|jsx|mjs|gs|html|md)$/.test(f))
-      .concat([join(root, '.env.example')]);
-    // Floor: if the walk finds nothing, this passes while looking nowhere —
-    // the scan-that-looked-nowhere grammar Conversion hit with analytics.js.
-    if (files.length < 8) return { pass: false, actual: `walked ${files.length} files — scan is broken` };
+    const files = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' })
+      .split('\n').filter(Boolean).filter((f) => !/package-lock|\.(png|jpg|jpeg|webp|svg|ico|woff2?)$/.test(f));
+    // Floor: a walk that finds nothing prints the same "no hits" as a clean
+    // one. The scan-that-looked-nowhere grammar, from Conversion's analytics.js.
+    if (files.length < 20) return { pass: false, actual: `listed ${files.length} files — the scan is broken` };
 
-    const OK = /@(?:[a-z0-9-]+\.)*zucasnacks\.com$|@example\.(?:com|net|org)$|@(?:example|test|invalid|localhost)$/i;
+    const OURS = /@(?:[a-z0-9-]+\.)*zucasnacks\.com$/i;
+    const RESERVED = /@example\.(?:com|net|org)$|@(?:[a-z0-9-]+\.)*(?:example|test|invalid|localhost)$/i;
+    // Exempt BY SCOPE, not by convenience: in each of these the real domain IS
+    // the thing under test, so substituting a reserved one asserts nothing.
+    //   mailinator.com  the disposable-provider rejection list
+    //   gmail.com       Gmail's own dot-stripping normalisation
+    const UNDER_TEST = /@(?:mailinator\.com|gmail\.com)$/i;
+
     const bad = [];
     for (const f of files) {
-      for (const m of readFileSync(f, 'utf8').matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)) {
-        if (!OK.test(m[0])) bad.push(`${f.replace(root, '')}: ${m[0]}`);
+      let src;
+      try { src = readFileSync(root + f, 'utf8'); } catch { continue; }
+      for (const m of src.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)) {
+        const a = m[0];
+        if (!OURS.test(a) && !RESERVED.test(a) && !UNDER_TEST.test(a)) bad.push(`${f}: ${a}`);
       }
     }
-    return { pass: bad.length === 0, actual: bad.length ? bad.join(' · ') : `${files.length} files scanned, all addresses ours or reserved` };
+    return { pass: bad.length === 0, actual: bad.length ? bad.slice(0, 4).join(' · ') : `${files.length} committed files scanned, all addresses ours, reserved, or under test` };
   });
 
   // ── Gate patterns are PINNED, because Conversion transcribed them ───────
@@ -1308,7 +1324,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
   const BIZ = '2026-08-19.business.a';
 
   await check('office@ still rejected without the business basis', 'role_address', async () => {
-    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no' }));
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.example' }));
     const i = v.ok ? null : v.issues.find((x) => x.path === 'email');
     return { pass: !v.ok && i?.rule === 'role_address', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
   });
@@ -1316,18 +1332,18 @@ await check('Error response never echoes submitted input', 'no email in body', a
   await check('business_enquiry WITHOUT wording is refused', 'omits_business', async () => {
     // Declaring the basis is not showing it. A boolean proves only that
     // somebody sent a boolean.
-    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true }));
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.example', business_enquiry: true }));
     const i = v.ok ? null : v.issues.find((x) => x.path === 'business_consent_text_version');
     return { pass: !v.ok && i?.rule?.startsWith('consent_wording_omits_business'), actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
   });
 
   await check('business_enquiry with the WRONG wording is refused', 'omits_business', async () => {
-    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: '2026-08-15.marketing.a' }));
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.example', business_enquiry: true, business_consent_text_version: '2026-08-15.marketing.a' }));
     return { pass: !v.ok, actual: v.ok ? 'ACCEPTED — marketing wording passed as business' : 'rejected' };
   });
 
   await check('office@ accepted with the registered business wording', 'accepted', async () => {
-    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ }));
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.example', business_enquiry: true, business_consent_text_version: BIZ }));
     return { pass: v.ok, actual: v.ok ? 'ACCEPTED' : JSON.stringify(v.issues) };
   });
 
@@ -1343,7 +1359,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
   // consent_marketing = TRUE, the wording we displayed was false.
   await check('THE PROMISE: a business row stores consent_marketing FALSE', 'excluded structurally', async () => {
     const { captured } = await postCapturing(growthPayload({
-      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+      email: 'office@bakeriet.example', business_enquiry: true, business_consent_text_version: BIZ,
     }));
     const row = captured[0] ?? {};
     return {
@@ -1363,7 +1379,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
 
   await check('receipt v4 records the business block and the suppression', 'both present', async () => {
     const { captured } = await postCapturing(growthPayload({
-      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+      email: 'office@bakeriet.example', business_enquiry: true, business_consent_text_version: BIZ,
     }));
     const r = JSON.parse(captured[0]?.consent_receipt ?? '{}');
     const ok = r.schema === 'zuca.consent.v4'
@@ -1389,7 +1405,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
   // filter needs, and say so where the Resend work starts.
   await check('a business row is excludable from the confirmation send', 'both markers', async () => {
     const { captured } = await postCapturing(growthPayload({
-      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+      email: 'office@bakeriet.example', business_enquiry: true, business_consent_text_version: BIZ,
     }));
     const row = captured[0] ?? {};
     // consent_marketing FALSE alone is enough for a filter on personal consent;
@@ -1504,9 +1520,9 @@ await check('Error response never echoes submitted input', 'no email in body', a
 
   await check('email is NOT silently repaired by the strip', 'invalid_email', async () => {
     // safeString only. Stripping inside the shared normalizeText would have
-    // turned "a<BEL>@b.com" into a DIFFERENT, valid address and sent mail to it
+    // turned "a<BEL>@example.com" into a DIFFERENT, valid address and sent mail to it
     // — accuracy, Art 5(1)(d). An identifier is not a cosmetic field.
-    const v = validateWaitlist(growthPayload({ email: 'a' + String.fromCharCode(7) + '@b.com' }));
+    const v = validateWaitlist(growthPayload({ email: 'a' + String.fromCharCode(7) + '@example.com' }));
     const issue = v.ok ? null : v.issues.find((i) => i.path === 'email');
     return { pass: !v.ok && issue?.rule === 'invalid_email', actual: v.ok ? `ACCEPTED as ${v.data.email}` : JSON.stringify(issue) };
   });
@@ -1628,26 +1644,26 @@ await check('Error response never echoes submitted input', 'no email in body', a
   const { mintConfirmToken, verifyConfirmToken, CONFIRM_TTL_MS } = await import('../api/confirm.js');
 
   await check('Minted token verifies', 'valid', async () => {
-    const t = await mintConfirmToken('kari@example.no');
+    const t = await mintConfirmToken('kari@example.com');
     const v = await verifyConfirmToken(t);
     return { pass: Boolean(v) && !v.expired, actual: JSON.stringify(v) };
   });
   await check('Token contains no email address', 'handle only', async () => {
-    const t = await mintConfirmToken('kari@example.no');
+    const t = await mintConfirmToken('kari@example.com');
     return { pass: !t.includes('kari') && !t.includes('@'), actual: t.slice(0, 26) + '…' };
   });
   await check('Tampered signature rejected', 'null', async () => {
-    const t = await mintConfirmToken('kari@example.no');
+    const t = await mintConfirmToken('kari@example.com');
     const v = await verifyConfirmToken(t.slice(0, -1) + (t.endsWith('A') ? 'B' : 'A'));
     return { pass: v === null, actual: JSON.stringify(v) };
   });
   await check('Tampered handle rejected', 'null', async () => {
-    const t = await mintConfirmToken('kari@example.no');
+    const t = await mintConfirmToken('kari@example.com');
     const v = await verifyConfirmToken('ffffffffffff' + t.slice(12));
     return { pass: v === null, actual: JSON.stringify(v) };
   });
   await check('Expired token detected, not silently accepted', 'expired', async () => {
-    const t = await mintConfirmToken('kari@example.no', Date.now() - CONFIRM_TTL_MS - 1000);
+    const t = await mintConfirmToken('kari@example.com', Date.now() - CONFIRM_TTL_MS - 1000);
     const v = await verifyConfirmToken(t);
     return { pass: v?.expired === true, actual: JSON.stringify(v) };
   });
@@ -1656,7 +1672,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: results.every((v) => v === null), actual: JSON.stringify(results) };
   });
   await check('Different emails mint different tokens', 'distinct', async () => {
-    const [a, b] = await Promise.all([mintConfirmToken('a@x.com'), mintConfirmToken('b@x.com')]);
+    const [a, b] = await Promise.all([mintConfirmToken('a@example.com'), mintConfirmToken('b@example.com')]);
     return { pass: a !== b, actual: 'distinct' };
   });
 }

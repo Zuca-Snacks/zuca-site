@@ -161,7 +161,7 @@ console.log('  (the fallback path: old client, new backend)\n');
   const sheet = makeSheet(OLD_HEADERS);
   const { response, logs } = post(sheet, {
     name: 'Kari Nordmann',
-    email: 'Kari@Example.NO',
+    email: 'Kari@Example.COM',
     phone: "'+4791234567",
     hearAbout: 'physician',
     reason: 'gut',
@@ -193,7 +193,7 @@ console.log('  (the target path: new client via /api/waitlist)\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
   const { response } = post(sheet, {
-    email: 'ola@example.no',
+    email: 'ola@example.com',
     zip: '94305',
     referral_source: 'doctor',
     motivation: ['gut_health', 'digestion'],
@@ -322,7 +322,7 @@ console.log('\n  Scenario B2 — the extension fields\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
   const { response } = post(sheet, {
-    email: 'ola@example.no',
+    email: 'ola@example.com',
     // `sms_phone` — the wire name the endpoint sends. Writing `phone` here is
     // what let the seam bug hide: the fixture agreed with Code.gs and both
     // disagreed with the endpoint.
@@ -353,7 +353,7 @@ console.log('\n  Scenario B3 — consents withheld, gated data must not land\n')
 {
   const sheet = makeSheet(OLD_HEADERS);
   post(sheet, {
-    email: 'ola@example.no',
+    email: 'ola@example.com',
     sms_phone: '+4791234567',
     consent_sms: false,
     address_line1: 'Storgata 1',
@@ -368,7 +368,7 @@ console.log('\n  Scenario B3 — consents withheld, gated data must not land\n')
 console.log('\n  Scenario B4 — confirmed opt-in: rows persist unconfirmed\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
-  post(sheet, { email: 'ola@example.no', email_handle: 'ab12cd34ef56', confirmed: false, confirmed_at: null });
+  post(sheet, { email: 'ola@example.com', email_handle: 'ab12cd34ef56', confirmed: false, confirmed_at: null });
 
   check('row written with confirmed=FALSE', cellFor(sheet, 'confirmed').value === 'FALSE', JSON.stringify(cellFor(sheet, 'confirmed').value));
   check('email_handle stored for lookup', cellFor(sheet, 'email_handle').value === 'ab12cd34ef56', JSON.stringify(cellFor(sheet, 'email_handle').value));
@@ -393,7 +393,7 @@ console.log('\n  Scenario B4 — confirmed opt-in: rows persist unconfirmed\n');
 console.log('\n  Scenario B5 — downgrade visibility\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
-  post(sheet, { email: 'ola@example.no', is_downgraded: true, downgraded_fields: 'dietary channel research_optin' });
+  post(sheet, { email: 'ola@example.com', is_downgraded: true, downgraded_fields: 'dietary channel research_optin' });
   check('is_downgraded flagged on the row', cellFor(sheet, 'is_downgraded').value === 'TRUE', JSON.stringify(cellFor(sheet, 'is_downgraded').value));
   check('dropped field names recorded, so the row looks incomplete',
     String(cellFor(sheet, 'downgraded_fields').value).includes('dietary'),
@@ -425,7 +425,7 @@ console.log('\n  Scenario N — columns the script must never write\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
   post(sheet, {
-    email: 'ola@example.no', consent_health: true, motivation: ['gut_health'],
+    email: 'ola@example.com', consent_health: true, motivation: ['gut_health'],
     reason: 'gut', utm: { source: 'newsletter' },
     referral_source: 'doctor', hearAbout: 'physician',
   });
@@ -454,15 +454,15 @@ console.log('\n  Scenario T — wrong-tab and empty-tab guards\n');
   // The exact live-sheet trap: Sheet1 exists and is empty, Pre-orders has the
   // data. A lookup that succeeds on the wrong tab writes with no error at all.
   const empty = makeSheet(H, []);
-  const { response: onEmpty } = post(empty, { email: 'a@example.no' });
+  const { response: onEmpty } = post(empty, { email: 'a@example.com' });
   check('empty tab REFUSED, not written to', onEmpty?.error === 'misconfigured', JSON.stringify(onEmpty));
   check('nothing was appended to the empty tab', empty._grid.length === 1, `${empty._grid.length - 1} data rows`);
 
   const noHeaders = makeSheet(['Notes'], []);
-  const { response: onNotes } = post(noHeaders, { email: 'a@example.no' });
+  const { response: onNotes } = post(noHeaders, { email: 'a@example.com' });
   check('tab without an email column REFUSED', onNotes?.error === 'misconfigured', JSON.stringify(onNotes));
 
-  const { response: ok } = post(populated, { email: 'a@example.no' });
+  const { response: ok } = post(populated, { email: 'a@example.com' });
   check('populated tab accepted', ok?.ok === true, JSON.stringify(ok));
 
   check(
@@ -506,7 +506,7 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      email: 'seam@example.no', consent_marketing: true,
+      email: 'seam@example.com', consent_marketing: true,
       // 28 chars. The obvious canary is 43 and the cap is 40 — the first
       // version of this line was REJECTED for length, which proved the cap and
       // tested nothing else. A sanitisation fixture has to fit through
@@ -648,7 +648,7 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
 console.log('\n  Scenario C — health data without the separate consent\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
-  post(sheet, { email: 'a@example.no', motivation: ['gut_health'], consent_health: false });
+  post(sheet, { email: 'a@example.com', motivation: ['gut_health'], consent_health: false });
   check(
     'motivation dropped when consent_health is false',
     cellFor(sheet, 'motivation').value === '',
@@ -659,7 +659,7 @@ console.log('\n  Scenario C — health data without the separate consent\n');
 console.log('\n  Scenario D — case-insensitive header matching\n');
 {
   const sheet = makeSheet(['Timestamp', 'E-Mail', 'Consent Timestamp']);
-  post(sheet, { email: 'b@example.no', consent_timestamp: '2026-08-15T00:00:00Z' });
+  post(sheet, { email: 'b@example.com', consent_timestamp: '2026-08-15T00:00:00Z' });
   const headers = sheet._grid[0];
   check(
     'existing "E-Mail" reused, no second email column',
@@ -680,18 +680,18 @@ console.log('\n  Scenario E — auth\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
   const { sandbox, responses } = loadScript(sheet, 'real-token');
-  sandbox.doPost({ postData: { contents: JSON.stringify({ email: 'x@y.no', token: 'wrong' }) } });
+  sandbox.doPost({ postData: { contents: JSON.stringify({ email: 'x@example.com', token: 'wrong' }) } });
   check('wrong token rejected', responses[0]?.error === 'forbidden', JSON.stringify(responses[0]));
 
   const { sandbox: s2, responses: r2 } = loadScript(makeSheet(OLD_HEADERS), 'real-token');
-  s2.doPost({ postData: { contents: JSON.stringify({ email: 'x@y.no' }) } });
+  s2.doPost({ postData: { contents: JSON.stringify({ email: 'x@example.com' }) } });
   check('missing token rejected', r2[0]?.error === 'forbidden', JSON.stringify(r2[0]));
 }
 
 console.log('\n  Final header row after migration:\n');
 {
   const sheet = makeSheet(OLD_HEADERS);
-  post(sheet, { email: 'z@example.no' });
+  post(sheet, { email: 'z@example.com' });
   sheet._grid[0].forEach((h, i) => {
     const col = String.fromCharCode(65 + (i % 26));
     const prefix = i >= 26 ? 'A' : '';
