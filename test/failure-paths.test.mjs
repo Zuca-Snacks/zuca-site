@@ -41,6 +41,26 @@ async function withFetch(impl, online = true) {
   return { mod, store };
 }
 
+// The elements security's gates require. `motivation` is the Art 9 health
+// wording and is the row whose silent removal costs the most.
+//
+// ⚠️ THIS CATCHES A DELETED ROW. IT DOES NOT CATCH A COORDINATED EDIT, AND
+// MOVING IT UP HERE DID NOT CHANGE THAT — measured, not assumed: deleting a
+// GATES row together with its label here still passes 28/28. Distance is a
+// speed bump, not a control. It buys exactly one thing, which is that removing
+// a gate can no longer happen as a single-line deletion.
+//
+// The only real defence is a SECOND INDEPENDENT READING, and for the payload
+// keys and the ladder key sets there is one, so those tests derive. For the
+// element list there is none short of importing security's repo, which would
+// make this suite depend on their worktree sitting beside ours. So this is a
+// declared constant and it is worth being plain about its ceiling rather than
+// letting its placement imply a strength it does not have.
+const GATED_ELEMENTS = [
+  'business/basis', 'business/exclusion', 'business/exclusion-negation',
+  'business/stop', 'motivation',
+];
+
 const payload = (over = {}) => ({
   email: 'a@b.com', consent_marketing: true, consent_health: false,
   consent_text_version: 'mkt-us-2026-08-15-7d912cf1', ...over,
@@ -159,8 +179,27 @@ test('the floor is what the server actually requires', async () => {
   assert.ok(mod.MINIMAL_KEYS.has('email'));
   assert.ok(mod.MINIMAL_KEYS.has('consent_marketing'));
   // Anything beyond email + consent is a value that could itself be rejected,
-  // which would defeat the point of having a floor at all.
-  assert.ok(mod.MINIMAL_KEYS.size <= 3, 'the floor must stay irreducible');
+  // which would defeat the point of having a floor at all. So the floor is
+  // asserted by exact membership rather than by size: a new entry fails here
+  // until someone writes down why it is a PRECONDITION and not merely useful.
+  //
+  // The two business keys are the one justified exception. For a shared inbox
+  // they are what makes the address acceptable, so dropping them does not
+  // shrink the record, it destroys it — verified against zuca-sec@02d148b,
+  // where a stripped business payload is refused at CORE and at MINIMAL alike.
+  //
+  // ⚠️ AND IT NARROWS THE FLOOR'S PROMISE, WHICH IS WORTH SAYING PLAINLY.
+  // "There is always a version of the record that validates" is now true only
+  // for an address the server would accept at all. A role address whose consent
+  // id is unregistered has no valid form: keeping the keys fails on the wording,
+  // dropping them fails on `role_address`. That is correct — we should not
+  // store a shared mailbox with no basis — but it is no longer unconditional.
+  assert.deepEqual(
+    [...mod.MINIMAL_KEYS].sort(),
+    ['business_consent_text_version', 'business_enquiry', 'consent_marketing',
+      'consent_text_version', 'email'],
+    'the floor must stay irreducible',
+  );
 });
 
 test('queued entries record the schema generation they were written under', async () => {
@@ -307,12 +346,224 @@ test('413 climbs the ladder — "do not retry unchanged" means change it', async
 
 test('there is no sendBeacon in the client', async () => {
   const { readFileSync, readdirSync } = await import('node:fs');
-  const dir = new URL('../src/components/waitlist/', import.meta.url);
-  const hits = readdirSync(dir)
-    .filter((f) => /\.(js|jsx)$/.test(f))
-    .filter((f) => /sendBeacon\s*\(/.test(readFileSync(new URL(f, dir), 'utf8')));
+
+  // ⚠️ SCANS ALL OF src/, NOT JUST THE FORM — AND COUNTS WHAT IT SCANNED.
+  // This used to read `src/components/waitlist/` only, which left out
+  // `src/lib/analytics.js`: the single most likely place anyone would reach for
+  // sendBeacon, since firing an event on unload is the textbook use for it.
+  // A scan that finds nothing and a scan that looked nowhere both print "no
+  // hits" — so the file count is asserted before the result is believed.
+  const root = new URL('../src/', import.meta.url);
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const child = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+    return e.isDirectory() ? walk(child) : [child];
+  });
+  const files = walk(root).filter((f) => /\.(js|jsx)$/.test(f.pathname));
+  assert.ok(files.length >= 20, `only ${files.length} files scanned — the walk is not reaching src/`);
+  assert.ok(
+    files.some((f) => f.pathname.endsWith('/lib/analytics.js')),
+    'analytics.js must be in scope — it is where sendBeacon would actually be written',
+  );
+
+  const hits = files
+    .filter((f) => /sendBeacon\s*\(/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.pathname.split('/src/')[1]);
   // sendBeacon posts text/plain, which earns a 415 — a status the ladder does
   // not climb. A queue flushed with it drops signups inside the mechanism
   // built to stop signups being dropped.
   assert.deepEqual(hits, [], 'sendBeacon would make queue flushes fail as 415');
+});
+
+// ─── S22: the business basis for shared inboxes ──────────────────────────────
+
+test('the business wording still contains the phrases the server gates on', async () => {
+  const { consentTexts } = await import('../src/content/copy.js');
+  const text = consentTexts.business.text;
+  // Mirrors security's consentCoversBusiness(). The wording IS the legal basis
+  // for a shared mailbox — there is no individual's consent underneath to fall
+  // back on — so an edit that drops these phrases must fail here rather than
+  // silently start refusing every office signup in production.
+  assert.match(text, /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i);
+
+  // ⚠️ THE LINE ABOVE IS NOT ENOUGH, AND A MUTATION PROVED IT.
+  // It is an alternation, so the wording can lose the first-person assertion of
+  // the basis and still match on a phrase further down. Replacing "I'm asking on
+  // behalf of my workplace" with "I'd like to hear from you" passed both this
+  // test AND security's server gate — leaving a shared mailbox signed up on a
+  // sentence that asserts nothing about the organisation, which is the one thing
+  // that made it lawful.
+  //
+  // So each load-bearing element is asserted separately. This wording is not
+  // ordinary copy: it was approved by Emil, it is flagged for Cooley review, and
+  // an edit that trips these should be a deliberate act with sign-off behind it.
+  assert.match(text, /\bon behalf of\b/i, 'the person must assert they act for the organisation');
+  assert.match(text, /\bbusiness enquiry\b/i, 'and that it is named as one, not a personal signup');
+  assert.match(text, /stop it by replying/i, 'whoever reads the inbox must be able to end it');
+  assert.match(text, /personal mailing list/i, 'and the exclusion must be stated to them, not merely enforced');
+});
+
+test('every gated consent wording stays in the language the server reads', async () => {
+  const { consentTexts } = await import('../src/content/copy.js');
+
+  // ⚠️ TWO CONSENTS ARE GATED ON THEIR TEXT, AND THE GATES ARE ENGLISH.
+  // The server does not check a flag for these, it checks that the sentence the
+  // person read actually says the thing — which is right, and which makes the
+  // check language-bound by construction. It is not fixable with a better
+  // regex. "Jeg spør på vegne av arbeidsplassen min" is a perfectly good
+  // consent and matches nothing.
+  //
+  // It fails CLOSED — nothing unlawful is stored — but from a translator's seat
+  // the office path and the health opt-in simply stop working, with a rejection
+  // that names a rule they cannot find in the copy they just wrote.
+  //
+  // So this test exists to fail at the moment somebody translates one, rather
+  // than after it ships. If that is you: the fix is a decision, not an edit —
+  // either a per-language element list on the server or a structured claim the
+  // copy declares alongside its text. Ask security before shipping the string.
+  // Transcribed from zuca-sec@114109d — `businessConsentGaps` (three elements,
+  // ALL required) and `consentCoversMedication`. They pin these patterns on
+  // their side and will tell us if they change, because a transcribed value is
+  // a copy that can go stale silently.
+  //
+  // ⚠️ IT ALREADY DID, INSIDE ONE EXCHANGE. The first version of this test
+  // transcribed `consentCoversBusiness` — a single alternation that had ALREADY
+  // been replaced by the conjunction below when I copied it, because I copied
+  // from my earlier reading of their file instead of re-reading the file. Note
+  // also `\bworkplace\b` narrowing to `\bmy workplace\b`: a wording could have
+  // passed this test and been refused by the server. That is the whole argument
+  // for their pin, demonstrated by me rather than argued at me.
+  const GATES = [
+    ['business/basis', consentTexts.business.text, /\bon behalf of\b|\bmy workplace\b|\bbusiness (?:enquiry|inquiry)\b/i],
+    ['business/exclusion', consentTexts.business.text, /\bmailing list\b/i],
+    ['business/exclusion-negation', consentTexts.business.text, /\b(?:won'?t|will not|never|not)\b/i],
+    ['business/stop', consentTexts.business.text, /\brepl(?:y|ying)\b|\bunsubscribe\b|\bstop\b/i],
+    ['motivation', consentTexts.motivation.text, /\bmedicat|\bGLP-?\s?1\b/i],
+  ];
+  // ⚠️ FLOORED, BECAUSE A LOOP OVER A LIST MEASURES THE LIST AND NOT THE WORLD.
+  // Without this, deleting rows from GATES passed the whole suite in silence —
+  // including the `motivation` row, which is the ONLY check on the Art 9 health
+  // wording. "5 gates, all matched" and "3 gates, all matched" print the same
+  // word. Zero was never the risk; fewer than you think is.
+  //
+  // So the coverage is declared separately from the data being iterated. Adding
+  // an element to security's gate means adding it here, deliberately, rather
+  // than the suite quietly continuing to report success about the old set.
+  assert.deepEqual(GATES.map(([name]) => name).sort(), GATED_ELEMENTS,
+    'a gate went missing from the list this test iterates');
+
+  for (const [name, text, gate] of GATES) {
+    assert.match(text, gate, `${name}: the server's gate cannot read this wording`);
+  }
+});
+
+test('the business keys survive every rung of the downgrade ladder', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  for (const [name, set] of [['CORE', mod.CORE_KEYS], ['MINIMAL', mod.MINIMAL_KEYS]]) {
+    // Verified against zuca-sec@02d148b: strip these and the retry fails on
+    // `role_address` at every rung, so the ladder converts a recoverable 400
+    // into a guaranteed one. For a shared inbox they are not optional data,
+    // they are the precondition of the address being accepted.
+    assert.ok(set.has('business_enquiry'), `${name} must keep business_enquiry`);
+    assert.ok(set.has('business_consent_text_version'), `${name} must keep the version`);
+  }
+});
+
+test('a personal signup carries no business keys at all', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const p = mod.buildPayload({ email: 'sarah@example.com', consentMarketing: true,
+    consentTextVersion: 'mkt-us-2026-08-15-00000000', formRenderTs: Date.now() - 9000 });
+  // The server stores consent_marketing FALSE for any row where business_enquiry
+  // is true. Sending it speculatively would unsubscribe people who never asked.
+  assert.equal('business_enquiry' in p, false);
+  assert.equal('business_consent_text_version' in p, false);
+});
+
+test('the shared-inbox mirror decides presentation, never permission', async () => {
+  const { looksLikeRoleAddress } = await import('../src/components/waitlist/roleAddress.js');
+  assert.equal(looksLikeRoleAddress('office@bakeriet.no'), true);
+  assert.equal(looksLikeRoleAddress('INFO@Bakeriet.no'), true);
+  assert.equal(looksLikeRoleAddress('sarah@bakeriet.no'), false);
+  assert.equal(looksLikeRoleAddress(''), false);
+  assert.equal(looksLikeRoleAddress(null), false);
+  // The point of the file: it must not be reachable from the submit path as a
+  // gate. If this ever grows a "return early" caller, the mirror has become
+  // pre-validation and a stale copy starts refusing addresses the server takes.
+  const { readFileSync } = await import('node:fs');
+  const step1 = readFileSync(new URL('../src/components/waitlist/Step1Email.jsx', import.meta.url), 'utf8');
+  assert.equal(/looksLikeRoleAddress\([^)]*\)\s*\)?\s*(return|\{\s*return)/.test(step1), false,
+    'the mirror must never short-circuit a submission');
+});
+
+test('the business consent id keeps its purpose and region tokens', async () => {
+  const { businessConsent } = await import('../src/components/waitlist/consent.js');
+  // The server reads the regime off this token. `all` once parsed as `unknown`
+  // and left every Art 9 record unauditable by regime — same trap, same shape.
+  // The hash is deliberately NOT pinned: editing the wording SHOULD move it,
+  // and their generator rebuilds from this file, so the two cannot drift.
+  assert.match(businessConsent().version, /^biz-eea-\d{4}-\d{2}-\d{2}-[0-9a-f]{8}$/);
+});
+
+test('an empty signup sends no key a deployed server has not seen', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const keys = Object.keys(mod.buildPayload({
+    email: 'a@b.co', consentMarketing: true, consentTextVersion: 'x',
+    formRenderTs: Date.now() - 9000,
+  })).sort();
+
+  // ⚠️ THE UNSTATED SECOND HALF OF THE ORDERING RULE.
+  // `waitlistSchema` is .strict(), and strict rejects on key PRESENCE, not on
+  // value — so `newfield: null` from a client whose server predates the field
+  // is not "ignored", it is `Unrecognized key` and a 400 for EVERY submission.
+  // ADD-goes-server-first is therefore only half the rule; the other half is
+  // that the client must not emit the key until that server is actually
+  // deployed. A half-merge holds that window open indefinitely.
+  //
+  // Verified against sec@8d6bf01, the real pre-S22 schema: this exact payload
+  // is ACCEPTED, and the same payload with `business_enquiry: false` added is
+  // rejected outright. That one-key difference is a working form versus a
+  // total outage, and the value being false changes nothing.
+  //
+  // So: every key here is one an already-deployed server accepts. A new field
+  // must either land here only after its server is live, or — better, and what
+  // the business keys do — be omitted entirely unless it carries a value.
+  // If this list changed, that is the question to answer before relaxing it.
+  assert.deepEqual(keys, [
+    'address_city', 'address_country', 'address_line1', 'address_line2',
+    'address_postal_code', 'address_region', 'channel', 'channel_other',
+    'company', 'consent_health', 'consent_marketing', 'consent_postal',
+    'consent_sms', 'consent_text_version', 'dietary', 'dietary_other', 'email',
+    'flavor', 'form_render_ts', 'headcount', 'hp_field', 'intent',
+    'is_clinician', 'motivation', 'motivation_consent_text_version',
+    'motivation_other', 'name', 'office_interest', 'page_path', 'phone',
+    'postal_consent_text_version', 'price_band', 'price_band_other',
+    'quantity_band', 'referral_source', 'referral_source_other',
+    'research_optin', 'sms_consent_text_version', 'utm', 'zip',
+  ]);
+  // And the business keys must NOT be among them — the whole point.
+  assert.equal(keys.some((k) => k.startsWith('business_')), false);
+});
+
+test('the conditional keys are spelled the way the server spells them', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const { businessConsent } = await import('../src/components/waitlist/consent.js');
+  const keys = Object.keys(mod.buildPayload({
+    email: 'office@bakeriet.no', consentMarketing: true, consentTextVersion: 'x',
+    businessEnquiry: true, businessConsentTextVersion: businessConsent().version,
+    formRenderTs: Date.now() - 9000,
+  }));
+
+  // ⚠️ THE TEST ABOVE CANNOT SEE THESE, AND THAT IS THE POINT OF THIS ONE.
+  // It builds a payload with no business enquiry, so the conditionally-spread
+  // pair never exists in it and their SPELLING is never checked. Renaming the
+  // wire key to `businessEnquiry` passed the whole suite silently — proven by
+  // mutation, not by reading. Conditional keys are the newest and most
+  // drift-prone in any payload and they are exactly the ones a test that
+  // exercises the default path will never reach.
+  //
+  // camelCase is this codebase's natural style and snake_case is the deliberate
+  // exception for wire keys, so this is the likeliest drift there is: strict()
+  // would reject the payload outright and every office signup would fail.
+  assert.ok(keys.includes('business_enquiry'), 'snake_case, as the server spells it');
+  assert.ok(keys.includes('business_consent_text_version'));
+  assert.equal(keys.some((k) => /[A-Z]/.test(k)), false, 'no wire key is camelCase');
 });

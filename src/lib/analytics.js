@@ -225,6 +225,13 @@ export const EVENTS = {
   STEP2_SCREEN_SKIP: "step2_screen_skip",
   SHARE_CLICK: "share_click",
   // Supporting events, outside the core funnel.
+  // The shared-inbox path. BUSINESS_OFFERED fires when the checkbox is shown,
+  // with `via` recording WHY — "local_part" means our mirror recognised the
+  // address, "rejected" means the server refused one it didn't. A rising
+  // `rejected` share is the signal that security's list has moved and ours has
+  // not, which is otherwise invisible from here.
+  BUSINESS_OFFERED: "business_offered",
+  BUSINESS_TICKED: "business_ticked",
   STEP2_SCREEN_VIEW: "step2_screen_view",
   STEP2_SCREEN_ADVANCE: "step2_screen_advance",
   STEP2_MOTIVATION_OPEN: "step2_motivation_open",

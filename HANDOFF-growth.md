@@ -258,7 +258,7 @@ growth to defend against, only signal dilution.
 
 ---
 
-## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — Emil's call)
+## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT AND LIVE)
 
 Two things we built are in direct conflict, and neither team could see it alone.
 
@@ -327,10 +327,322 @@ It is the condition the wording is standing on.
 It would mint its own version id (`biz-…`) through the existing fingerprint, so
 the evidence trail works unchanged.
 
-**Not built, not requested.** Recorded so the wording is not being drafted from
-scratch on the day the decision lands.
+**BUILT.** Emil approved it on 2026-08-19; server landed at `sec@02d148b`,
+client here. What follows is what the build taught that the draft above did not
+know.
 
----
+### The gate could not be `office_interest`, and the reason is pure sequencing
+
+Security's recommendation was to allow a role address when `office_interest` is
+set. It cannot work, and it is worth writing down because both sides read it
+twice without seeing it:
+
+```
+step 1, screen 0    email submitted and validated   ← role_address rejected HERE
+step 2, screen 4    office_interest / company / headcount   ← two screens later
+```
+
+The address is refused before the person has any way to say it is a work
+enquiry. The gate is a dedicated `business_enquiry` flag plus a consent version,
+tested the same way the medication gate is: against the **resolved wording**, not
+against the flag. Security accepted the correction and rebuilt it that way.
+
+### The 400 says nothing, so the offer is client-side — like the double-dot typo
+
+`{ ok: false, error: 'validation' }`. No path, no rule. That is deliberate
+(anti-enumeration, `api/waitlist.js:17`) and should stay. Security's note said
+"the path stays `['email']` with rule `role_address` so your client copy keeps
+working" — true inside their validator, invisible from here. **The rule name goes
+to their audit log, not to us.** Same discovery as the double-dot typo, same
+remedy: decide it on our side.
+
+So `roleAddress.js` mirrors `ROLE_LOCALPARTS` — **and I refused to mirror that
+same list a fortnight ago.** The difference is what the copy is allowed to do:
+
+| used for | stale copy fails… | verdict |
+|---|---|---|
+| pre-validation (refused) | optimistically — waves through what the server refuses | unsafe |
+| deciding what to OFFER (built) | either way, harmlessly — server still decides | safe |
+
+A mirror that grants nothing cannot be wrong in the direction that matters. If
+that file ever gains a caller that returns early, it has silently become
+pre-validation — there is a test asserting it has not.
+
+Drift is caught rather than merely tolerated: **any** step-1 validation failure
+offers the box, whatever our list says. `BUSINESS_OFFERED` records `via` —
+a rising `rejected` share against `local_part` means their list has moved and
+ours has not, which is otherwise invisible from here.
+
+### ⚠️ THE LADDER WOULD HAVE GUARANTEED THE FAILURE IT EXISTS TO PREVENT
+
+The one that would have shipped silently. `business_enquiry` reads like optional
+metadata, so it belonged in `SERVER_KNOWN_KEYS` and nowhere else. Verified
+against their real schema:
+
+```
+CORE (without the fix)      rejected  email:role_address
+MINIMAL (without the fix)   rejected  email:role_address
+```
+
+Every rung strips the field that made the address legal, so a business signup
+that hit any 400 would descend the ladder failing identically at each step and
+die at the floor. **For a shared inbox these keys are not data, they are the
+precondition of the address being accepted** — so they are in CORE and MINIMAL.
+
+It also narrows the floor's promise, and the test now says so: *"there is always
+a version of the record that validates"* holds only for an address the server
+would accept at all. A role address with an unregistered consent id has no valid
+form — keep the keys and it fails on the wording, drop them and it fails on
+`role_address`. Correct, but no longer unconditional.
+
+### The wording is authored here, and that is not a formality
+
+Security hand-registered `2026-08-19.business.a` — the single hand-maintained
+entry in a registry whose generator exists precisely to prevent them — and in
+doing so rewrote Emil's approved text into the third person ("Zuca will email"
+for "We'll email"). Two problems, one structural:
+
+- **display ≠ stored.** Rendering Emil's words while sending their id records a
+  consent the person never read. That is the defect class the fingerprint was
+  built to make impossible.
+- the wording stops living in `copy.js`, so the next edit changes what people
+  see without changing the evidence.
+
+So it is authored in `consentTexts.business` and minted the normal way:
+**`biz-eea-2026-08-19-fc6ba471`**. Region token `eea` for the same reason `mot`
+uses it — one wording at the strict bar, and `all` parses as `unknown` regime.
+
+`BUSINESS_BASIS_LIVE = true` since `sec@6efe051`, which registered it via the
+generator and corrected the wording back to Emil's words — verified
+byte-identical, and both texts fingerprint to the same id.
+
+The registry is gitignored and rebuilt by their `npm run build`, so it cannot
+go stale: edit the wording and the id, the registration and the gate all move
+together. Confirmed by running their generator against this repo's copy.js —
+it emits exactly the id this client mints.
+
+### ⚠️ `.strict()` REJECTS ON KEY PRESENCE, NOT ON VALUE — the ordering rule's missing half
+
+The rule says ADD goes server-first. Its unstated second half is that **the
+client must not emit the key until the server carrying it is deployed.** The
+window between two deploys is not "the new field is ignored" — it is
+`Unrecognized key` and a 400 on *every* submission. Measured against
+`sec@8d6bf01`, the real pre-S22 schema, with this client's actual payloads:
+
+```
+personal signup, keys omitted           ACCEPTED   ← what we ship
+same payload + business_enquiry: false  REJECTED   Unrecognized keys
+```
+
+One key, value `false`, nobody ticking anything: a working form versus a total
+outage for everyone. Which is why both business keys are **omitted entirely
+unless the box is ticked** — an ordinary signup is byte-identical to what
+shipped before S22, so an old server accepts it and only the office path
+degrades.
+
+It also compounds with the ladder fix. The keys are in CORE and MINIMAL, so
+against an old server the retry cannot strip its way out: it fails identically
+at every rung and burns three round trips doing it. Correct for a current
+server, useless against a stale one — the floor cannot rescue a key the server
+has never heard of.
+
+`test/failure-paths.test.mjs` pins the unconditional key list for this reason.
+A new always-present key fails that test, which is the moment to ask whether
+its server is deployed yet.
+
+**And a second test pins the conditional pair, because the first one cannot see
+them.** A test that builds the default payload never constructs the keys that
+only appear on a branch — so renaming `business_enquiry` to `businessEnquiry`
+passed the entire suite silently. Found by mutation, not by reading, after
+security hit the identical blindness in `security:compat`: its extractor read
+only flat keys and reported COMPATIBLE while missing exactly the two newest
+fields. Conditional keys are the newest and most drift-prone in any payload and
+they are precisely the ones a default-path test never reaches.
+
+The drift is not hypothetical: camelCase is this codebase's natural style and
+snake_case is the deliberate exception for wire keys, so `businessEnquiry` is
+the single likeliest key mistake here — and `.strict()` would reject the whole
+payload for it.
+
+**A guard cannot be reviewed into correctness. Break it deliberately and watch
+whether it notices.** Four mutations were run against this suite; one passed.
+
+### `npm run mutate` — fifteen plausible defects, ~75s, non-zero on survival
+
+I proposed doing that by hand whenever a field is added. Security's answer was
+better and it is now a script on both sides: forty seconds is cheap enough to do
+and **exactly expensive enough to skip**, and a ritual that depends on
+remembering is not a control — it is the NEVER_WRITTEN mistake in process
+clothes.
+
+Two rules in the harness that are not decoration, both verified by breaking them:
+
+- **The negative control runs first.** A suite that failed on everything would
+  "catch" every mutation and be worthless. Observed firing for real on the first
+  run, when the harness was invoking a different command than `npm test` — which
+  would have reported nine green mutations about tests nobody executes.
+- **A mutation that does not APPLY counts as a failure.** If a pattern stops
+  matching, the code moved and that mutation silently tests nothing. That is the
+  precise failure this file exists to catch, so it does not get to happen inside
+  it.
+
+**The ninth mutation found a live blindness in a legally load-bearing test.**
+The wording assertion was an alternation, so replacing *"I'm asking on behalf of
+my workplace"* with *"I'd like to hear from you"* still matched a phrase further
+down — and passed security's server gate too. That would leave a shared mailbox
+signed up on a sentence asserting nothing about the organisation, which is the
+only thing making it lawful. Each load-bearing element is now asserted
+separately: the basis, the naming, the stop mechanism, the exclusion.
+
+Security tightened their gate to a conjunction and deliberately did **not**
+mirror my four elements — a legitimate rephrasing should not become a server
+rejection. Stricter where the words are authored, looser where they are
+verified. That asymmetry is correct and is now the settled position.
+
+### 🌍 THE CONSENT GATES ARE ENGLISH, AND THAT IS A PRODUCT DECISION
+
+Security raised this and it belongs on the copy side. Two wordings —
+`business` and `motivation` — are gated on their TEXT rather than on a flag,
+because checking that the sentence actually says the thing is what makes the
+evidence mean anything. The consequence:
+
+```
+"Jeg spør på vegne av arbeidsplassen min…"   refused — basis, exclusion, stop
+```
+
+It fails closed, so nothing unlawful is stored. But from a translator's seat
+the office path and the health opt-in just stop working, with a rejection
+naming a rule they cannot find in the copy they wrote. **It is not fixable with
+a better regex** — a gate that checks a sentence says specific things is
+language-bound by construction.
+
+If a second language is coming, it is a decision before it is an edit: a
+per-language element list on the server, or a structured claim the copy declares
+alongside its text. A test fails the moment either wording is translated, so the
+question gets asked at the keyboard rather than after launch.
+
+**Emil has not been asked whether localisation is on the roadmap.** Nobody
+should infer from this note that it is.
+
+### ⚠️ A TRANSCRIBED PATTERN WENT STALE INSIDE ONE EXCHANGE
+
+The test above transcribes security's gate regexes rather than importing them —
+a deliberate trade, since importing would make this suite depend on their
+worktree sitting beside ours. The cost of that trade showed up immediately.
+
+The first version copied `consentCoversBusiness`, a single alternation, **which
+had already been replaced by a three-element conjunction in the message before
+I wrote it.** I copied from my earlier reading of their file instead of
+re-reading the file. Their basis pattern had also narrowed, `\bworkplace\b` to
+`\bmy workplace\b` — so a wording could have passed this test and been refused
+by the server, which is precisely the gap the test exists to close.
+
+Nothing shipped wrong: our wording satisfies both the old and the new gate,
+verified by running their real `businessConsentGaps()` against it (`[]`, no
+gaps). But the failure was live for the length of one commit and would not have
+been found by reading either file.
+
+Security now pins their gate patterns by fingerprint and fails their suite if
+they change, so the obligation to tell us is a test rather than a promise. **The
+rule this leaves: a test holding its own copy of the thing it checks has stopped
+checking it** — and re-read the source, never your last reading of it.
+
+### ⚠️ A LOOP OVER A LIST MEASURES THE LIST, NOT THE WORLD
+
+Security found this in their seam test and I went looking rather than agreeing
+there would be one. **Two, both in checks I had written this week.**
+
+The gated-wording test iterated a `GATES` array with nothing asserting what was
+in it. Deleting rows passed 28/28 in silence — **including the `motivation` row,
+the only check on the Art 9 health consent wording.** "5 gates, all matched" and
+"3 gates, all matched" print the same word. Zero was never the risk; *fewer than
+you think* is. Coverage is now declared separately from the data iterated.
+
+The `sendBeacon` scan was worse, because it was a coverage gap and not merely a
+structural one: it read `src/components/waitlist/` and therefore never looked at
+`src/lib/analytics.js` — **the single most likely place anyone would reach for
+`sendBeacon`**, since firing an event on unload is its textbook use. A scan that
+finds nothing and a scan that looked nowhere both print "no hits". It now walks
+all of `src/`, asserts how many files it scanned, and asserts `analytics.js` is
+among them. Verified by planting a `sendBeacon` call there.
+
+**Any assertion inside a loop is an assertion about the fixture until something
+floors the fixture.**
+
+### AND A FLOOR HAS A CEILING — WHICH IS WORTH MEASURING BEFORE TRUSTING
+
+`npm run mutate` had the same bug as everything it was written to catch:
+deleting four mutations printed **`all 8 mutations caught`** and exited 0. The
+harness built to find pass-on-nothing had pass-on-nothing. It now declares
+`EXPECTED_MUTATIONS` and aborts on a mismatch.
+
+Security's distinction is the one to keep: **where a second independent reading
+exists, derive; where none does, declare a constant and say so rather than
+dressing it up as a check.** The payload keys and the ladder key sets derive.
+The gate element list and the mutation count cannot — the only second reading is
+security's repo, and importing it would make this suite depend on their worktree
+sitting beside ours.
+
+**And the received wisdom about placement is wrong, which I only know because I
+measured it.** Moving the gate floor far from the array it floors does *not*
+prevent a same-motion edit: deleting a `GATES` row together with its label still
+passes 28/28. Distance is a speed bump, not a control. It buys exactly one
+thing — removing a gate stops being a single-line deletion — and both files now
+state that ceiling instead of letting their placement imply a strength they do
+not have.
+
+### ⚠️ ASK WHAT THE MUTATIONS COVER, NOT ONLY WHETHER THEY PASS
+
+`all 12 mutations caught` was reading as though it meant the suite worked. It
+meant only that every mutation was noticed by *something*. Security asked the
+other question first — which of the checks has ever been shown a failure — and
+it found an unexercised category on their side immediately. It found one here
+too.
+
+**A mutation labelled `business keys dropped from the floor` had only ever
+edited CORE.** Its pattern matched the first `business_enquiry…]);` in the file,
+which is `CORE_KEYS`. So the mutation applied, was caught, reported green — and
+`the floor is what the server actually requires` had never once been shown a
+failure, despite the floor being the last rescue a role address has. **A
+mutation can lie about what it does while passing.**
+
+`npm run mutate` now reports which tests each mutation actually fails, and lists
+the ones nothing has ever exercised. Three static assertions were in that list
+and now are not:
+
+- `the floor is what the server actually requires`
+- `the shared-inbox mirror decides presentation, never permission` — a regex
+  over `Step1Email.jsx` source, the same family as the `sendBeacon` scan
+- `the business consent id keeps its purpose and region tokens`
+
+The eighteen still unexercised are all behavioural: they stub a 404, a 413, an
+offline fetch, and construct the failure they assert on. **Those are
+self-exercising; a STATIC assertion in that list would be a gap** — a regex over
+source or a pinned list passes forever if written wrong, and nothing else will
+ever tell it so. The list is printed rather than floored with another constant,
+because the useful output is which names are in it.
+
+The near-miss worth recording: the first run of that experiment reported a
+correct-looking failure, and the deletion had **not applied** — the floor's
+indentation differed from my patch. It failed for the wrong reason and I nearly
+wrote it up as a success. That is the did-not-apply rule from `mutate.mjs`,
+biting the person who wrote it, by hand, minutes later.
+
+**⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
+both sides are present. A deploy carrying this client without `sec@6efe051`
+offers the checkbox and then refuses the submission anyway. It fails closed —
+no shared mailbox is stored without a basis — but to the person it is a dead
+end, so the two merge together or not at all.
+
+### The confirmation had to change too, or we would have lied on the last screen
+
+The server stores `consent_marketing` FALSE for these rows regardless of what
+the box said — correct, since a shared mailbox cannot carry a named person's
+consent. But the confirmation promised *"We'll email you once before launch"*.
+**That is now an email we have committed not to send**, so a business enquiry
+gets `whatNextLineBusiness` instead. The suppression and the promise are the
+same fact in two places; only one of them was in security's diff.
+
 
 ## ⚖️ FOR COOLEY REVIEW — two items, both added on instruction, neither to be assumed safe
 

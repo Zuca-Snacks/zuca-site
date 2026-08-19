@@ -83,6 +83,14 @@ export const CORE_KEYS = new Set([
   "email", "zip", "motivation", "intent", "price_band", "flavor", "is_clinician",
   "referral_source", "consent_marketing", "consent_health", "consent_text_version",
   "motivation_consent_text_version", "utm", "page_path", "hp_field", "form_render_ts",
+  // ⚠️ NOT OPTIONAL DATA — A PRECONDITION OF THE EMAIL BEING ACCEPTED AT ALL.
+  // For a shared inbox these two are what makes the address valid. Strip them
+  // on the way down and the retry fails on `role_address`, so the ladder would
+  // turn a recoverable 400 into a guaranteed one — the exact opposite of its
+  // job. They are in CORE and in MINIMAL for that reason, not because they are
+  // valuable. buildPayload omits them entirely unless the box was ticked, so
+  // for every personal signup their presence here costs nothing.
+  "business_enquiry", "business_consent_text_version",
 ]);
 
 /**
@@ -100,8 +108,11 @@ export const CORE_KEYS = new Set([
  * the safe direction. When security follows, this is already true and nothing
  * breaks in between.
  */
-// eslint-disable-next-line no-control-regex -- matching control characters is
-// the entire point; the rule exists to catch them appearing by accident.
+// Matching control characters is the entire point here; the rule exists to
+// catch them appearing by accident. The directive has to be the line directly
+// above the regex — wrapped onto two lines it disables the comment instead,
+// which is how this sat red at HEAD while reading as suppressed.
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
 const str = (v, max) => {
@@ -133,6 +144,8 @@ export function buildPayload({
   motivationConsentTextVersion = null,
   smsConsentTextVersion = null,
   postalConsentTextVersion = null,
+  businessEnquiry = false,
+  businessConsentTextVersion = null,
   profile = {},
   formRenderTs,
   hpField = "",
@@ -140,6 +153,11 @@ export function buildPayload({
   const health = consentHealth === true;
   const sms = consentSms === true;
   const postal = consentPostal === true;
+  // Both keys are omitted unless the box was actually ticked. A personal signup
+  // must not carry `business_enquiry: false` at the floor, and — more to the
+  // point — the server suppresses marketing consent for any row where this is
+  // true, so sending it speculatively would silently unsubscribe people.
+  const business = businessEnquiry === true;
   const p = profile;
 
   return {
@@ -160,6 +178,15 @@ export function buildPayload({
     consent_marketing: consentMarketing === true,
     consent_health: health,
     consent_text_version: consentTextVersion || null,
+
+    // Present only for a shared-inbox signup. See CORE_KEYS for why they must
+    // survive every rung of the downgrade ladder.
+    ...(business
+      ? {
+          business_enquiry: true,
+          business_consent_text_version: str(businessConsentTextVersion, 64),
+        }
+      : {}),
     motivation_consent_text_version: health ? motivationConsentTextVersion || null : null,
     utm: getUtm(),
     page_path: getPagePath(),
@@ -252,7 +279,13 @@ export const SERVER_KNOWN_KEYS = new Set([
  * record that validates. Losing every answer is bad; losing the email is the
  * failure the whole endpoint exists to prevent.
  */
-export const MINIMAL_KEYS = new Set(["email", "consent_marketing", "consent_text_version"]);
+export const MINIMAL_KEYS = new Set([
+  "email", "consent_marketing", "consent_text_version",
+  // See the note in CORE_KEYS. The floor's promise is that there is always a
+  // version of the record that validates; for a role address that stops being
+  // true the moment these are dropped.
+  "business_enquiry", "business_consent_text_version",
+]);
 
 /** Widest to narrowest. Each rung keeps everything the next one would discard. */
 const LADDER = [SERVER_KNOWN_KEYS, CORE_KEYS, MINIMAL_KEYS];
@@ -278,6 +311,23 @@ function droppedBy(payload, allowed) {
  * Bump whenever an enum member is retired or a field's shape changes. It does
  * not gate anything — it makes a stale replay legible instead of anonymous.
  */
+/**
+ * Live since sec@6efe051 registered `biz-eea-2026-08-19-fc6ba471`.
+ *
+ * The registry is GENERATED from this repo's copy.js by their build (`npm run
+ * build` runs the generator first) and is gitignored, so it cannot go stale:
+ * edit the wording and the id, the registration and the gate all move together.
+ * Verified by running their generator against our copy.js — it emits exactly
+ * the id this client mints, resolving to Emil's approved words.
+ *
+ * ⚠️ DEPLOY ORDER IS THE ONE REMAINING DEPENDENCY. This id resolves only where
+ * BOTH sides are present. A deploy carrying this client without sec@6efe051
+ * offers the checkbox, then refuses the submission anyway — failing closed, so
+ * no bad row is stored, but it looks like a dead end to the person. They merge
+ * together or not at all.
+ */
+export const BUSINESS_BASIS_LIVE = true;
+
 export const SCHEMA_GENERATION = "2026-08-19.servings-prices-medication";
 
 /** Queue entries used to be bare payloads; tolerate both shapes on read. */
