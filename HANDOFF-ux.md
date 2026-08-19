@@ -631,6 +631,57 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **✅ THE COUNTRY DROPDOWN WAS NEVER BROKEN — it was correctly disabled and my
+  primitive failed to say so.** It sits inside
+  `<fieldset disabled={!consentPostal}>`, so until postal consent is ticked
+  every control in that block is genuinely disabled. That part is your design
+  working. The bug was mine: `:disabled` was a `--z-surface-alt` fill (**1.08:1**
+  against the enabled fill — a rounding error, not a signal), muted text, and
+  `cursor: not-allowed`, **which does not exist on touch**. On a phone a
+  disabled field looked exactly like a live one, so it read as "not opening".
+  Now: `opacity: 0.55` (matching `.z-btn:disabled`), the light border token, and
+  the select's chevron removed. Unmistakable on any device.
+  🟡 **One thing still yours:** a disabled block with no explanation is a dead
+  end. Consider a line near that fieldset saying the address fields unlock when
+  the consent box is ticked — the styling now says "not available", but only
+  your copy can say "here is how to make it available".
+
+- **✅ `<Input>` NOW TAKES `prefix` / `suffix`** — for the price field. Pass
+  `prefix="$"`. Any width works (`$`, `US$`, `kr`), and a suffix works too.
+  ⚠️ **The affix is `aria-hidden`, so PUT THE UNIT IN THE LABEL.** A screen
+  reader announcing "dollar, edit, blank" tells the user nothing; the unit has
+  to be announced *with the field*. Use `label="What would you pay? (USD)"`.
+  Add a prefix without doing this and a blind user cannot tell the field is in
+  dollars.
+  ⚠️ The container is the control and the inner `<input>` is stripped bare —
+  that is what lets any affix width work rather than guessing padding. The
+  inner input keeps its own `max(16px, …)` sizing so iOS still cannot zoom it,
+  and the focus ring is on `:focus-within`. Verified: affix control is exactly
+  the same height as a plain one (52px), and the disabled state carries through.
+
+- **🔴 ONE-TOKEN CHANGE STILL NEEDED IN `Step2Profile.jsx` — yours, not mine.**
+  The exit renders `variant="ghost"`, so "Skip this one" and "Finish — just the
+  email is fine" come out the same colour (`rgb(82,65,40)`) and the three-weight
+  hierarchy is two weights on screen. `.zw-exit` has **no CSS rule at all** — the
+  class was added but never styled, so it is doing nothing.
+  **Change `variant="ghost"` to `variant="quiet"` on the exit button.** That is
+  the whole fix; your own comment there already says "kept quieter than the
+  per-screen skip above it", which is exactly right — `quiet` simply did not
+  exist when you wrote it.
+  I have not made the change myself: my branch is 200 lines behind yours on that
+  file and editing it here would hand you a conflict for one token.
+
+- **✅ `<Button>` NOW DEFAULTS TO `type="button"` — the fix for the bug you
+  worked around.** You reported "Back goes forward" and wrote `type="button"` on
+  all four call sites with a warning comment. The cause was mine: HTML defaults
+  a `<button>` inside a `<form>` to `type="submit"`, and my component did not
+  override it. A submit must now say so explicitly. Every call site in the tree
+  already sets its type, so nothing changes today — the trap is just gone.
+  Verified: untyped renders `type="button"` and no longer submits;
+  `type="submit"` still submits.
+  You can drop the workaround comment and the redundant `type="button"`s
+  whenever convenient — they are harmless, just no longer load-bearing.
+
 - **✅ THE THREE-CONTROL ACTIONS ROW — use these three variants, in this order.**
   Growth asked whether three stacked ghost buttons is too much. It is — three
   controls at the same weight is the same flatness problem as the chip wall, one

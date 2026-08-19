@@ -292,6 +292,9 @@ export default async function handler(req, res) {
     flavor: data.flavor,
     is_clinician: data.is_clinician,
     referral_source: data.referral_source,
+    // Same health gate as `motivation` and `dietary` — an open box beside the
+    // Art 9 question is Art 9 data whatever ends up in it.
+    motivation_other: data.consent_health ? data.motivation_other : null,
     referral_source_other: data.referral_source_other,
     price_band_other: data.price_band_other,
 
@@ -364,7 +367,14 @@ export default async function handler(req, res) {
           ['marketing', data.consent_marketing, consent],
           ['health', data.consent_health, healthConsent],
           ['sms', data.consent_sms, smsConsent],
-          ['mail', data.consent_postal, postalConsent],
+          // `postal`, matching consent_postal and postal_consent_text_version.
+          // It was `mail` — a leftover from the naming revert that renamed the
+          // fields and missed the receipt block, leaving one document that said
+          // postal in two places and mail in a third. Two people misread it in
+          // one day, which is enough evidence that the inconsistency is not
+          // cosmetic. The version string inside still carries growth's `mail-`
+          // prefix, so provenance survives; that is their id, not our field.
+          ['postal', data.consent_postal, postalConsent],
         ].map(([name, granted, resolved]) => [
           name,
           {

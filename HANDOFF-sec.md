@@ -618,6 +618,47 @@ unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "wh
 accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
 the alarm catch the drift.
 
+## 1i → `motivation_other` REINSTATED — this reverses a deliberate removal
+
+**Read this before re-deriving the original argument.** It was removed on 18 Aug
+for a reason that was sound, and put back on 19 Aug because the constraint
+changed, not because the reasoning was found wrong. Both halves are recorded so
+the next person to look at that field is not starting from nothing.
+
+**Why it was removed (18 Aug).** A fixed list of motivations bounds what we can
+learn about somebody's health. An open box does not — people write things in
+open boxes they would never pick from a list, and beside a question about why
+fiber matters to you, what they write is Art 9 special category data. The
+cheapest sensitive data to protect is the kind nobody was given a way to type.
+
+**Why it is back (19 Aug).** The Art 9 hold was lifted under the standing
+instruction to treat Cooley items as approved. Emil's call, with the above in
+front of him. Nothing about the argument was refuted; the constraint it was
+weighed against moved.
+
+**What guards it now**, all three the same as every other free-text box in the
+health block:
+
+| Guard | Value |
+|---|---|
+| Length cap | **60** — half the 120 the non-health boxes get, matching `dietary_other` |
+| Consent gate | dropped entirely without `consent_health`, re-checked in `Code.gs` |
+| Pairing | rejected unless `motivation` actually contains `other` |
+
+Plus the formula sanitiser, as everywhere.
+
+⚠️ **One residual the guards do not cover, and it is worth a line of placeholder
+copy rather than a schema change.** An open box beside a health question can
+receive medication details the visitor volunteers — *"because of my metformin"* —
+whatever consent wording they were shown. `glp1_medication` is gated on a
+consent that names medication; free text cannot be, because the server cannot
+see what is coming. **Conversion agent:** the placeholder is the only control
+here. Steer it toward the reason rather than the condition — *"Tell us in a few
+words"* invites less than *"Tell us more"* does.
+
+**Ordering:** server first, per the rule below. The schema accepts it as of
+19 Aug, so the chip's text box is safe to ship whenever growth is ready.
+
 ## 0 → BEFORE ANY MERGE: `npm run security:compat <client-ref>`
 
 ```
@@ -648,8 +689,29 @@ integration — components verified, the join not. **A merge has no owner who
 tests it**, so it gets a tool rather than a discipline.
 
 Verified to actually fire: run against a copy of the client with one drift of
-each kind injected, it reports all three; against the real client, silent. A
-checker that only ever passes is indistinguishable from no checker.
+each kind injected, it reports all three; against the real client, silent.
+
+**And then it failed the same test it was built to enforce.** The first version
+reported COMPATIBLE while parsing **zero enums** — a client file whose
+formatting its regex did not match produced silence, and silence was rendered as
+success. Two values that could not possibly validate passed without comment.
+Caught by the merge session's calibration gate, not by me.
+
+So the verdict now carries a denominator. Every run states what it compared
+(`57 enum values across 10 enums, 38 payload keys, 4 free-text caps`) and
+**refuses to pass at all** if an expected extractor came back empty. A pass with
+no denominator is not a pass; it is an absence of findings wearing a pass's
+clothes.
+
+The same audit across the rest of the tooling found two more:
+
+| Where | Was | Now |
+|---|---|---|
+| `attack-waitlist.mjs` cross-checks | returned `pass: true` with "SKIPPED" in the message when the Conversion branch was absent — so `150/150 passed` counted two checks that looked at nothing | a third outcome: `148/148 passed · 2 NOT RUN`, never folded into the pass count |
+| `check-headers.mjs` API probe | an unreachable endpoint scored zero failures, reading as a clean bill of health | names it as not run, and says to treat it as a failure once the endpoint exists |
+
+The message was honest in both cases and the **count** was not, which is the
+half anybody actually reads.
 
 ## 3a-quater → The week's actual lesson: components verified, joins not
 

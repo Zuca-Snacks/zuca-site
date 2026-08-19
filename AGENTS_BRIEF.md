@@ -125,10 +125,9 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
 
   // Free-text escape for every enum offering "Other". Only two do.
   // Sending one WITHOUT the matching "other" selection is a 400.
-  // NO motivation_other. Removed 2026-08-18: there is deliberately no free-text
-  // box beside the Art 9 health question. A fixed list of eight motivations
-  // bounds what we can learn about somebody's health; an open box does not, and
-  // people write things in open boxes they would never pick from a list.
+  // Health free text — 60 chars, half what the non-health boxes get, and
+  // dropped entirely without consent_health. Reinstated 19 Aug; see below.
+  "motivation_other":       "string|null, <=60 chars   // requires motivation to include 'other'",
   "referral_source_other":  "string|null, <=120 chars   // requires referral_source === 'other'",
 
   // SMS. STRICT E.164 — unlike `zip`, this does not fail soft.
@@ -315,7 +314,7 @@ identifier, and its own block in the consent receipt. Each one gates a field:
 | Consent | Flag | Version field | Gates |
 |---|---|---|---|
 | Marketing | `consent_marketing` **(required true)** | `consent_text_version` | the signup itself |
-| Health | `consent_health` | `motivation_consent_text_version` | `motivation`, `dietary`, `dietary_other` |
+| Health | `consent_health` | `motivation_consent_text_version` | `motivation`, `motivation_other`, `dietary`, `dietary_other` |
 | SMS | `consent_sms` | `sms_consent_text_version` | `phone` |
 | Post | `consent_postal` | `postal_consent_text_version` | the six `address_*` fields |
 
