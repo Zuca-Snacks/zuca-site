@@ -120,7 +120,7 @@ const results = { value: [], key: [], cap: [] };
  * FAILS if an expected extractor came back empty, and the report always states
  * what was actually compared. A verdict with no denominator is not a verdict.
  */
-const coverage = { enums: [], missed: [], values: 0, keys: 0, caps: 0, capsMissed: [] };
+const coverage = { enums: [], missed: [], values: 0, keys: 0, knownKeys: 0, keySetDisagreement: [], caps: 0, capsMissed: [] };
 
 // ─── VALUE drift ─────────────────────────────────────────────────────────────
 
@@ -162,10 +162,44 @@ for (const [constName, field, isArray] of ENUMS) {
 if (apiSrc) {
   const s0 = apiSrc.indexOf('  return {', apiSrc.indexOf('export function buildPayload'));
   if (s0 > 0) {
-    const emitted = [...apiSrc.slice(s0, apiSrc.indexOf('\n  };', s0)).matchAll(/^\s{4}([a-z_0-9]+):/gm)].map((m) => m[1]);
+    const body = apiSrc.slice(s0, apiSrc.indexOf('\n  };', s0));
+    // ANY indentation, not exactly four.
+    //
+    // `^\s{4}` matched only keys written flat in the returned literal, so a key
+    // spread in conditionally —
+    //
+    //     ...(business ? { business_enquiry: true, ... } : {}),
+    //
+    // — sat at ten spaces and was invisible. This tool reported "COMPATIBLE,
+    // 40 payload keys" while not looking at two of the client's forty-two, and
+    // conditionally-spread keys are the newest and most drift-prone ones there
+    // are. Exactly the fault this tool exists to catch, in the tool.
+    // Charset includes UPPERCASE, and that is not pedantry. `[a-z_0-9]+` made
+    // any camelCase key invisible — so a client sending `businessEnquiry`
+    // instead of `business_enquiry` would be silently unread here AND rejected
+    // by the strict schema, which is precisely the drift this tool exists to
+    // catch. camelCase is the natural style in a JS client; the snake_case
+    // contract is the deliberate exception. Found by mutating a key and
+    // watching the checker stay green.
+    const emitted = [...body.matchAll(/^\s+([A-Za-z_0-9]+):/gm)].map((m) => m[1]);
     const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
     coverage.keys = emitted.length;
     for (const k of emitted) if (!accepted.has(k)) results.key.push(k);
+
+    // SECOND, INDEPENDENT EXTRACTION of the same fact, from a different
+    // declaration. The point is not extra coverage — it is that two readings
+    // which disagree prove one of them is wrong, which a single reading can
+    // never do however carefully it is written.
+    const skkMatch = apiSrc.match(/SERVER_KNOWN_KEYS = new Set\(\[([\s\S]*?)\]\)/);
+    if (skkMatch) {
+      const known = [...skkMatch[1].matchAll(/["']([a-z_0-9]+)["']/g)].map((m) => m[1]);
+      coverage.knownKeys = known.length;
+      for (const k of known) if (!accepted.has(k)) results.key.push(k);
+      // Every ladder key must be something buildPayload can actually emit. A
+      // key in one and not the other means an extractor is misreading, or the
+      // ladder is carrying a rung for a field that no longer exists.
+      coverage.keySetDisagreement = known.filter((k) => !emitted.includes(k));
+    }
   }
 }
 
@@ -215,11 +249,21 @@ console.log(`\n  client ${clientRef}   vs   server ${serverRef}\n`);
 const blind = [];
 if (!coverage.enums.length) blind.push('parsed ZERO enum definitions');
 if (coverage.missed.length) blind.push(`could not read: ${coverage.missed.join(', ')}`);
+// A gate that only trips at ZERO is a gate against total failure, and total
+// failure is the least likely kind. This tool read 40 of 42 keys and said
+// COMPATIBLE with full confidence. So the checks below are RELATIVE — they
+// compare two independent readings — rather than merely asking whether one of
+// them returned something.
 if (!coverage.keys) blind.push('read no payload keys from buildPayload');
+if (!coverage.knownKeys) blind.push('read no SERVER_KNOWN_KEYS — second reading unavailable, so nothing cross-checks the first');
+if (coverage.keySetDisagreement?.length) {
+  blind.push(`SERVER_KNOWN_KEYS lists keys buildPayload never emits: ${coverage.keySetDisagreement.join(', ')} — one of the two readings is wrong`);
+}
 if (coverage.capsMissed.length) blind.push(`cap unreadable: ${coverage.capsMissed.join(', ')}`);
 
 console.log(`  compared ${coverage.values} enum values across ${coverage.enums.length} enums, ` +
-            `${coverage.keys} payload keys, ${coverage.caps} free-text caps`);
+            `${coverage.keys} payload keys (${coverage.knownKeys ?? '?'} cross-checked via SERVER_KNOWN_KEYS), ` +
+            `${coverage.caps} free-text caps`);
 if (blind.length) {
   console.log('\n  ⚠ COVERAGE FAILURE — this run did not look at everything it claims to check:');
   for (const b of blind) console.log(`     ${b}`);
