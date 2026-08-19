@@ -26,7 +26,10 @@
  * happens to be 75% full. Progress is shown three ways — position, count and
  * label — never by colour alone.
  */
-export default function Progress({ step, total, label, className = '' }) {
+import { warnIgnoredChildren } from './devWarn.js';
+
+export default function Progress({ step, total, label, children, className = '' }) {
+  warnIgnoredChildren('Progress', children, 'Pass the step name as the `label` prop instead.');
   /* Clamped so a caller that runs off the end cannot render a negative bar or
      announce "step 5 of 4". */
   const current = Math.min(Math.max(1, step), total);

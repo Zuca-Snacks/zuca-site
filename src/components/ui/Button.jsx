@@ -35,6 +35,8 @@
  *     button never changes width mid-interaction.
  *   - aria-busy is set so screen readers announce the pending state.
  */
+import { warnIgnored } from './devWarn.js';
+
 export default function Button({
   variant = 'primary',
   size = 'md',
@@ -47,6 +49,19 @@ export default function Button({
   className = '',
   ...rest
 }) {
+  warnIgnored(
+    'Button',
+    as === 'a' && !href,
+    'has as="a" but no `href`, so it renders an anchor with no destination — ' +
+      'not focusable, not clickable, and invisible to a screen reader as a link.'
+  );
+  warnIgnored(
+    'Button',
+    as !== 'a' && href != null,
+    'was given `href` without as="a". It renders a <button>, so the href is ' +
+      'IGNORED and the control goes nowhere.'
+  );
+
   const classes = [
     'z-btn',
     variant !== 'primary' && `z-btn--${variant}`,
