@@ -681,6 +681,27 @@ indentation differed from my patch. It failed for the wrong reason and I nearly
 wrote it up as a success. That is the did-not-apply rule from `mutate.mjs`,
 biting the person who wrote it, by hand, minutes later.
 
+**⚠️ AND THE COUPLING I FIRST STATED WAS INSUFFICIENT.** I told the merge
+session "my client with `sec@6efe051` or later". That is met on
+`polish/round-2`, both S22 halves are in, and the path works — but the gate
+protecting it is still the pre-`d5a6909` keyword search. Verified by extracting
+that branch's real `validation.js` and running it:
+
+```
+"Tell us about your workplace."     ACCEPTED as consent for a shared mailbox
+```
+
+Not blocking, and nothing misbehaves today: our shipped wording passes both
+versions. What is absent is the backstop — edit that sentence and the old gate
+accepts a rewrite that has stopped being a consent, while the row is still
+stored with marketing suppressed on the strength of wording that no longer says
+why. **`sec@d5a6909` is the minimum for the gate, not `6efe051`.**
+
+The lesson is not about S22. **A version floor stated as "the commit that makes
+it work" is the wrong floor.** The right one is the commit that makes it *safe*,
+and those were four commits apart here — with the working version arriving
+first, which is the order that hides the gap.
+
 **⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
 both sides are present. A deploy carrying this client without `sec@6efe051`
 offers the checkbox and then refuses the submission anyway. It fails closed —
