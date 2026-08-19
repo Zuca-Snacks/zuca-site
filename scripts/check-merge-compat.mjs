@@ -211,7 +211,21 @@ if (apiSrc) {
     // catch. camelCase is the natural style in a JS client; the snake_case
     // contract is the deliberate exception. Found by mutating a key and
     // watching the checker stay green.
-    const emitted = [...body.matchAll(/^\s+([A-Za-z_0-9]+):/gm)].map((m) => m[1]);
+    // Keys after `{`, `,` or a newline — NOT only at the start of a line.
+    //
+    // FOURTH variant of the same blindness, and the worst-timed:
+    //   v1  `^\s{4}` missed keys spread in over multiple lines
+    //   v2  `[a-z_0-9]` missed anything camelCase
+    //   v3  `^\s+` missed a key sharing its line with the spread that emits it:
+    //
+    //         ...(edit ? { edit_token: edit } : {}),
+    //
+    // That is how Conversion emits `edit_token`, and it is the key the entire
+    // S23 fix depends on. `security:compat` reported COMPATIBLE across "42
+    // payload keys" with it invisible — so a misspelling there would have been
+    // green-lit and the fix would have shipped inert, restoring the exact
+    // silent loss it was written to end.
+    const emitted = [...new Set([...body.matchAll(/[{,\n]\s*([A-Za-z_0-9]+)\s*:/g)].map((m) => m[1]))];
     const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
     coverage.keys = emitted.length;
     for (const k of emitted) if (!accepted.has(k)) results.key.push(k);

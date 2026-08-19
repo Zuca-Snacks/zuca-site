@@ -236,7 +236,25 @@ export default async function handler(req, res) {
     // SOMEONE ELSE'S row lands here too, indistinguishably — an attacker who
     // signs up, gets a valid token, and points it at a victim's address gets
     // the same 409 as a returning visitor.
-    audit('duplicate', { handle, token: data.edit_token ? 'rejected' : 'absent' });
+    /**
+     * Distinguish EXPIRED from absent from wrong-row.
+     *
+     * Conversion has deliberately left the expiry path silent for the visitor,
+     * and they are right: their spot genuinely is saved, so an error there
+     * would be a lie. But it means someone who leaves the form open past the
+     * 2h TTL loses their step 2–4 answers exactly as in S23 — and there is no
+     * way to reissue a token without reopening the unauthenticated-write hole,
+     * so the loss is real and permanent for that session.
+     *
+     * Silent for them does not have to mean silent for us. This is the
+     * difference between knowing how often it happens and guessing, and the
+     * whole reason S23 lasted was that nobody could see it.
+     */
+    let tokenState = 'absent';
+    if (data.edit_token) {
+      tokenState = (await verifyEditToken(data.edit_token, handle, 0)) ? 'expired' : 'rejected';
+    }
+    audit('duplicate', { handle, token: tokenState });
     return send(res, 409, { ok: false, error: 'duplicate' });
   }
 

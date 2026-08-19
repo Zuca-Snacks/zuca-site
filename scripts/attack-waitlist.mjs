@@ -1528,6 +1528,26 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
+  await check('an EXPIRED token is distinguishable from a forged one', 'expired vs rejected', async () => {
+    // The audit log separates them by re-verifying with now=0, which skips only
+    // the expiry check. A valid signature that has aged out reports `expired`;
+    // a forgery or a token for another row reports `rejected`. The visitor sees
+    // the same 409 either way — Conversion's call, and right, since their spot
+    // genuinely is saved — but we can now measure how often the TTL bites
+    // instead of guessing.
+    const { mintEditToken, verifyEditToken, EDIT_TTL_MS } = await import('../src/lib/edit-token.js');
+    const A = 'aaaaaaaaaaaa';
+    const stale = await mintEditToken(A, Date.now() - EDIT_TTL_MS - 60_000);
+    const forged = `edit.${A}.${Date.now() + 1e6}.deadbeefdeadbeefdeadbeefdeadbeef`;
+    const staleNow = await verifyEditToken(stale, A);
+    const staleIgnoringExpiry = await verifyEditToken(stale, A, 0);
+    const forgedIgnoringExpiry = await verifyEditToken(forged, A, 0);
+    return {
+      pass: staleNow === false && staleIgnoringExpiry === true && forgedIgnoringExpiry === false,
+      actual: `stale=${staleNow} stale@0=${staleIgnoringExpiry} forged@0=${forgedIgnoringExpiry}`,
+    };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   const BIZ = '2026-08-19.business.a';
 
