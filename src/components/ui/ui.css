@@ -230,12 +230,91 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--z-focus) 25%, transparent);
 }
 
+/* ⚠️ A DISABLED FIELD MUST LOOK DISABLED ON A PHONE, WHERE THERE IS NO CURSOR.
+   This was --z-surface-alt fill + muted text + cursor:not-allowed. The fill
+   change is 1.08:1 against the enabled fill — a rounding error, not a signal —
+   and `cursor` does not exist on touch. So a disabled field was visually
+   identical to a live one, and growth reported the country dropdown as "not
+   opening at all" when it was correctly disabled inside
+   <fieldset disabled={!consentPostal}>. It was not broken; it was mute.
+   opacity is the cue that carries on every device, matched to .z-btn:disabled
+   (0.55) and .z-chip:disabled (0.5). The border also drops to the light token:
+   disabled controls are explicitly exempt from the 3:1 non-text contrast
+   requirement, and keeping the strong border was part of what made it read
+   live. */
 .z-input:disabled,
 .z-select:disabled {
   background: var(--z-surface-alt);
+  border-color: var(--z-border);
   color: var(--z-ink-muted);
+  opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* The chevron is part of the affordance, so it dims with the rest. */
+.z-select:disabled { background-image: none; }
+
+/* ─── Input with a prefix/suffix (currency, units) ────────────────────────
+   ⚠️ THE CONTAINER IS THE FIELD, and the real <input> inside it is stripped
+   bare. Absolutely positioning an adornment over a normal input and padding
+   around it means guessing the adornment's width, which breaks the moment the
+   symbol is "kr" or "US$" instead of "$". A flex container that LOOKS like the
+   input lets any affix width work, at any font size, in any language. */
+.z-input-affix {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding-inline: var(--z-space-4);
+  background: var(--z-surface);
+  border: 2px solid var(--z-border-strong);
+  border-radius: var(--z-radius-sm);
+  transition:
+    border-color var(--z-dur-fast) var(--z-ease),
+    box-shadow var(--z-dur-fast) var(--z-ease);
+}
+
+/* :focus-within, because focus lands on the inner input but the ring belongs on
+   the thing that looks like the control. */
+.z-input-affix:focus-within {
+  border-color: var(--z-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--z-focus) 25%, transparent);
+}
+
+.z-input-affix:hover:not(:focus-within) { border-color: var(--z-ink); }
+
+.z-input-affix:has(.z-input[aria-invalid='true']) { border-color: var(--z-danger); }
+
+.z-input-affix:has(.z-input:disabled) {
+  background: var(--z-surface-alt);
+  border-color: var(--z-border);
+  opacity: 0.55;
+}
+
+/* The input keeps its own font sizing — including the >=16px floor that stops
+   iOS zooming — and gives up only the chrome the container now draws. */
+.z-input-affix .z-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: auto;
+  padding-inline: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.z-input-affix .z-input:focus-visible { outline: none; box-shadow: none; }
+
+.z-input-affix__affix {
+  flex: none;
+  color: var(--z-ink-muted);
+  font-size: max(16px, var(--z-step-0));
+  line-height: 1;
+  user-select: none;
+}
+
+.z-input-affix__affix[data-side='prefix'] { padding-inline-end: var(--z-space-2); }
+.z-input-affix__affix[data-side='suffix'] { padding-inline-start: var(--z-space-2); }
 
 .z-input[aria-invalid='true'],
 .z-select[aria-invalid='true'] { border-color: var(--z-danger); }
