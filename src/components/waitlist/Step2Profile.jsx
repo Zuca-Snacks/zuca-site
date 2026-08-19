@@ -33,7 +33,7 @@ import { buildPayload, RESULT, submitWaitlist, toE164 } from "./api.js";
 import { EVENTS, track, trackOnce } from "../../lib/analytics.js";
 import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
 import { detectPostalRegion } from "./region.js";
-import { COUNTRIES } from "./countries.js";
+import { COUNTRY_OPTIONS } from "./countries.js";
 
 const ZIP_RE = /^[0-9]{5}$/;
 const SCREENS = copy.screens;
@@ -67,7 +67,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     price_band_other: "",
     channel: [], channel_other: "",
     zip: "", is_clinician: null,
-    motivation: [],
+    motivation: [], motivation_other: "",
     dietary: [], dietary_other: "",
     office_interest: null, company: "", headcount: null,
     phone: "", research_optin: null,
@@ -210,6 +210,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const otherProps = (def, val, key) => ({
     id: `${key}-${uid}`,
     label: def.otherLabel,
+    placeholder: def.otherPlaceholder,
     value: val,
     maxLength: otherMaxFor(def),
     onChange: (t) => set({ [key]: t }),
@@ -310,7 +311,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
               className="zw-disclosure"
               onToggle={(e) => {
                 if (e.currentTarget.open) track(EVENTS.STEP2_MOTIVATION_OPEN);
-                else { setConsentHealth(false); set({ motivation: [], dietary: [], dietary_other: "" }); }
+                else { setConsentHealth(false); set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" }); }
               }}
             >
               <summary>{copy.motivationDisclosure}</summary>
@@ -322,14 +323,15 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                   label={healthCopy.text}
                   onChange={(e) => { const on = e.target.checked;
                     setConsentHealth(on); optin("health", on);
-                    if (!on) set({ motivation: [], dietary: [], dietary_other: "" });
+                    if (!on) set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" });
                   }}
                 />
                 <ChipMultiGroup
                   legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
                   disabled={!consentHealth}
+                  other={otherProps(MOTIVATION, v.motivation_other, "motivation_other")}
                   onChange={(x) => {
-                    set({ motivation: x });
+                    set({ motivation: x, ...(x.includes("other") ? {} : { motivation_other: "" }) });
                     if (x.length) note(MOTIVATION.key);
                   }}
                 />
@@ -425,15 +427,16 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                       <Field key={f.key} id={`${f.key}-${uid}`} label={f.label} optional>
                         {(props) =>
                           f.select ? (
+                            /* ui/Select renders from an `options` PROP and
+                               ignores children. Passing <option> children gave
+                               it an empty list — the control existed and had
+                               nothing to open. Same shape as the `show` prop:
+                               a contract assumed rather than read. */
                             <Select
                               {...props} autoComplete={f.autoComplete} value={v[f.key]}
+                              options={COUNTRY_OPTIONS} placeholder="Select a country"
                               onChange={(e) => set({ [f.key]: e.target.value })}
-                            >
-                              <option value="">Select a country</option>
-                              {COUNTRIES.map((c) => (
-                                <option key={c.code} value={c.code}>{c.name}</option>
-                              ))}
-                            </Select>
+                            />
                           ) : (
                             <Input
                               {...props} type="text" autoComplete={f.autoComplete}

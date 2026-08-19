@@ -62,7 +62,12 @@ export const PRICE_BAND = {
   // price_band_other comes in below the lowest band — if it is frequent, the
   // band set is wrong rather than the respondents. See HANDOFF-growth.md.
   otherKey: "price_band_other",
-  otherLabel: "What would you pay?",
+  // The unit is in the label and the placeholder because ui/OtherInput has no
+  // prefix slot and inventing one is UX's call, not mine. Both say dollars, so
+  // nobody types "30" meaning pounds or per-serving — the answer is stored
+  // verbatim, so an ambiguous unit is unrecoverable later.
+  otherLabel: "What would you pay, in dollars, for a 12-pack?",
+  otherPlaceholder: "$28",
   // 40 — matching the server EXACTLY, which matters more than the number.
   // A client cap ABOVE the server's is not a laxer client, it is a 400 on the
   // whole submission for any answer between the two. 16 was too tight in the
@@ -116,13 +121,32 @@ export const MOTIVATION = {
     // ever stops being worth it, removing the chip is client-first and the
     // server's gate closes behind it.
   ],
-  // ⚠️ NO FREE TEXT HERE, DELIBERATELY (Emil, 18 Aug 2026).
-  // The `other` chip stays — it is a contract enum value — but it opens no
-  // text box. A free-text field beside a health question invites detailed
-  // medical disclosure, and Art 9 data you did not ask for is far harder to
-  // justify and to minimise than a chip selection from a fixed list. A chip
-  // says "gut health"; a box gets a diagnosis. Do not add `otherKey` back
-  // without asking Emil — he has reserved that decision.
+  // ── FREE TEXT: REMOVED 18 AUG, RESTORED 19 AUG ─────────────────────────────
+  // Precision about which of those two happened matters. The Art 9 argument for
+  // removing it was never refuted — a box beside a health question invites
+  // disclosure a chip cannot — the constraint it was weighed against moved when
+  // Emil lifted the hold. "We decided differently" and "we were wrong" leave
+  // very different guidance behind.
+  //
+  // ⚠️ THE PLACEHOLDER IS THE ONLY CONTROL, AND IT IS OURS.
+  // The server gates `glp1_medication` on consent wording that names
+  // medication. It CANNOT gate free text: nothing can see what a person is
+  // about to volunteer. So "because of my metformin" arrives whatever wording
+  // they were shown, and no schema change prevents it.
+  //
+  // What is left is register, and copy sets register better than instructions
+  // do. Hence a bounded ask ("in a few words") over an open one ("tell us
+  // more"), an explicit no-medical-details, and a placeholder that MODELS a
+  // short non-clinical answer — an example teaches the shape of a reply faster
+  // than a rule forbids the wrong one. Treat this wording as load-bearing.
+  otherKey: "motivation_other",
+  otherLabel: "In a few words — no medical details, please",
+  otherPlaceholder: "More fiber, mostly",
+  // 60, matching dietary_other and the server. For a health free-text field the
+  // cap IS the minimisation, so it is set here rather than falling through to
+  // OTHER_MAX (120) — and a client cap above the server's is a 400 for
+  // everything in the gap.
+  otherMax: 60,
 };
 
 /** Where demand clusters — shipping zones, and which cities to seed retail in. */

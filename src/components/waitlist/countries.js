@@ -70,3 +70,6 @@ export const COUNTRIES = [
 ];
 
 export const COUNTRY_CODES = new Set(COUNTRIES.map((c) => c.code));
+
+/** ui/Select takes an `options` PROP and ignores children — see Select.jsx. */
+export const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
