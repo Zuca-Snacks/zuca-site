@@ -844,9 +844,25 @@ function doPost(e) {
  *     exists to close.
  *
  *  8. Confirm the old URL is dead:
- *       curl -s "<OLD_URL>"              -> no longer returns {"count":N}
+ *       curl -sL "<OLD_URL>"             -> no longer returns {"count":N}
  *     and that the new one refuses unauthenticated writes:
- *       curl -s -X POST "<NEW_URL>" -H 'Content-Type: application/json' \
+ *       curl -sL "<NEW_URL>" -H 'Content-Type: application/json' \
  *            -d '{"email":"x@y.com"}'    -> {"ok":false,"error":"forbidden"}
+ *
+ *     ⚠️ NOTE THE ABSENCE OF `-X POST`. It is not a style choice and the
+ *     earlier version of this command had it, which made the command wrong.
+ *
+ *     Apps Script ALWAYS answers /exec with a 302 to script.googleusercontent,
+ *     and the real response body is at the redirect. `-d` makes the first
+ *     request a POST and lets curl follow that 302 as a GET, which is what the
+ *     echo URL serves. `-X POST` pins the method to EVERY hop, so the follow-up
+ *     hits the echo URL as a POST, gets 405, and curl prints Google's
+ *     "Sorry, unable to open the file at this time" HTML page.
+ *
+ *     That page looks exactly like a broken deployment. Running the old command
+ *     against a perfectly good deployment would have told you it was broken,
+ *     and the natural next move — re-deploying, re-pasting, re-checking the
+ *     sheet ID — would all have been fixing something that was not wrong.
+ *     Verified against the live deployment on 2026-08-18.
  */
 
