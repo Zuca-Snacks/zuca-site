@@ -527,6 +527,12 @@ export const step1 = {
   errors: {
     empty: "Enter your email and we'll save your spot.",
     invalid: "That email doesn't look right — mind checking it?",
+    // A double dot is a plain typo (emil..nordin@gmail.com) and deserves to be
+    // told so. The server rejects it, but its 400 body is {ok, error} only —
+    // the rule name goes to its audit LOG, not to us — so we cannot branch on
+    // the response. Catching it here is better anyway: no round trip, and the
+    // message arrives while their hands are still on the field.
+    typo: "There's a double dot in there — looks like a typo?",
     consent: "Tick the box so we're allowed to email you.",
     rate_limited: "That's a lot of tries. Give it a minute and we'll take it from there.",
     // ⚠️ ONLY `offline` may say the address is saved. It is the only failure

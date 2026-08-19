@@ -91,6 +91,15 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
       inputRef.current?.focus();
       return;
     }
+    // Checked separately so the message can name the actual problem. The
+    // server rejects ".." too, but only as a generic validation failure, and
+    // "shared inboxes aren't accepted" is a baffling thing to read when what
+    // you did was type a dot twice.
+    if (value.includes("..")) {
+      setError(copy.errors.typo);
+      inputRef.current?.focus();
+      return;
+    }
     if (!EMAIL_RE.test(value) || value.length > 254) {
       setError(copy.errors.invalid);
       inputRef.current?.focus();

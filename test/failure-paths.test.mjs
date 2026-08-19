@@ -277,3 +277,13 @@ test('the email is NOT control-stripped — repairing an identifier is worse tha
   const clean = mod.buildPayload({ email: 'A@B.com ', consentMarketing: true });
   assert.equal(clean.email, 'a@b.com', 'trim and lowercase still apply');
 });
+
+test('a double-dot typo is named as a typo, not as a policy rejection', async () => {
+  const { step1 } = await import('../src/content/copy.js');
+  assert.ok(step1.errors.typo, 'the commonest email typo deserves its own message');
+  assert.match(step1.errors.typo, /typo|double dot/i);
+  // The server rejects ".." as a generic validation failure and its 400 body is
+  // {ok, error} only — the rule name goes to its audit log, not to us. So this
+  // has to be caught client-side or the person gets told about shared inboxes.
+  assert.notEqual(step1.errors.typo, step1.errors.validation);
+});
