@@ -23,7 +23,7 @@
 // difference is that we now know it hasn't landed yet.
 
 import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
-import { DIETARY, OTHER_MAX, otherMaxFor } from "./fields.js";
+import { CHANNEL, DIETARY, MOTIVATION, OTHER_MAX, otherMaxFor } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 const COUNT_ENDPOINT = "/api/count";
@@ -128,7 +128,7 @@ export function buildPayload({
     zip: p.zip || null,
     // Health-adjacent values never travel without their Art 9 opt-in, on our
     // side as well as the server's.
-    motivation: health ? arr(p.motivation, 3) : null,
+    motivation: health ? arr(p.motivation, MOTIVATION.options.length) : null,
     intent: p.intent ?? null,
     price_band: p.price_band ?? null,
     flavor: p.flavor ?? null,
@@ -158,12 +158,12 @@ export function buildPayload({
     // motivation_other is DELETED, not merely unsent: no free text beside an
     // Art 9 question. The server still accepts the key; we will never populate
     // it. See the note on MOTIVATION in fields.js.
-    dietary: health ? arr(p.dietary, 3) : null,
+    dietary: health ? arr(p.dietary, DIETARY.options.length) : null,
     dietary_other: health && hasOther(p.dietary) ? str(p.dietary_other, otherMaxFor(DIETARY)) : null,
     referral_source_other:
       p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
     quantity_band: p.quantity_band ?? null,
-    channel: arr(p.channel, 2),
+    channel: arr(p.channel, CHANNEL.options.length),
     channel_other: hasOther(p.channel) ? str(p.channel_other, OTHER_MAX) : null,
     office_interest: p.office_interest ?? null,
     company: str(p.company, 80),

@@ -227,8 +227,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
         {s.id === "reach" && (
           <>
             <ChipMultiGroup
-              legend={CHANNEL.label} options={CHANNEL.options} values={v.channel} max={CHANNEL.max}
-              hint={`Pick up to ${CHANNEL.max}.`}
+              legend={CHANNEL.label} options={CHANNEL.options} values={v.channel}
               other={otherProps(CHANNEL, v.channel_other, "channel_other")}
               onChange={(x) => {
                 set({ channel: x, ...(x.includes("other") ? {} : { channel_other: "" }) });
@@ -296,7 +295,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                 />
                 <ChipMultiGroup
                   legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
-                  max={MOTIVATION.max} hint={copy.motivationHint} disabled={!consentHealth}
+                  disabled={!consentHealth}
                   onChange={(x) => {
                     set({ motivation: x });
                     if (x.length) note(MOTIVATION.key);
@@ -304,7 +303,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                 />
                 <ChipMultiGroup
                   legend={DIETARY.label} options={DIETARY.options} values={v.dietary}
-                  max={DIETARY.max} hint={`Pick up to ${DIETARY.max}.`} disabled={!consentHealth}
+                  disabled={!consentHealth}
                   other={otherProps(DIETARY, v.dietary_other, "dietary_other")}
                   onChange={(x) => {
                     set({ dietary: x, ...(x.includes("other") ? {} : { dietary_other: "" }) });
@@ -434,14 +433,19 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
           <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.nextBusy}>
             {screen + 1 < SCREENS.length ? copy.next : copy.finish}
           </Button>
-          {/* Back is a retreat, not a forward action — ghost, never the CTA
-              colour. Only Continue/Done carry --z-cta. */}
+          {/* ⚠️ type="button" IS LOAD-BEARING on both of these. ui/Button sets no
+              default type, so HTML's default of "submit" applies — inside this
+              <form> that made Back and Skip run advance() and go FORWARD. Back
+              was reported; Skip had the same bug and was not. My deleted
+              stand-in defaulted to type="button", so the swap changed the
+              default silently, exactly like the `show` prop did.
+              Ghost, not primary: a retreat never wears the CTA colour. */}
           {screen > 0 && (
-            <Button variant="ghost" onClick={() => setScreen(screen - 1)} disabled={busy}>
+            <Button type="button" variant="ghost" onClick={() => setScreen(screen - 1)} disabled={busy}>
               {copy.back}
             </Button>
           )}
-          <Button variant="ghost" onClick={skip} disabled={busy}>{copy.skip}</Button>
+          <Button type="button" variant="ghost" onClick={skip} disabled={busy}>{copy.skip}</Button>
         </div>
       </form>
     </div>

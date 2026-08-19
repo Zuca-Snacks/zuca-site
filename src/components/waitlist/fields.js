@@ -65,23 +65,45 @@ export const MOTIVATION = {
   key: "motivation",
   label: "What's drawing you to more fiber?",
   why: "Shapes what we say in the emails you'll actually get.",
-  max: 3,
+  // No cap: if someone has four reasons, take four. See HANDOFF-growth.md on
+  // watching the average selection count — unlimited picking weakens signal.
+  // ⚠️ EVERY OPTION IS A FACT ABOUT THE PERSON, NEVER AN EFFECT OF THE PRODUCT.
+  // A list WE wrote is read as a list of things Zuca does. "Manage glucose
+  // spikes" in our own dropdown is us suggesting Zuca manages glucose spikes,
+  // whoever ticks it. So the options describe the reader's situation and
+  // motivation — "feeling full longer", not "satiety benefit"; "a doctor
+  // suggested it", not "doctor-recommended". Phrase every future option that
+  // way or it becomes a claim we did not intend to make.
   options: [
     { value: "digestion", label: "Digestion" },
     { value: "regularity", label: "Regularity" },
     { value: "gut_health", label: "Gut health" },
     { value: "energy", label: "Steady energy" },
-    { value: "sustainability", label: "Less food waste" },
-    { value: "doctor_suggested", label: "A doctor suggested it" },
+    { value: "fullness", label: "Feeling full longer" },
+    { value: "whole_foods", label: "Eating more whole foods" },
     { value: "family_health", label: "Feeding my family better" },
+    { value: "doctor_suggested", label: "A doctor suggested it" },
+    { value: "sustainability", label: "Less food waste" },
     { value: "other", label: "Something else" },
+    // ── NO MEDICATION VALUE, DELIBERATELY ───────────────────────────────────
+    // Not "not yet" — considered and declined. `glp1` and friends reveal
+    // treatment and therefore, by inference, diagnosis: the hard end of Art 9,
+    // not the arguable end. And the brief forbids GLP-1 and weight-loss claims
+    // outright, so the segment would be data we are barred from acting on —
+    // a data-minimisation failure, which no amount of consent cures.
+    // If the intent is "a clinician told me to eat more fiber",
+    // `doctor_suggested` above already captures it and touches no medication.
+    // Security's schema asserts glp1 / medication / on_medication / weight_loss
+    // all 400. Reopening this needs Emil AND consent wording that names
+    // medication specifically.
   ],
   // ⚠️ NO FREE TEXT HERE, DELIBERATELY (Emil, 18 Aug 2026).
   // The `other` chip stays — it is a contract enum value — but it opens no
   // text box. A free-text field beside a health question invites detailed
   // medical disclosure, and Art 9 data you did not ask for is far harder to
   // justify and to minimise than a chip selection from a fixed list. A chip
-  // says "gut health"; a box gets a diagnosis. Do not add `otherKey` back.
+  // says "gut health"; a box gets a diagnosis. Do not add `otherKey` back
+  // without asking Emil — he has reserved that decision.
 };
 
 /** Where demand clusters — shipping zones, and which cities to seed retail in. */
@@ -168,7 +190,6 @@ export const CHANNEL = {
   key: "channel",
   label: "Where would you expect to buy it?",
   why: "Decides whether we chase retail or sell direct first.",
-  max: 2,
   options: [
     { value: "online_dtc", label: "Online, from you" },
     { value: "grocery", label: "Grocery store" },
@@ -204,7 +225,6 @@ export const DIETARY = {
   key: "dietary",
   label: "Anything we should know before we make yours?",
   why: "Tells us the addressable share of the list, and whether a nut-free run is worth it.",
-  max: 3,
   options: [
     { value: "none", label: "Nothing to flag" },
     { value: "nut_allergy", label: "Tree nut allergy" },

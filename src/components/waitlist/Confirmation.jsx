@@ -21,6 +21,7 @@ function shareUrl() {
 export default function Confirmation({ position: knownPosition, duplicate, profileSaved }) {
   const [position, setPosition] = useState(knownPosition ?? null);
   const [shared, setShared] = useState(false);
+  const [manualUrl, setManualUrl] = useState("");
 
   useEffect(() => {
     if (position !== null) return undefined;
@@ -36,20 +37,50 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
     };
   }, [position]);
 
+  /**
+   * Share, with every fallback reachable.
+   *
+   * The old version returned immediately after `navigator.share`, so a share
+   * sheet that THREW — which is the normal desktop outcome, where the API
+   * exists but refuses the payload — fell into a catch that swallowed it and
+   * did nothing at all. The button looked dead because it was: an unsupported
+   * path was treated as a completed one.
+   *
+   * Now every branch ends in visible feedback, including the failure.
+   */
   async function handleShare() {
     const url = shareUrl();
-    track(EVENTS.SHARE_CLICK, { method: typeof navigator !== "undefined" && navigator.share ? "native" : "copy" });
-    try {
-      if (navigator.share) {
+
+    if (navigator.share) {
+      try {
         await navigator.share({ title: "Zuca", text: copy.shareText, url });
+        track(EVENTS.SHARE_CLICK, { method: "native", ok: 1 });
         return;
+      } catch (err) {
+        // AbortError means they opened the sheet and chose not to share. That
+        // is a completed interaction, not a failure to fall back from.
+        if (err && err.name === "AbortError") {
+          track(EVENTS.SHARE_CLICK, { method: "native", ok: 0 });
+          return;
+        }
+        // Anything else: the API is present but unusable here. Keep going.
       }
-      await navigator.clipboard.writeText(url);
-      setShared(true);
-      setTimeout(() => setShared(false), 3000);
-    } catch {
-      /* the user dismissed the share sheet — not an error worth showing */
     }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      track(EVENTS.SHARE_CLICK, { method: "copy", ok: 1 });
+      setShared(true);
+      window.setTimeout(() => setShared(false), 3000);
+      return;
+    } catch {
+      /* No clipboard permission, or an insecure context. One path left. */
+    }
+
+    // Last resort: put the link on screen so it can be copied by hand. A
+    // visible link they can select beats a button that silently does nothing.
+    track(EVENTS.SHARE_CLICK, { method: "manual", ok: 1 });
+    setManualUrl(url);
   }
 
   const title = duplicate
@@ -89,6 +120,12 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
         <Button type="button" variant="secondary" onClick={handleShare}>
           {shared ? copy.shareCopied : copy.shareCta}
         </Button>
+        {manualUrl ? (
+          <p className="zw-note">
+            {copy.shareManual}{" "}
+            <a href={manualUrl}>{manualUrl}</a>
+          </p>
+        ) : null}
       </div>
     </div>
   );
