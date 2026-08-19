@@ -312,15 +312,21 @@ function droppedBy(payload, allowed) {
  * not gate anything — it makes a stale replay legible instead of anonymous.
  */
 /**
- * The `biz-eea-2026-08-19-fc6ba471` wording is authored here but resolved by
- * security's generated registry. Until they regenerate it, the id resolves to
- * no text, `consentCoversBusiness()` sees nothing, and the submission is
- * refused — so the checkbox stays hidden rather than offering a route that
- * cannot work. Flip to true once they confirm registration.
+ * Live since sec@6efe051 registered `biz-eea-2026-08-19-fc6ba471`.
  *
- * ADD-class change, so server first. See AGENTS_BRIEF.md.
+ * The registry is GENERATED from this repo's copy.js by their build (`npm run
+ * build` runs the generator first) and is gitignored, so it cannot go stale:
+ * edit the wording and the id, the registration and the gate all move together.
+ * Verified by running their generator against our copy.js — it emits exactly
+ * the id this client mints, resolving to Emil's approved words.
+ *
+ * ⚠️ DEPLOY ORDER IS THE ONE REMAINING DEPENDENCY. This id resolves only where
+ * BOTH sides are present. A deploy carrying this client without sec@6efe051
+ * offers the checkbox, then refuses the submission anyway — failing closed, so
+ * no bad row is stored, but it looks like a dead end to the person. They merge
+ * together or not at all.
  */
-export const BUSINESS_BASIS_LIVE = false;
+export const BUSINESS_BASIS_LIVE = true;
 
 export const SCHEMA_GENERATION = "2026-08-19.servings-prices-medication";
 

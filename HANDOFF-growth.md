@@ -258,7 +258,7 @@ growth to defend against, only signal dilution.
 
 ---
 
-## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT, awaiting registration)
+## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT AND LIVE)
 
 Two things we built are in direct conflict, and neither team could see it alone.
 
@@ -412,9 +412,20 @@ So it is authored in `consentTexts.business` and minted the normal way:
 **`biz-eea-2026-08-19-fc6ba471`**. Region token `eea` for the same reason `mot`
 uses it — one wording at the strict bar, and `all` parses as `unknown` regime.
 
-`BUSINESS_BASIS_LIVE = false` until security regenerates. An unregistered id
-resolves to no text and is refused, so the checkbox stays hidden rather than
-offering a route that cannot work.
+`BUSINESS_BASIS_LIVE = true` since `sec@6efe051`, which registered it via the
+generator and corrected the wording back to Emil's words — verified
+byte-identical, and both texts fingerprint to the same id.
+
+The registry is gitignored and rebuilt by their `npm run build`, so it cannot
+go stale: edit the wording and the id, the registration and the gate all move
+together. Confirmed by running their generator against this repo's copy.js —
+it emits exactly the id this client mints.
+
+**⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
+both sides are present. A deploy carrying this client without `sec@6efe051`
+offers the checkbox and then refuses the submission anyway. It fails closed —
+no shared mailbox is stored without a basis — but to the person it is a dead
+end, so the two merge together or not at all.
 
 ### The confirmation had to change too, or we would have lied on the last screen
 

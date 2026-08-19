@@ -388,3 +388,12 @@ test('the shared-inbox mirror decides presentation, never permission', async () 
   assert.equal(/looksLikeRoleAddress\([^)]*\)\s*\)?\s*(return|\{\s*return)/.test(step1), false,
     'the mirror must never short-circuit a submission');
 });
+
+test('the business consent id keeps its purpose and region tokens', async () => {
+  const { businessConsent } = await import('../src/components/waitlist/consent.js');
+  // The server reads the regime off this token. `all` once parsed as `unknown`
+  // and left every Art 9 record unauditable by regime — same trap, same shape.
+  // The hash is deliberately NOT pinned: editing the wording SHOULD move it,
+  // and their generator rebuilds from this file, so the two cannot drift.
+  assert.match(businessConsent().version, /^biz-eea-\d{4}-\d{2}-\d{2}-[0-9a-f]{8}$/);
+});
