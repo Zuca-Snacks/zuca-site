@@ -1154,6 +1154,20 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
+  // ── strict() rejects on key PRESENCE, which is a deploy-ordering fact ────
+  // Not a bug — it is the property that makes unknown keys safe. But it means
+  // a client that sends a new key BEFORE the server carrying it is deployed
+  // gets every submission rejected, not just the ones using the feature.
+  // Verified against the real pre-S22 code at 8d6bf01: `business_enquiry:
+  // false` alone was enough to reject an ordinary personal signup.
+  //
+  // Pinned here so nobody "helpfully" relaxes strict() to fix a deploy-window
+  // problem, which would trade a loud, closed failure for a silent one.
+  await check('unknown keys are rejected on presence, not on value', 'falsy still rejected', async () => {
+    const r = await post(growthPayload({ some_future_field: false }));
+    return { pass: r.status === 400, actual: `${r.status} for a key whose value is false` };
+  });
+
   // ── The pre-merge business fixture is retired at merge ──────────────────
   // This fails the moment Conversion's copy.js lands and the generator mints a
   // real `biz-` id, forcing the hand-written builtin to be deleted rather than
