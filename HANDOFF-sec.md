@@ -618,6 +618,39 @@ unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "wh
 accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
 the alarm catch the drift.
 
+## 0 → BEFORE ANY MERGE: `npm run security:compat <client-ref>`
+
+```
+npm run security:compat origin/growth/waitlist-conversion   # COMPATIBLE
+npm run security:compat origin/polish/round-2               # 10 INCOMPATIBILITIES
+npm run security:compat /path/to/working/tree               # uncommitted merge
+```
+
+Takes the client's field definitions from a git ref **or a directory**, and
+pushes every value a user can physically tap through the server's real
+validator. Exit 1 on any drift. Three kinds, one pass:
+
+| | What it catches |
+|---|---|
+| **VALUE** | an enum option the client offers and the server rejects |
+| **KEY** | a payload field the server does not accept |
+| **CAP** | a client length limit *looser* than the server's — a 400 for everything in the gap, not a laxer client |
+
+**Why it is a tool and not a habit.** On 19 Aug `polish/round-2` and
+`sec/hardening` were each internally correct and catastrophic together: the
+server had dropped ten enum values the client still offered, so **every option
+on two screens returned 400** and the user could not advance past screen 1.
+Neither branch's diff showed it. You could only see it by running one against
+the other, which nothing did, because each side tested its own.
+
+That is the branch-topology form of the failure that ran through this whole
+integration — components verified, the join not. **A merge has no owner who
+tests it**, so it gets a tool rather than a discipline.
+
+Verified to actually fire: run against a copy of the client with one drift of
+each kind injected, it reports all three; against the real client, silent. A
+checker that only ever passes is indistinguishable from no checker.
+
 ## 3a-quater → The week's actual lesson: components verified, joins not
 
 Six failures across two branches, all one shape. Worth stating once rather than
