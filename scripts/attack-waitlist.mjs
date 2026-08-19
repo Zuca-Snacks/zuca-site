@@ -106,9 +106,27 @@ function goodPayload(overrides = {}) {
 const results = [];
 let failures = 0;
 
+let skipped = 0;
+
+/**
+ * `detail.skip === true` records a THIRD outcome, not a pass.
+ *
+ * Two of these cross-checks cannot run until the Conversion branch is merged,
+ * and they used to return `pass: true` with the word SKIPPED in the message.
+ * The message was honest and the count was not: "150/150 passed" included two
+ * checks that never looked at anything. That is the same fault the merge
+ * compatibility checker had — passing because nothing was found rather than
+ * because nothing was wrong — and a summary line is exactly where nobody reads
+ * the fine print.
+ */
 async function check(name, expectation, fn) {
   try {
     const detail = await fn();
+    if (detail.skip) {
+      skipped += 1;
+      results.push({ name, expectation, actual: detail.actual, skip: true });
+      return;
+    }
     const pass = detail.pass;
     if (!pass) failures += 1;
     results.push({ name, expectation, actual: detail.actual, pass });
@@ -932,7 +950,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     try {
       src = (await import('node:fs')).readFileSync(path, 'utf8');
     } catch {
-      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+      return { skip: true, actual: 'not run — Conversion branch not merged here' };
     }
     const start = src.indexOf('  return {', src.indexOf('export function buildPayload'));
     const keys = [...src.slice(start, src.indexOf('\n  };', start)).matchAll(/^\s{4}([a-z_0-9]+):/gm)].map((m) => m[1]);
@@ -958,7 +976,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     try {
       src = (await import('node:fs')).readFileSync(path, 'utf8');
     } catch {
-      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+      return { skip: true, actual: 'not run — Conversion branch not merged here' };
     }
     // NOTE the spread: SERVER_KNOWN_KEYS is `new Set([...CORE_KEYS, "…"])`, so
     // its literals alone are not the set. Union, or you measure a third of it.
@@ -1169,10 +1187,16 @@ console.log('═'.repeat(112));
 console.log(`  ${pad('CASE', 54)} ${pad('EXPECTED', 26)} ${pad('ACTUAL', 22)} `);
 console.log('─'.repeat(112));
 for (const r of results) {
-  console.log(`${r.pass ? '  ✓ ' : '  ✗ '}${pad(r.name, 52)} ${pad(r.expectation, 26)} ${pad(r.actual, 22)}`);
+  const mark = r.skip ? '  · ' : r.pass ? '  ✓ ' : '  ✗ ';
+  console.log(`${mark}${pad(r.name, 52)} ${pad(r.expectation, 26)} ${pad(r.actual, 22)}`);
 }
 console.log('─'.repeat(112));
-console.log(`  ${results.length - failures}/${results.length} passed${failures ? `  —  ${failures} FAILED` : ''}`);
+const ran = results.length - skipped;
+console.log(
+  `  ${ran - failures}/${ran} passed` +
+    (failures ? `  —  ${failures} FAILED` : '') +
+    (skipped ? `  ·  ${skipped} NOT RUN (counted separately, never as passes)` : '')
+);
 console.log('═'.repeat(112) + '\n');
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {

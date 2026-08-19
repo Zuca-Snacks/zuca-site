@@ -648,8 +648,29 @@ integration — components verified, the join not. **A merge has no owner who
 tests it**, so it gets a tool rather than a discipline.
 
 Verified to actually fire: run against a copy of the client with one drift of
-each kind injected, it reports all three; against the real client, silent. A
-checker that only ever passes is indistinguishable from no checker.
+each kind injected, it reports all three; against the real client, silent.
+
+**And then it failed the same test it was built to enforce.** The first version
+reported COMPATIBLE while parsing **zero enums** — a client file whose
+formatting its regex did not match produced silence, and silence was rendered as
+success. Two values that could not possibly validate passed without comment.
+Caught by the merge session's calibration gate, not by me.
+
+So the verdict now carries a denominator. Every run states what it compared
+(`57 enum values across 10 enums, 38 payload keys, 4 free-text caps`) and
+**refuses to pass at all** if an expected extractor came back empty. A pass with
+no denominator is not a pass; it is an absence of findings wearing a pass's
+clothes.
+
+The same audit across the rest of the tooling found two more:
+
+| Where | Was | Now |
+|---|---|---|
+| `attack-waitlist.mjs` cross-checks | returned `pass: true` with "SKIPPED" in the message when the Conversion branch was absent — so `150/150 passed` counted two checks that looked at nothing | a third outcome: `148/148 passed · 2 NOT RUN`, never folded into the pass count |
+| `check-headers.mjs` API probe | an unreachable endpoint scored zero failures, reading as a clean bill of health | names it as not run, and says to treat it as a failure once the endpoint exists |
+
+The message was honest in both cases and the **count** was not, which is the
+half anybody actually reads.
 
 ## 3a-quater → The week's actual lesson: components verified, joins not
 
