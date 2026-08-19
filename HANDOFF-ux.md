@@ -134,37 +134,62 @@ and the sticky bar, all unchanged.
 - **`$25/ton` is absent**, as required. It was already cut on merge.
 - **No price figures**, no pre-order language, no new allergen assertions.
 
-## R3.9 🟡 Chocolate Raspberry — the hero tile and the panel are two different shots
+## R3.9 🔴 Chocolate Raspberry — the mismatch is VISIBLE ON PURPOSE
 
-**The hero tile is BAKED INTO `hero-flavours.png`.** It cannot be swapped from
-here. Side by side the two read as different products: the artwork's tile is a
-warm crimson, the repo photograph is a dusty magenta. Measured:
+The hero tile is **baked into `hero-flavours.png`** and is a different, warmer
+shot than the standalone photograph the detail panel uses. Side by side they
+read as two products:
 
 | | mean rgb | saturation | lightness |
 |---|---|---|---|
-| hero tile (artwork) | 157, 40, 54 | 70.7% | 38.6% |
-| repo photo (camera) | 166, 78, 104 | 50.4% | 47.9% |
+| hero tile (in the artwork) | 157, 40, 54 | 70.7% | 38.6% |
+| panel photo (camera) | 166, 78, 104 | 50.4% | 47.9% |
 
-**Neither file can serve both slots as-is:**
-- the artwork cannot take the repo photo without a re-export from Emil;
-- the artwork's tile is only **271×307px** — 42% of the ~648px the detail panel
-  needs on a 3× phone — so cropping it out and using it in the panel would be
-  visibly soft.
+**⚠️ DO NOT COLOUR-GRADE THE PHOTO TO CLOSE THIS.** It was tried on 18 Aug
+(`saturation ×1.35`, `brightness ×0.82`) and Emil reverted it, correctly: a
+product photo colour-shifted to match a Canva tile makes the bites look **more
+vivid on the site than in the box**, which is a misleading-appearance problem
+rather than a styling choice. The mismatch stays visible until it is fixed at
+source.
 
-**Shipped interim:** the panel photo is graded (`saturation ×1.35`,
-`brightness ×0.82`) to land on the hero tile's measured values — 72.4% / 38.4%
-against 70.7% / 38.6%. They now read as the same product.
+**⚠️ NEVER-COMPOUND RULE.** `art-src/chocolate-raspberry-original.jpg` is the
+camera original and is not deployed. If any correction is ever authorised,
+derive it from **that** file, never from an already-corrected one.
 
-⚠️ **This grades the real photograph toward the artwork.** If the artwork's tile
-was itself styled in Canva, the shipped photo now shows the product more vivid
-than the camera saw it. That is a judgement worth revisiting, not a settled fix.
-The camera original is preserved at `art-src/chocolate-raspberry-original.jpg`
-and is not deployed; **always regrade from that, never from the graded file**,
-or the correction compounds.
+### Export spec for the re-exported artwork
 
-**The clean fix** is one file in both places, which needs Emil either to
-re-export `hero-flavours.png` with the repo photo in the tile, or to supply the
-original of the warmer shot at full resolution.
+Emil is re-exporting `hero-flavours.png` with the panel photo in the tile, so
+the same shot appears in both places. Measured, not estimated:
+
+**The tile occupies 22.3% of the artwork's width and 45.9% of its height**, at
+an aspect of 272 × 308 ≈ **8:9 — slightly taller than square**. The source photo
+is square (1024 × 1024), so it will be cropped top and bottom; crop deliberately
+rather than letting the tool centre it.
+
+What the tile actually renders at, measured in the browser:
+
+| viewport | artwork CSS | tile CSS | tile needs |
+|---|---|---|---|
+| 360 | 360 | 80 | 242 px @3× |
+| 390 | 390 | 87 | 262 px @3× |
+| **430** | 430 | 96 | **289 px @3×** ← worst case |
+| 768 / 1280 | 560 (poster cap) | 125 | 251 px @2× |
+
+**Today's export gives the tile 272 px — 94% of what a 430px phone at 3× needs,
+so it is already marginally soft.**
+
+| Export the artwork at | Tile lands at | |
+|---|---|---|
+| 1295 px wide | 289 px | bare minimum |
+| **1560 px wide** | 348 px | **recommended — 20% headroom** |
+| 2590 px wide | 578 px | future-proof |
+
+⚠️ **Whatever arrives, tell me the width**: the srcset currently tops out at a
+1218w variant, so resolution above that is not served until I add a larger one.
+Exporting at 2590 and leaving the srcset alone gains nothing.
+
+The detail panel needs no change — it needs 648 px at 3× and the original is
+1024 × 1024.
 
 ## R3.8 ⚠️ `--z-cta` vs `--z-accent` — which red/green goes where
 
