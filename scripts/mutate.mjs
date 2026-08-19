@@ -57,7 +57,7 @@ import { spawnSync } from 'node:child_process';
  * to the gate floor in the test suite, which still passed. A declared constant
  * buys one thing: removal stops being a single-line edit.
  */
-const EXPECTED_MUTATIONS = 15;
+const EXPECTED_MUTATIONS = 18;
 
 const API = 'src/components/waitlist/api.js';
 const COPY = 'src/content/copy.js';
@@ -117,6 +117,27 @@ const MUTATIONS = [
     file: API,
     find: '  // true the moment these are dropped.\n  "business_enquiry", "business_consent_text_version",\n',
     with: '  // true the moment these are dropped.\n',
+  },
+  {
+    label: 'the edit token is dropped from the payload',
+    why: 'S23 exactly: every step 2-4 save 409s, the client calls it success, the answers vanish',
+    file: API,
+    find: '    ...(edit ? { edit_token: edit } : {}),\n',
+    with: '',
+  },
+  {
+    label: 'the edit token is stripped by the ladder floor',
+    why: 'the last rescue rung would write a duplicate-rejected 409 and report a save',
+    file: API,
+    find: '  // duplicate-rejected 409 and calls it saved.\n  "edit_token",\n',
+    with: '  // duplicate-rejected 409 and calls it saved.\n',
+  },
+  {
+    label: 'step 1 stops surfacing the token',
+    why: 'the token is minted and discarded; steps 2-4 then have nothing to send',
+    file: API,
+    find: '      if (body && typeof body.edit_token === "string" && body.edit_token) editToken = body.edit_token;\n',
+    with: '',
   },
   {
     label: 'the shared-inbox mirror short-circuits a submission',

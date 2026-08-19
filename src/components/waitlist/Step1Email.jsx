@@ -181,6 +181,11 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
         // Carried so the confirmation does not promise a launch email the
         // server has just committed to never sending.
         business: sendingBusiness,
+        // The credential steps 2-4 need to UPDATE this row instead of being
+        // refused as a duplicate. Null on a duplicate signup and null if the
+        // server did not mint one; step 2 copes either way, exactly as it had
+        // to before S23 existed.
+        editToken: result.editToken ?? null,
       });
       return;
     }

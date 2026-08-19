@@ -42,7 +42,7 @@ const SCREENS = copy.screens;
 // whole submission.
 const isE164 = (raw) => toE164(raw) !== null;
 
-export default function Step2Profile({ email, formRenderTs, onDone, onSkip, onName }) {
+export default function Step2Profile({ email, editToken = null, formRenderTs, onDone, onSkip, onName }) {
   const uid = useId();
   const [screen, setScreen] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -126,11 +126,22 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip, onNa
       smsConsentTextVersion: smsCopy.version,
       postalConsentTextVersion: postalCopy.version,
       formRenderTs,
+      // Without this every save is a duplicate, and `save()` maps duplicates to
+      // success — so the answers vanish and the screen advances. That was S23.
+      editToken,
       profile: { ...v, zip: null },
     });
   }
 
-  /** Upsert what we have. Never blocks the person from moving on. */
+  /**
+   * Save what we have. Never blocks the person from moving on.
+   *
+   * ⚠️ THIS SAID "UPSERT" FOR TEN DAYS AND NOTHING UPSERTED (S23). The server
+   * had no update path, so every save after step 1 was refused as a duplicate
+   * and mapped to success below. A comment naming a behaviour the system does
+   * not have is a claim, and nothing tests a claim. It upserts now, and only
+   * while `editToken` is present and unexpired.
+   */
   async function save() {
     if (inFlight.current) return true;
     // Nothing changed since the last accepted save — moving between screens is
