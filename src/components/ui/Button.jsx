@@ -2,6 +2,8 @@
  * Button
  *
  * Props
+ *   type      defaults to 'button', NOT the HTML default of 'submit'. A button
+ *             that submits must say type="submit". See the render below.
  *   variant   'primary' | 'secondary' | 'ghost' | 'quiet'   default 'primary'
  *
  * ⚠️ PICK BY THE BUTTON'S JOB, NOT BY HOW LOUD YOU WANT IT. There are four
@@ -78,6 +80,18 @@ export default function Button({
 
   return (
     <button
+      /* ⚠️ type="button" IS THE DEFAULT, AND IT IS A BUG FIX, NOT A STYLE
+         CHOICE. HTML defaults a <button> inside a <form> to type="submit", so
+         every Back/Skip/dismiss control rendered here submitted the form. It
+         shipped: growth reported "Back goes forward" on the waitlist, and Skip
+         had the same fault unreported. They worked around it by writing
+         type="button" on all four of their call sites and leaving a warning
+         comment — a workaround every future caller would have had to know
+         about, in a component whose whole job is that they should not.
+         A submit must now say so. Every call site in the tree already sets its
+         type explicitly, so this changes no current behaviour; it removes the
+         trap. `rest` is spread AFTER, so an explicit type still wins. */
+      type="button"
       className={classes}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
