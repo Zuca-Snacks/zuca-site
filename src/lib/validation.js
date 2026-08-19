@@ -309,7 +309,7 @@ export const MAX_FORM_AGE_MS = 12 * 60 * 60 * 1000; // Stale timestamp = replaye
  * a Sheets cell exported to CSV) let an attacker inject additional headers or
  * rows. NUL and the Unicode direction-override characters are here for a
  * different reason: they make a string render as something other than what is
- * stored, which is how "support@zuca.com" gets displayed for a value that is
+ * stored, which is how "support@example.com" gets displayed for a value that is
  * not that at all.
  */
 // Written as escape sequences, not literal characters. Every one of these is
