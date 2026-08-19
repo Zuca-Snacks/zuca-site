@@ -211,3 +211,42 @@ test('every rung accumulates, so the floor names losses from earlier rungs too',
       `${field} was dropped somewhere on the way down and must still be named`);
   }
 });
+
+/* ─── The count must never be invented ──────────────────────────────────────
+ * /api/count can answer {"count": null} — misconfigured, unavailable, or not
+ * yet set up. Null must render as nothing. The danger is not displaying null;
+ * it is arithmetic quietly turning absence into a number. */
+
+async function freshStore() {
+  globalThis.window = { setTimeout, clearTimeout, localStorage: { getItem: () => null, setItem: () => {} },
+    sessionStorage: { getItem: () => null, setItem: () => {} },
+    location: { search: '', pathname: '/' }, dispatchEvent: () => {} };
+  Object.defineProperty(globalThis, 'navigator', { value: { onLine: true }, configurable: true, writable: true });
+  return import(`../src/components/waitlist/countStore.js?t=${Math.random()}`);
+}
+
+test('a signup with no loaded count does NOT invent one', async () => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ count: null, error: 'unavailable' }) });
+  const store = await freshStore();
+  await store.loadCount();
+  assert.equal(store.getCount().value, null, 'null from the server stays null');
+
+  store.bumpCount();
+  assert.equal(store.getCount().value, null,
+    'an optimistic +1 with no base must not render as 1');
+
+  // Let the reconcile run — this is where (count ?? 0) + pending used to
+  // manufacture a 1 out of a failed request.
+  await new Promise((r) => setTimeout(r, 2700));
+  assert.equal(store.getCount().value, null,
+    'a failed reconcile must leave the count absent, not fabricate one');
+});
+
+test('a signup on top of a real count still shows the +1', async () => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ count: 143 }) });
+  const store = await freshStore();
+  await store.loadCount();
+  assert.equal(store.getCount().value, 143);
+  store.bumpCount();
+  assert.equal(store.getCount().value, 144, 'the optimistic bump is the point when there IS a base');
+});
