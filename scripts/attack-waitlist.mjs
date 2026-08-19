@@ -1211,6 +1211,39 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
+  // ── Gate patterns are PINNED, because Conversion transcribed them ───────
+  // Their suite asserts against copies of these regexes, read off my source
+  // rather than imported — a deliberate trade on their side, so their tests do
+  // not depend on this worktree being checked out next to theirs. The cost is
+  // real and they named it: if I widen a gate, their test still asserts the old
+  // one and PASSES. A test holding its own copy of the thing it checks has
+  // stopped checking it.
+  //
+  // They asked me to tell them if either gate changes. An obligation kept by
+  // remembering is not kept — the whole argument of this branch — so it is a
+  // test. Change a pattern and this fails with what to do about it.
+  await check('consent gate patterns unchanged since Conversion transcribed them', 'fingerprint holds', async () => {
+    const { createHash } = await import('node:crypto');
+    const src = (await import('node:fs')).readFileSync(new URL('../src/lib/validation.js', import.meta.url), 'utf8');
+    const patterns = [];
+    for (const fn of ['businessConsentGaps', 'consentCoversMedication']) {
+      const i = src.indexOf(`export function ${fn}`);
+      if (i < 0) return { pass: false, actual: `${fn} is gone — renamed or removed` };
+      const body = src.slice(i, src.indexOf('\n}\n', i));
+      // Only the regex LITERALS, so comments and formatting do not trip this.
+      patterns.push(...[...body.matchAll(/\/(?:\\.|\[[^\]]*\]|[^/\\\n])+\/[gimsuy]*/g)].map((m) => m[0]));
+    }
+    const fp = createHash('sha256').update(patterns.join(' ')).digest('hex').slice(0, 12);
+    const PINNED = '4f3a076fa89a';
+    return {
+      pass: fp === PINNED && patterns.length === 5,
+      actual: fp === PINNED
+        ? `${patterns.length} patterns, ${fp}`
+        : `CHANGED: ${patterns.length} patterns, now ${fp} (pinned ${PINNED}). `
+          + 'Conversion transcribes these — tell them, then update PINNED.',
+    };
+  });
+
   // ── The pre-merge business fixture is retired at merge ──────────────────
   // This fails the moment Conversion's copy.js lands and the generator mints a
   // real `biz-` id, forcing the hand-written builtin to be deleted rather than
