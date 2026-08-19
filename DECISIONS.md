@@ -36,6 +36,29 @@ for the whole engagement and should not be moved or deleted.
 
 ---
 
+## Cooley items — APPROVED (Emil, 18 Aug 2026)
+
+**The Cooley items are treated as approved across all agents.** The health-claim
+table, the removal of the autoimmune credential from Kelley's bio, and the
+founders copy standing beside a fiber product are cleared. Agents do not need to
+hold work pending Cooley sign-off, and should stop flagging these as open.
+
+### The one exception — still gated on Emil
+
+**Sending email to the EEA cohort.** That remains Emil's call and is NOT covered
+by the approval above. Nothing in the codebase sends it; the gate is
+operational. Do not treat "Cooley approved" as authorisation to mail EEA
+addresses.
+
+Why it is carved out rather than folded in: everything else Cooley cleared is
+about what the *page* says, which is a fixed artefact anyone can review. Sending
+is an action taken against real people under GDPR, and the consent evidence
+behind each EEA record — regime, wording version, whether the record is flagged
+`needs_reconsent` — is per-record rather than per-page. Approval of the copy is
+not approval of the send.
+
+---
+
 ## Deploy path — CONFIRMED (Emil, 18 Aug 2026)
 
 Previously recorded as unconfirmed: "Vercel hosts the live site; auto-deploy-on-
