@@ -14,7 +14,8 @@
     "security:headers": "node scripts/check-headers.mjs",
     "build:consent": "node scripts/build-consent-registry.mjs",
     "audit:hero": "node scripts/audit-hero-rows.mjs",
-    "security:compat": "node scripts/check-merge-compat.mjs"
+    "security:compat": "node scripts/check-merge-compat.mjs",
+    "testdrive": "node scripts/testdrive.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
