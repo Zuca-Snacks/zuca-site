@@ -91,9 +91,10 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "consent_postal":     "boolean, default false — REQUIRED to store the address block",
 
   "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
-  "motivation":       "array<enum>|null, NO product cap — pick as many as apply. One of: digestion, regularity,\n  //                     gut_health, energy, sustainability, doctor_suggested, family_health,\n  //                     fullness, whole_foods, other",
+  "motivation":       "array<enum>|null, NO product cap — pick as many as apply. One of: digestion, regularity,\n  //                     gut_health, energy, sustainability, doctor_suggested, family_health,\n  //                     fullness, whole_foods, glp1_medication, other.\n  //                     glp1_medication is accepted ONLY with a health consent whose WORDING\n  //                     names medication — see below.",
   "intent":           "enum|null: preorder_now | very_interested | curious | just_browsing",
-  "price_band":       "enum|null: lt_24 | 24_29 | 30_35 | 36_42 | gt_42   // for a 12-pack",
+  "price_band":       "enum|null: 25_34 | 35_44 | gt_45 | other   // per 12-pack.\n  //                     Legacy lt_24 | 24_29 | 30_35 | 36_42 | gt_42 still accepted until the\n  //                     client stops sending them — REMOVE is client-first.",
+  "price_band_other": "string|null, <=120 chars   // requires price_band === 'other'. Freehand,\n  //                     stored VERBATIM and never parsed: currency symbols and ranges expected.",
   "flavor":           "enum|null: choc_rasp_salt | maple_pecan | both | undecided",
   "is_clinician":     "boolean|null",
   "referral_source":  "enum|null: doctor, friend, instagram, tiktok, event, search, email, other",
@@ -224,6 +225,27 @@ the client's guard, not a replacement for it — still only render the field to 
 all still return `400`. A non-string `zip` also still returns `400`: that is a malformed client or a
 probe, not somebody's postcode. Dropped values are logged as `zip.dropped_not_us_format` with the
 derived country, which is the feedback loop for tuning the region guess.
+
+### `glp1_medication` — gated on the wording, not a flag
+
+Approved 2026-08-19. Phrased as a fact about the person ("I'm on a GLP-1
+medication"), never as a product benefit — the guardrails forbid GLP-1 and
+weight-loss claims, and **collecting it is not permission to market on it**.
+
+It is accepted only when `motivation_consent_text_version` resolves to a wording
+that actually names medication. The general health consent does not, so pairing
+the value with the older sentence is a `400`. Registered wording that covers it:
+`2026-08-19.health-medication.a`.
+
+The check reads the verbatim text rather than a flag on the entry, so **editing
+the copy to drop the mention closes the gate on the same deploy**. It is also
+the literal legal test: Art 9(2)(a) consent must be specific, and a sentence
+either names the thing or it does not. Fails closed — an unresolvable version
+covers nothing.
+
+Retention for records carrying it is **6 months**, not the 12 that other health
+data gets. The reason is accuracy rather than sensitivity: medication status is
+perishable, and an eleven-month-old answer may simply be false.
 
 ### Enum changes: ADD server-first, REMOVE client-first
 
