@@ -211,7 +211,19 @@
   margin-top: var(--z-space-2);
 }
 
+/* ⚠️ DISPLAY FACE HERE, BODY FACE ON THE PARAGRAPH BELOW — and that split is
+   deliberate (Emil, 19 Aug, who asked for both and asked to be told if the
+   paragraph would suffer).
+   Lazydog HAS NO LOWERCASE. It is an all-caps face, so anything set in it
+   renders in capitals whatever the source string says. On a short line that
+   reads as handwritten and intentional. On the "what next" paragraph beneath it
+   produced three lines of solid capitals at 15px, which removes the ascender
+   and descender cues readers use to recognise words — measurably slower for
+   continuous text, and it looked shouted rather than handwritten.
+   So the handwritten character lands on the line that carries the moment, and
+   the sentence people actually have to READ stays in the body face. */
 .zw-welcome {
+  font-family: var(--z-font-display);
   font-size: var(--z-step-1);
   line-height: 1.3;
   color: var(--z-brand-ink);
@@ -261,7 +273,13 @@
   color: var(--z-ink-muted);
 }
 
+/* Emil, 19 Aug: the invitation and the button read as crowded. The gap is on
+   the container so it applies to the second (copy-link) button too, which
+   appears only on browsers without the Web Share API. */
 .zw-share {
+  display: grid;
+  justify-items: start;
+  gap: var(--z-space-4);
   margin-top: var(--z-space-5);
   padding-top: var(--z-space-5);
   border-top: 1px solid var(--z-border);
