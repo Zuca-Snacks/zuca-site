@@ -275,6 +275,12 @@ console.log(`
   │  ZUCA TEST DRIVE — local only, production untouched          │
   └──────────────────────────────────────────────────────────────┘
 
+     To stop:    kill ${process.pid}
+                 NOT `pkill -f testdrive.mjs` — that matches on the command
+                 line, so it kills every copy of this script on the machine
+                 regardless of directory. It has already taken out someone
+                 else's rig once.
+
      Open        http://localhost:${boundPort}
      Sheet       ${SHEET}          (the real column grid)
      Readable    ${ROWS}   (one row per line)
