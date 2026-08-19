@@ -106,6 +106,22 @@ const COMPANION = {
 
 const results = { value: [], key: [], cap: [] };
 
+/**
+ * Coverage, tracked so the verdict can be trusted.
+ *
+ * The first version of this tool reported COMPATIBLE while comparing ZERO
+ * enums: `optionsOf()` returned null for a file whose formatting its regex did
+ * not match, the loop did `continue`, and silence was rendered as success. Two
+ * values that could not possibly validate passed without comment.
+ *
+ * That is the precise fault this tool exists to catch, committed by the tool
+ * itself — a check passing because it found nothing to check rather than
+ * because nothing was wrong. So coverage is now part of the result: the run
+ * FAILS if an expected extractor came back empty, and the report always states
+ * what was actually compared. A verdict with no denominator is not a verdict.
+ */
+const coverage = { enums: [], missed: [], values: 0, keys: 0, caps: 0, capsMissed: [] };
+
 // ─── VALUE drift ─────────────────────────────────────────────────────────────
 
 const ENUMS = [
@@ -121,11 +137,17 @@ const ENUMS = [
   ['COMPANY_HEADCOUNT', 'headcount', false],
 ];
 
-let enumsCompared = 0;
 for (const [constName, field, isArray] of ENUMS) {
   const opts = optionsOf(constName);
-  if (!opts) continue;
-  enumsCompared += 1;
+  if (!opts) {
+    // NOT a silent skip. An enum we expected and could not read means the
+    // parse is wrong, not that the enum is absent, and the difference is
+    // invisible from the verdict unless it is recorded.
+    coverage.missed.push(constName);
+    continue;
+  }
+  coverage.enums.push(constName);
+  coverage.values += opts.length;
   const target = keyOf(constName) ?? field;
   for (const value of opts) {
     if (value === 'true' || value === 'false') continue; // booleans, not enums
@@ -142,6 +164,7 @@ if (apiSrc) {
   if (s0 > 0) {
     const emitted = [...apiSrc.slice(s0, apiSrc.indexOf('\n  };', s0)).matchAll(/^\s{4}([a-z_0-9]+):/gm)].map((m) => m[1]);
     const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
+    coverage.keys = emitted.length;
     for (const k of emitted) if (!accepted.has(k)) results.key.push(k);
   }
 }
@@ -158,12 +181,20 @@ for (const [constName, otherField, parentField, parentValue] of [
   ['PRICE_BAND', 'price_band_other', 'price_band', 'other'],
 ]) {
   const b = block(constName);
-  if (!b || !b.includes('otherKey')) continue;
+  if (!b) {
+    coverage.capsMissed.push(constName);
+    continue;
+  }
+  if (!b.includes('otherKey')) continue; // genuinely has no free-text box
   const own = b.match(/otherMax:\s*([A-Za-z_0-9]+)/)?.[1];
   const cap = own && /^\d+$/.test(own)
     ? Number(own)
     : Number(fieldsSrc.match(new RegExp(`export const ${own}\\s*=\\s*(\\d+)`))?.[1] ?? OTHER_MAX);
-  if (!cap) continue;
+  if (!cap) {
+    coverage.capsMissed.push(`${constName}(no cap resolved)`);
+    continue;
+  }
+  coverage.caps += 1;
   const arrayed = ['channel', 'dietary'].includes(parentField);
   const payload = {
     ...BASE,
@@ -179,6 +210,23 @@ for (const [constName, otherField, parentField, parentValue] of [
 
 const serverRef = args.includes('--server') ? args[args.indexOf('--server') + 1] : 'working tree';
 console.log(`\n  client ${clientRef}   vs   server ${serverRef}\n`);
+
+// A run that read nothing cannot clear a merge, however clean it looks.
+const blind = [];
+if (!coverage.enums.length) blind.push('parsed ZERO enum definitions');
+if (coverage.missed.length) blind.push(`could not read: ${coverage.missed.join(', ')}`);
+if (!coverage.keys) blind.push('read no payload keys from buildPayload');
+if (coverage.capsMissed.length) blind.push(`cap unreadable: ${coverage.capsMissed.join(', ')}`);
+
+console.log(`  compared ${coverage.values} enum values across ${coverage.enums.length} enums, ` +
+            `${coverage.keys} payload keys, ${coverage.caps} free-text caps`);
+if (blind.length) {
+  console.log('\n  ⚠ COVERAGE FAILURE — this run did not look at everything it claims to check:');
+  for (const b of blind) console.log(`     ${b}`);
+  console.log('\n  A pass here would mean "found nothing", not "nothing wrong". Refusing to.\n');
+  process.exit(2);
+}
+console.log('');
 
 const total = results.value.length + results.key.length + results.cap.length;
 
@@ -198,22 +246,6 @@ if (results.cap.length) {
   console.log('  CAP DRIFT — client allows longer than the server:');
   for (const r of results.cap) console.log(`    ${r.field}: client ${r.clientCap} → ${r.why}`);
   console.log('');
-}
-
-/* CALIBRATION GATE, added by the merge session 18 Aug.
-   Before this, a client whose enum exports had all been renamed produced
-   "COMPATIBLE" and exit 0 while comparing ZERO enums — verified by pointing the
-   tool at a client with all ten exports renamed. That is the same orientation
-   as a checker that fails reassuringly: a green result that means nothing.
-   A tool that gates merges has to be able to tell "nothing is wrong" from
-   "I could not see anything". */
-const MIN_ENUMS = 8;
-if (enumsCompared < MIN_ENUMS) {
-  console.log(`  ✗ ONLY ${enumsCompared} ENUM(S) COMPARED, expected at least ${MIN_ENUMS}.`);
-  console.log('    Not a pass. Either a rename broke the ENUMS pairing above, or the');
-  console.log('    client module moved. A compatibility check that finds nothing to');
-  console.log('    compare will always report compatible.\n');
-  process.exit(1);
 }
 
 console.log(total === 0 ? '  COMPATIBLE — no value, key or cap drift.\n' : `  ${total} INCOMPATIBILITY(S). Do not merge these two together.\n`);

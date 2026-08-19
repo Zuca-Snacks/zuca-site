@@ -108,10 +108,15 @@ async function scanApi(base) {
     else console.log('');
     return ok ? 0 : 1;
   } catch (err) {
-    console.log(`  · /api/waitlist not reachable (${err.message}) — expected before the endpoint deploys.\n`);
+    // NOT a pass. An unreachable endpoint means this check did not run, and a
+    // scan that silently scores 0 failures for a thing it never touched reads
+    // as a clean bill of health.
+    console.log(`  · /api/waitlist NOT REACHED (${err.message}) — this check did not run.`);
+    console.log('    Expected before the endpoint deploys; after that, treat it as a failure.\n');
     return 0;
   }
 }
 
 const failures = (await scan(target)) + (await scanApi(target));
+console.log(`  Scanned ${CHECKS.length} required headers and ${NEVER.length} forbidden ones against a live response.\n`);
 process.exit(failures ? 1 : 0);
