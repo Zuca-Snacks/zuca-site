@@ -631,6 +631,27 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **✅ STEP 2 LAYOUT — fixed in the primitives, nothing for you to restyle.**
+  It read as a wall of identical outlined pills because question and answers
+  carried the same weight, separated by a single 8px flex gap. `ChipGroup` now:
+    - renders the legend as a real question, one type step **larger** than the
+      chips (`--z-step-1`, weight 700);
+    - wraps its children in a `.z-chip-group__body`, a **tinted panel** with its
+      own padding and a `--z-space-7` margin below, so one question visibly ends
+      before the next begins;
+    - draws an accent rule down the panel's left edge, **alternating red/amber**
+      between consecutive groups automatically. Pass nothing — `:nth-of-type`
+      handles it. A `tone` prop (`'berry'`/`'warm'`) forces one if ever needed.
+  Only groups with `showLegend` become panels, so a hidden-legend group
+  elsewhere does not grow a card.
+  ⚠️ The accent is never `--z-cta`. Green means "advance"; a question is not an
+  action, and colouring one green blunts the only signal the submit button has.
+  ⚠️ Two implementation traps are recorded in `ui.css` so nobody re-treads them:
+  the panel is on the BODY not the fieldset (a `<legend>` paints into the
+  fieldset's border box and hangs half outside a tint), and floating the legend
+  to force it into flow is worse (the grid body shrinks beside the float and the
+  chips overflow one-per-row). Both were measured, not guessed.
+
 - **✅ SHIPPED: `OtherInput` and `Progress`** in `src/components/ui/`, exported
   from the barrel. **Both take your existing prop signatures**, so adopting them
   is a swap of the import line — delete `src/components/waitlist/primitives.jsx`
@@ -1037,9 +1058,21 @@ is a decision rather than a bug report after launch.
 
 ---
 
-### 📋 FOR COOLEY LLP TO CONFIRM
+### ✅ COOLEY ITEMS ARE TREATED AS APPROVED (Emil, 18 Aug — standing, all agents)
 
-**Item: removal of the autoimmune credential from the founders section.**
+**Do not hold work pending counsel.** Build as if sign-off is given. The
+reasoning below is kept verbatim so the decision stays reversible if counsel
+later disagrees — it is a record, not a queue.
+
+⚠️ **This does NOT unblock the Demo Day / Vituity photographs.** They are barred
+for two reasons that have nothing to do with Cooley: Emil's own explicit
+instruction on 17 Aug ("don't use them — photographs of physicians beside a
+fiber product imply clinical endorsement"), and the fact that identifiable faces
+need written commercial-use consent we do not hold. The "unless Cooley says
+otherwise" hedge on that row was mine and is withdrawn; the row stands on Emil's
+ruling. See the do-not-import list.
+
+**Item (approved): removal of the autoimmune credential from the founders section.**
 
 - **Removed text:** "Reversed autoimmune disease through plant-based diet",
   previously listed as a credential under Kelley Yuan, MD.
@@ -1052,12 +1085,13 @@ is a decision rather than a bug report after launch.
 - **Replaced with**, carrying the same authority and no claim: "Stanford Medicine
   physician" and "Leads Zuca's clinical network — 10+ physicians across 7
   specialties".
-- **Ask of Cooley:** confirm (a) the removal is sufficient, and (b) that the
-  remaining founders copy — a physician co-founder listed beside a fiber product
-  — does not itself constitute an implied endorsement or disease claim. This is
-  the one part of the page where a compliant sentence and a non-compliant one
-  look almost identical, so it is worth an explicit sign-off rather than an
-  assumption.
+- **Was:** an ask to Cooley to confirm (a) the removal is sufficient and (b)
+  that the remaining founders copy — a physician co-founder beside a fiber
+  product — is not itself an implied endorsement. **Now treated as approved**, so
+  the current founders copy ships as written. Retained because this is the one
+  part of the page where a compliant sentence and a non-compliant one look
+  almost identical; if counsel ever revisits it, this is the reasoning to give
+  them.
 - **Guard in code:** `src/components/sections/Founders.jsx` carries a
   do-not-reinstate comment at the top of the file.
 
