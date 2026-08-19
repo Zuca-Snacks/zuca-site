@@ -97,33 +97,57 @@ bug until proven otherwise.
 
 ---
 
-## ⚠️ A stale generated artifact silently changes what the server accepts (19 Aug 2026)
+## ⚠️ VERIFYING AGAINST SOMETHING OTHER THAN WHAT YOU THINK (19 Aug 2026)
 
-`src/lib/consent-registry.generated.js` is **gitignored** and rebuilt by
-`npm run build:consent`. That is correct — a generated registry should not be
-hand-maintained. But it means the file on disk can disagree with `copy.js`
-while every commit looks clean.
+Three sessions hit this in one day, in three different disguises. It is the same
+failure each time, so it gets **one entry with three instances** rather than
+three entries that look unrelated. Companion to `docs/verification-traps.md`,
+whose rule — *validate the instrument against a known-positive before trusting a
+negative* — is the same principle pointed at the harness instead of the tree.
 
-It happened during the S24 integration. The local artifact held a **truncated**
-business wording, missing its final sentence — *"Because it's a shared address,
-we won't add it to our personal mailing list."* That sentence is the
-`exclusion` element the S22 gate requires, so:
+### The general form
 
-```
-ids passing consentCoversBusiness: NONE
-```
+**You verified something. It was not the thing you believed you were verifying.**
 
-Six checks went red, and the first reading was that the merge had broken the
-business consent path. It had not. `copy.js` was correct the whole time; one
-`npm run build:consent` restored `biz-eea-2026-08-19-fc6ba471` with `gaps: []`.
+The result is always confident and always wrong, because nothing in the output
+says which artifact it actually read. Every instance below produced a clean,
+plausible answer about a thing that was not under test.
 
-**Production was never affected** — Vercel builds from a clean checkout, so it
-regenerates every time. The exposure is local only, and it is entirely a
-false-alarm risk rather than a shipping risk.
+### Instance 1 — a generated artifact disagreeing with its source (merge session)
 
-**The rule: before believing a consent-gate failure, rebuild the registry.** A
-red suite that blames the wording is more likely a stale artifact than a real
-regression, because the artifact is invisible to `git status`.
+Six checks reported the S22 business consent gate was dead. `copy.js` was
+correct throughout; `src/lib/consent-registry.generated.js` on disk held a
+truncated wording. The file is gitignored, so `git status` was clean and no diff
+pointed at it.
+
+> **Rebuild the registry before believing a consent-gate failure.**
+> `npm run build:consent`
+
+Now enforced by a check — *"the generated registry matches copy.js verbatim"* —
+which fires with the cause named and the command to run. It does not reduce six
+failures to one; it makes one of the seven tell you where to look.
+
+### Instance 2 — testing a change that was never committed (security)
+
+A merge took the committed version of a file. The new check was simply absent,
+the old failures reappeared, and it read as *the check does not work*. It had
+never run.
+
+### Instance 3 — a diff against the wrong base (all three sessions)
+
+`git diff HEAD <branch>` measures divergence, not change — see the two-dot entry
+above. Same shape: a real command, a real answer, about the wrong comparison.
+
+### The rule
+
+**Check what is actually in the tree you are testing, not what you think you put
+there.**
+
+Concretely, before trusting a red result: confirm the change is committed and in
+*this* tree, rebuild anything generated, and confirm the comparison base is the
+merge base. All three cost debugging time only — none reached production — but
+each one first presented as a serious product defect, and two nearly went into a
+report to Emil as one.
 
 ---
 
