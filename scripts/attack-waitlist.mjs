@@ -1140,6 +1140,56 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
+  // ── The size cap must not reject what the schema accepts ────────────────
+  // MAX_BODY_BYTES carried the comment "the largest legitimate payload is well
+  // under 1 KB". That was true when it was written and the 2026-08-17 extension
+  // tripled the field count without anyone re-measuring. A derived number
+  // maintained by hand, exactly like the runbook's column letters.
+  //
+  // It is dangerous in a specific way: the stale figure INVITES a tightening.
+  // Someone reads "well under 1 KB", sets the cap to 2 KB "with generous
+  // margin", and starts 413ing real submissions from people who filled the form
+  // in properly. So this measures instead of asserting, and prints the margin.
+  await check('a maximal VALID payload fits the size cap', 'fits with margin', async () => {
+    const { MAX_BODY_BYTES, MOTIVATIONS, DIETARY, CHANNELS } = await import('../src/lib/validation.js');
+    const x = (n) => 'x'.repeat(n);
+    const max = {
+      email: `${x(60)}@${x(50)}.com`,
+      consent_marketing: true, consent_health: true, consent_sms: true, consent_postal: true,
+      research_optin: true, is_clinician: true,
+      name: x(40), company: x(80),
+      zip: '12345', intent: 'preorder_now', flavor: 'both',
+      price_band: 'other', price_band_other: x(40),
+      referral_source: 'other', referral_source_other: x(120),
+      motivation: MOTIVATIONS, motivation_other: x(60),
+      // Must be a REGISTERED version whose wording names medication, because
+      // MOTIVATIONS includes glp1_medication and superRefine gates it on the
+      // verbatim text. A 64-x filler would 400 — which it did on the first run
+      // of this test, correctly. It is 30 chars, so the true maximum is very
+      // slightly smaller than a naive all-fields-at-cap estimate.
+      motivation_consent_text_version: '2026-08-19.health-medication.a',
+      dietary: DIETARY, dietary_other: x(60),
+      channel: CHANNELS, channel_other: x(120),
+      quantity_band: 'srv_3_5', office_interest: 'yes', headcount: '10_49',
+      phone: '+4799999999',
+      address_line1: x(120), address_line2: x(120), address_city: x(80),
+      address_region: x(80), address_postal_code: '0150', address_country: 'NO',
+      consent_text_version: x(64),
+      sms_consent_text_version: x(64), postal_consent_text_version: x(64),
+      page_path: x(200), hp_field: null, form_render_ts: Date.now() - 9000,
+      utm: { source: x(64), medium: x(64), campaign: x(64), content: x(64), term: x(64) },
+    };
+    const v = validateWaitlist(max);
+    const bytes = Buffer.byteLength(JSON.stringify(max), 'utf8');
+    // Both halves matter. If the schema rejects it the measurement is of
+    // something no user can send, and the test would quietly stop meaning
+    // anything while still passing.
+    return {
+      pass: v.ok && bytes < MAX_BODY_BYTES,
+      actual: `${bytes}B vs ${MAX_BODY_BYTES}B cap (${(MAX_BODY_BYTES / bytes).toFixed(1)}x margin), schema ${v.ok ? 'accepts' : 'REJECTS: ' + JSON.stringify(v.issues.slice(0, 3))}`,
+    };
+  });
+
   // ── The response contract: nine statuses, and NO field names ────────────
   // I told Conversion the per-field `rule` was in the 400 body. It is not — it
   // goes to the audit log. They found that by reading api/waitlist.js instead of

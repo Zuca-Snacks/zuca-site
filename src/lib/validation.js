@@ -298,7 +298,23 @@ export function deriveCountry(req) {
   return /^[A-Z]{2}$/.test(code) ? code : 'XX';
 }
 
-export const MAX_BODY_BYTES = 8 * 1024; // 8 KB. The largest legitimate payload is well under 1 KB.
+/**
+ * 8 KB. A maximal VALID payload — every field present, every string at its cap,
+ * every multi-select fully chosen — measures 2956 bytes after the 2026-08-17
+ * extension, leaving 2.8x headroom.
+ *
+ * This comment said "well under 1 KB" until 2026-08-19. That was true when it
+ * was written and the extension tripled the field count without anyone
+ * re-measuring — a hand-maintained derived number, the same failure as the
+ * runbook's column letters.
+ *
+ * DO NOT TIGHTEN THIS FROM THE COMMENT. The stale figure was dangerous
+ * precisely because it invited one: read "under 1 KB", set the cap to 2 KB with
+ * apparently generous margin, and start rejecting people who filled the form in
+ * properly. The attack suite measures the real maximum and prints the margin —
+ * change the cap only against a number that run produces.
+ */
+export const MAX_BODY_BYTES = 8 * 1024;
 export const MIN_FILL_MS = 2000; // Faster than a human can read the form, let alone fill it.
 export const MAX_FORM_AGE_MS = 12 * 60 * 60 * 1000; // Stale timestamp = replayed or forged.
 
