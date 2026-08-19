@@ -32,6 +32,7 @@ import {
   emailHandle,
 } from '../src/lib/validation.js';
 import { checkRateLimit, isDuplicate, clientIp } from '../src/lib/ratelimit.js';
+import { mintEditToken, verifyEditToken } from '../src/lib/edit-token.js';
 
 const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
 const SHEETS_WEBHOOK_TOKEN = process.env.SHEETS_WEBHOOK_TOKEN;
@@ -216,8 +217,26 @@ export default async function handler(req, res) {
   //    to someone calling the API directly. It is retained because the contract
   //    is frozen, and it is defensible: rate limiting caps an enumeration attack
   //    at 20 addresses per hour per IP, which is not a viable way to test a list.
-  if (await isDuplicate(handle)) {
-    audit('duplicate', { handle });
+  /**
+   * A repeat address is either a returning visitor or the SAME PERSON still
+   * filling in the form. Until 2026-08-19 both got a 409, and because the
+   * contract told the client to treat 409 as success, every step 2–4 answer
+   * was discarded in production. See SECURITY.md S23.
+   *
+   * The difference between the two cases is an edit token, which only the
+   * browser session that completed step 1 holds. Without one, this behaves
+   * exactly as it always has — so the change is additive and no existing
+   * client is affected by it.
+   */
+  const isRepeat = await isDuplicate(handle);
+  const editing = isRepeat && (await verifyEditToken(data.edit_token, handle));
+
+  if (isRepeat && !editing) {
+    // No token, expired, or minted for a different row. Note that a token for
+    // SOMEONE ELSE'S row lands here too, indistinguishably — an attacker who
+    // signs up, gets a valid token, and points it at a victim's address gets
+    // the same 409 as a returning visitor.
+    audit('duplicate', { handle, token: data.edit_token ? 'rejected' : 'absent' });
     return send(res, 409, { ok: false, error: 'duplicate' });
   }
 
@@ -549,7 +568,22 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         ...(SHEETS_WEBHOOK_TOKEN ? { 'X-Zuca-Token': SHEETS_WEBHOOK_TOKEN } : {}),
       },
-      body: JSON.stringify({ ...record, token: SHEETS_WEBHOOK_TOKEN }),
+      body: JSON.stringify({
+        ...record,
+        token: SHEETS_WEBHOOK_TOKEN,
+        // `create` appends; `update` merges into the row this handle already
+        // owns. Code.gs owns the transition rules, because it is the only layer
+        // that can READ the current row — encoding them here as well would be
+        // the same fact in two places, which is the defect this branch has
+        // spent a week removing.
+        action: editing ? 'update' : 'create',
+        // Stamped here, once, so every consent granted in THIS request shares a
+        // moment. Code.gs applies it only to consents actually transitioning to
+        // true — a health opt-in must not inherit the timestamp of the moment
+        // the person typed their email, which would be evidence of something
+        // that did not happen.
+        observed_at: new Date().toISOString(),
+      }),
       signal: AbortSignal.timeout(8000),
       // Unlike the browser call this replaces, we can actually read the
       // response — which is the whole reason the silent-failure bug (S7) goes
@@ -562,6 +596,10 @@ export default async function handler(req, res) {
       return send(res, 500, { ok: false, error: 'server' });
     }
 
+    // Mint the edit token on the way out. Only on a CREATE: an update request
+    // already proved it holds one, and re-issuing would silently extend the
+    // window every time the person changed a screen — a two-hour credential
+    // that renews on use is not a two-hour credential.
     // The sheet reports its row count after the append. Returning it here is
     // what makes the live counter correct immediately: the client updates from
     // this response instead of issuing a follow-up GET that an edge cache would
@@ -600,11 +638,39 @@ export default async function handler(req, res) {
   // `position` is growth's name and the better one for a UI that renders
   // "you're #143"; `count` is kept so nothing already reading it breaks. Same
   // number, two keys, no second request either way.
-  return send(
-    res,
-    200,
-    newCount === null ? { ok: true } : { ok: true, count: newCount, position: newCount }
-  );
+  /**
+   * The edit token rides out on a CREATE only.
+   *
+   * An update request already proved it holds one; re-issuing on every save
+   * would extend the window each time the person changed a screen, and a
+   * two-hour credential that renews on use is not a two-hour credential.
+   *
+   * Additive, like `count` before it: a client that ignores the key behaves
+   * exactly as it does today, which is what lets this ship before the client.
+   */
+  const editToken = editing ? null : await mintEditToken(handle);
+  /**
+   * SAY SO IF THE FIX IS INERT.
+   *
+   * mintEditToken returns null when neither EDIT_TOKEN_SECRET nor
+   * CONFIRM_TOKEN_SECRET is set. The endpoint then behaves exactly as it does
+   * today — steps 2–4 get a 409 and their answers are discarded — which is the
+   * correct failure, but a silent one, and silence is what made S23 last as
+   * long as it did.
+   *
+   * So an unconfigured secret is announced on every create rather than
+   * discovered from an empty column weeks later.
+   */
+  if (!editing && !editToken) {
+    audit('edit_token.unconfigured', { handle });
+  }
+  const payload = { ok: true };
+  if (newCount !== null) {
+    payload.count = newCount;
+    payload.position = newCount;
+  }
+  if (editToken) payload.edit_token = editToken;
+  return send(res, 200, payload);
 }
 
 /**
