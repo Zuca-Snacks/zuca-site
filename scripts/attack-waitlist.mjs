@@ -1571,6 +1571,31 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // ── A refusal must name the REMEDY, not only the violation ──────────────
+  // `refused[].field` names whichever half a pairing rule is attached to, which
+  // for every consent pairing is THE CONSENT. Demonstrated: drop exactly that
+  // field and retry, and the server accepts with `dropped:['address']` — the
+  // address gone and the opt-in with it. A targeted descent driven by `field`
+  // alone loses MORE than the untargeted one it replaces.
+  for (const [label, patch, wantBlock] of [
+    ['postal consent without an address', { consent_postal: true, postal_consent_text_version: 'mail-eea-1', address_line1: 'Storgata 1', address_city: 'Oslo', address_country: null, address_postal_code: null }, 'postal'],
+    ['sms consent without a phone', { consent_sms: true, sms_consent_text_version: 'sms-eea-1', phone: null }, 'sms'],
+  ]) {
+    await check(`refusal for ${label} names its block`, wantBlock, async () => {
+      const r = await post(growthPayload(patch));
+      const hit = (r.json?.refused ?? []).find((f) => f.block);
+      return { pass: r.status === 400 && hit?.block === wantBlock, actual: JSON.stringify(r.json?.refused ?? r.json) };
+    });
+  }
+
+  await check('a non-pairing refusal carries NO block key', 'absent when meaningless', async () => {
+    // A length failure has no coupled block; inventing one would tell a client
+    // to drop fields that were never implicated.
+    const r = await post(growthPayload({ name: 'x'.repeat(41) }));
+    const hit = (r.json?.refused ?? []).find((f) => f.field === 'name');
+    return { pass: r.status === 400 && hit && !('block' in hit), actual: JSON.stringify(hit) };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   const BIZ = '2026-08-19.business.a';
 

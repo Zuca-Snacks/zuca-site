@@ -29,6 +29,7 @@ import {
   validateWaitlist,
   detectBot,
   sanitizeRecord,
+  refusalBlock,
   emailHandle,
 } from '../src/lib/validation.js';
 import { checkRateLimit, isDuplicate, clientIp } from '../src/lib/ratelimit.js';
@@ -232,7 +233,12 @@ export default async function handler(req, res) {
     return send(res, 400, {
       ok: false,
       error: 'validation',
-      refused: result.issues.map((i) => ({ field: i.path, rule: i.rule })),
+      refused: result.issues.map((i) => {
+        const block = refusalBlock(i.rule);
+        // `block` names what to DROP; `field` names what was WRONG. For a
+        // pairing rule those differ, and dropping the field alone loses more.
+        return block ? { field: i.path, rule: i.rule, block } : { field: i.path, rule: i.rule };
+      }),
     });
   }
   const data = result.data;

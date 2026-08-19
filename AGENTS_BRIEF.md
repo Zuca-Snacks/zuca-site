@@ -217,7 +217,24 @@ discards any part of a submission now says which part:
 
 | | |
 |---|---|
-| `400` | `refused: [{field, rule}]` — names every field it would not take. Never echoes a submitted **value**; path and rule only, by construction. |
+| `400` | `refused: [{field, rule, block?}]` — names every field it would not take. Never echoes a submitted **value**; path and rule only, by construction. |
+
+**⚠️ `field` is what was WRONG. `block` is what to DROP.** They differ, and using the wrong one
+loses more data than not descending at all. A pairing rule is violated by the pair, and
+`field` names whichever half the rule is attached to — which for every consent pairing is
+**the consent, not the datum**. Demonstrated:
+
+```
+400  refused: [{field:"consent_postal", rule:"mail_consent_without_address", block:"postal"}]
+     drop just the named field, retry
+200  dropped: ["address"]        ← the address gone, and the opt-in with it
+```
+
+So a targeted descent driven by `field` alone turns a loud 400 into an accepted 200 that
+loses more than the untargeted descent it replaces. **Descend by `block` when one is
+present**; fall back to cheapest-loss-first ordering when it is absent. `block` appears only
+where a coupled block genuinely exists — a length failure has none, and inventing one would
+tell a client to drop fields that were never implicated.
 | `200` | `dropped: ["address", …]` — present only when a consent gate discarded something. Categories, not values. Absent entirely on a clean accept. |
 
 **This reverses the earlier "a 400 names nothing" rule, deliberately.** That rule came from
