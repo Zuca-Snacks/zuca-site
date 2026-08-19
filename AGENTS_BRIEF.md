@@ -91,7 +91,7 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "consent_postal":     "boolean, default false — REQUIRED to store the address block",
 
   "zip":              "string|null, /^[0-9]{5}$/  — US ONLY, see the scope note below",
-  "motivation":       "array<enum>|null, max 3, one of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
+  "motivation":       "array<enum>|null, NO product cap — pick as many as apply. One of: digestion, regularity, gut_health, energy, sustainability, doctor_suggested, family_health, other",
   "intent":           "enum|null: preorder_now | very_interested | curious | just_browsing",
   "price_band":       "enum|null: lt_24 | 24_29 | 30_35 | 36_42 | gt_42   // for a 12-pack",
   "flavor":           "enum|null: choc_rasp_salt | maple_pecan | both | undecided",
@@ -108,12 +108,12 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "company":      "string|null, <=80 chars",
   "headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
 
-  "channel":       "array<enum>|null, max 2: online_dtc | grocery | gym_studio | office | clinic | other",
+  "channel":       "array<enum>|null, no product cap: online_dtc | grocery | gym_studio | office | clinic | other",
   "channel_other": "string|null, <=120 chars   // requires channel to include 'other'",
 
   // Art 9 HEALTH DATA — an allergy is a health fact. Gated on consent_health,
   // whose wording names dietary needs explicitly. Dropped without it.
-  "dietary":       "array<enum>|null, max 3: none | nut_allergy | gluten_free | dairy_free | vegan | low_sugar | other",
+  "dietary":       "array<enum>|null, no product cap: none | nut_allergy | gluten_free | dairy_free | vegan | low_sugar | other",
   "dietary_other": "string|null, <=60 chars   // requires dietary to include 'other'. Shorter
   //                than the others on purpose: still Art 9, so bound how much can be typed.",
 
@@ -224,6 +224,18 @@ the client's guard, not a replacement for it — still only render the field to 
 all still return `400`. A non-string `zip` also still returns `400`: that is a malformed client or a
 probe, not somebody's postcode. Dropped values are logged as `zip.dropped_not_us_format` with the
 derived country, which is the feedback loop for tuning the region guess.
+
+### Multi-selects have no product cap
+
+`motivation`, `dietary` and `channel` accept as many values as apply. The old
+"max 3" was a product decision that made people rank reasons they hold equally,
+so the answer came back a ranking artefact rather than the truth.
+
+What remains is structural, not policy: after de-duplication an array of enum
+members cannot hold more distinct values than the enum has, so that is the
+bound — and it is computed from the enum, so **adding a value raises the cap
+automatically**. Per-item validity is the enum itself; total payload size is the
+8 KB body limit. Neither changed.
 
 ### Four consents, four records — the same pattern each time
 

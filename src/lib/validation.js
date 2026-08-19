@@ -355,6 +355,26 @@ function consentVersionField() {
     .nullish();
 }
 
+/**
+ * A multi-select over an enum.
+ *
+ * No product cap on how many can be picked — "choose up to 3" makes someone
+ * rank reasons they hold equally, and the answer we get back is then a ranking
+ * artefact rather than what is true of them.
+ *
+ * The remaining bound is arithmetic, not policy: after de-duplication an array
+ * of enum members cannot contain more distinct values than the enum has, so the
+ * cap is exactly that. It exists to stop a payload of ten thousand repeated
+ * values costing a de-dup pass, not to shape an answer. Per-item validity is
+ * the enum itself, and total payload size is the 8 KB body limit.
+ */
+function multiEnum(values) {
+  return z
+    .union([z.array(z.enum(values)).max(values.length, { message: 'too_many' }), z.null()])
+    .optional()
+    .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)]));
+}
+
 /** Treats "" and "  " as absent, so an untouched optional input is not a validation error. */
 function optionalEnum(values) {
   return z
@@ -540,10 +560,7 @@ export const waitlistSchema = z
 
     // Health-adjacent. See `consent_health` below — this array is dropped
     // entirely unless that separate opt-in is present.
-    motivation: z
-      .union([z.array(z.enum(MOTIVATIONS)).max(3, { message: 'too_many' }), z.null()])
-      .optional()
-      .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
+    motivation: multiEnum(MOTIVATIONS),
 
     // Separate, EXPLICIT opt-in for the health-adjacent field.
     //
@@ -585,18 +602,12 @@ export const waitlistSchema = z
     // the sheet keep their meaning, and every new column is appended.
 
     quantity_band: optionalEnum(QUANTITY_BANDS),
-    channel: z
-      .union([z.array(z.enum(CHANNELS)).max(2, { message: 'too_many' }), z.null()])
-      .optional()
-      .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
+    channel: multiEnum(CHANNELS),
     channel_other: safeString(120).nullish().transform((v) => v || null),
 
     // Art 9 health data — allergies and dietary restrictions are health facts.
     // Gated on `consent_health`, whose wording names dietary needs explicitly.
-    dietary: z
-      .union([z.array(z.enum(DIETARY)).max(3, { message: 'too_many' }), z.null()])
-      .optional()
-      .transform((v) => (v == null || v.length === 0 ? null : [...new Set(v)])),
+    dietary: multiEnum(DIETARY),
     // 60, not 120. Still Art 9 health data, and the same minimisation logic
     // that removed `motivation_other` applies to how much can be typed here:
     // "sesame" and "low FODMAP" fit comfortably, a medical history does not.

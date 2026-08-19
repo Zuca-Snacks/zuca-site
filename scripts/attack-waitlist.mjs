@@ -254,9 +254,29 @@ await check('consent_marketing:"true" (string) rejected', '400 validation', asyn
 });
 
 // 8 — enum and length enforcement
-await check('motivation with 4 entries rejected', '400 validation', async () => {
-  const r = await post(goodPayload({ consent_health: true, motivation: ['digestion', 'energy', 'other', 'gut_health'] }));
-  return { pass: r.status === 400, actual: `${r.status} ${JSON.stringify(r.json)}` };
+// The max-3 cap was removed 2026-08-19. "Choose up to 3" makes someone rank
+// reasons they hold equally, and the answer comes back a ranking artefact.
+await check('motivation accepts every value at once — no product cap', '200', async () => {
+  const { MOTIVATIONS } = await import('../src/lib/validation.js');
+  const r = await post(goodPayload({ consent_health: true, motivation: [...MOTIVATIONS] }));
+  return { pass: r.status === 200, actual: `${MOTIVATIONS.length} selected -> ${r.status}` };
+});
+await check('multi-select bound tracks the enum, so it cannot go stale', 'auto', async () => {
+  // The bound is values.length, not a hand-written number — add an enum value
+  // and the cap grows with it. This asserts the relationship, not a constant.
+  const { waitlistSchema, MOTIVATIONS, DIETARY, CHANNELS } = await import('../src/lib/validation.js');
+  const shape = waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape;
+  const ok = [['motivation', MOTIVATIONS], ['dietary', DIETARY], ['channel', CHANNELS]]
+    .every(([f, l]) => shape[f].safeParse([...l]).success);
+  return { pass: ok, actual: `motivation ${MOTIVATIONS.length}, dietary ${DIETARY.length}, channel ${CHANNELS.length} — all accepted in full` };
+});
+await check('Absurd array still rejected — structural bound intact', '400 validation', async () => {
+  const r = await post(goodPayload({ consent_health: true, motivation: Array(500).fill('energy') }));
+  return { pass: r.status === 400, actual: `500 entries -> ${r.status}` };
+});
+await check('Per-item validity survives the uncapping', '400 validation', async () => {
+  const r = await post(goodPayload({ consent_health: true, motivation: ['energy', 'not_a_value'] }));
+  return { pass: r.status === 400, actual: String(r.status) };
 });
 await check('motivation with invalid enum rejected', '400 validation', async () => {
   const r = await post(goodPayload({ consent_health: true, motivation: ['cancer'] }));
