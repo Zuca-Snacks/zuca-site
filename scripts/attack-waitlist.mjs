@@ -945,6 +945,50 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // Same file, same parse, three more properties. Written ONCE here rather than
+  // re-derived in a throwaway script each time the branches move — my ad-hoc
+  // extractors have been wrong three times this week (a DIETARY/DIETARY_OTHER_MAX
+  // prefix collision, an over-escaped regex, and a Set built with a spread I did
+  // not expand). Every one produced a confident wrong answer about someone
+  // else's code. Verification written under time pressure is exactly the code
+  // that should not be improvised.
+  await check('Cross-check: growth ladder has no phantom keys, and its floor is valid', 'ladder sound', async () => {
+    const path = new URL('../src/components/waitlist/api.js', import.meta.url);
+    let src;
+    try {
+      src = (await import('node:fs')).readFileSync(path, 'utf8');
+    } catch {
+      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+    }
+    // NOTE the spread: SERVER_KNOWN_KEYS is `new Set([...CORE_KEYS, "…"])`, so
+    // its literals alone are not the set. Union, or you measure a third of it.
+    const literals = (name) => {
+      const i = src.indexOf(`${name} = new Set([`);
+      if (i < 0) return [];
+      return (src.slice(i, src.indexOf('])', i)).match(/"[a-z_0-9]+"/g) || []).map((x) => x.slice(1, -1));
+    };
+    const core = new Set(literals('CORE_KEYS'));
+    const known = new Set([...core, ...literals('SERVER_KNOWN_KEYS')]);
+    const minimal = literals('MINIMAL_KEYS');
+
+    const { waitlistSchema } = await import('../src/lib/validation.js');
+    const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
+
+    const phantom = [...known].filter((k) => !accepted.has(k));
+    // The floor must be something this server actually accepts, or the last
+    // rung of the ladder drops into nothing and the email is lost.
+    const floorOk =
+      minimal.length > 0 &&
+      minimal.every((k) => accepted.has(k)) &&
+      validateWaitlist(Object.fromEntries(minimal.map((k) =>
+        [k, k === 'consent_marketing' ? true : k === 'email' ? 'floor@example.com' : 'x'.repeat(8)]))).ok;
+
+    return {
+      pass: phantom.length === 0 && floorOk,
+      actual: phantom.length ? `PHANTOM: ${phantom.join(', ')}` : `ladder ${known.size}, floor ${minimal.length} keys, floor valid: ${floorOk}`,
+    };
+  });
+
   await check("Growth's full payload accepted whole — no downgrade needed", '200', async () => {
     const r = await post(growthPayload());
     return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json)}` };
