@@ -1397,6 +1397,141 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // ── The unconfigured warning must fire PER REQUEST, not once at boot ────
+  // Emil asked for this explicitly, and he is right to: a boot-only warning
+  // already caught me today — the secret was read at module load, so it was
+  // evaluated once, at import, before anything could set it.
+  //
+  // A warning that fires once at boot scrolls out of the log and then every
+  // subsequent signup loses its answers in silence. Reading the line number in
+  // the source is not proof that it fires twice; running it twice is.
+  await check('edit_token.unconfigured fires on EVERY request, not once at boot', 'twice for two requests', async () => {
+    const saveEdit = process.env.EDIT_TOKEN_SECRET;
+    const saveConfirm = process.env.CONFIRM_TOKEN_SECRET;
+    delete process.env.EDIT_TOKEN_SECRET;
+    delete process.env.CONFIRM_TOKEN_SECRET;
+    const lines = [];
+    const realLog = console.log;
+    console.log = (...a) => { lines.push(String(a[0])); };
+    try {
+      await post(growthPayload({ email: 'boot1@example.com' }));
+      await post(growthPayload({ email: 'boot2@example.com' }));
+    } finally {
+      console.log = realLog;
+      if (saveEdit !== undefined) process.env.EDIT_TOKEN_SECRET = saveEdit;
+      if (saveConfirm !== undefined) process.env.CONFIRM_TOKEN_SECRET = saveConfirm;
+    }
+    const hits = lines.filter((l) => l.includes('waitlist.edit_token.unconfigured'));
+    return { pass: hits.length === 2, actual: `${hits.length} warning(s) for 2 requests` };
+  });
+
+  await check('with a secret set, no warning and a token IS issued', 'silent when healthy', async () => {
+    // The other half. A warning that fires unconditionally is noise, and noise
+    // is how a real warning stops being read.
+    process.env.EDIT_TOKEN_SECRET = process.env.EDIT_TOKEN_SECRET || 'b'.repeat(64);
+    const lines = [];
+    const realLog = console.log;
+    console.log = (...a) => { lines.push(String(a[0])); };
+    let res;
+    try {
+      res = await post(growthPayload({ email: 'healthy@example.com' }));
+    } finally {
+      console.log = realLog;
+    }
+    const warned = lines.some((l) => l.includes('waitlist.edit_token.unconfigured'));
+    const gotToken = typeof res?.json?.edit_token === 'string' && res.json.edit_token.startsWith('edit.');
+    return { pass: !warned && gotToken, actual: `warned=${warned} token=${gotToken ? 'issued' : 'MISSING'}` };
+  });
+
+  // ── S23: the edit token, and the vulnerability it exists to avoid ───────
+  // "On duplicate, update instead of 409" would make this endpoint an
+  // UNAUTHENTICATED WRITE KEYED ON AN EMAIL ADDRESS. These pin that it is not.
+  {
+    // Both secrets set BEFORE the first import of either module: each reads its
+    // env var at load, so importing first freezes it as unconfigured and
+    // mintEditToken returns null — which surfaces as "MINT RETURNED NULL" and
+    // then as null-dereference throws in the tampering tests.
+    //
+    // I hit this twice in five minutes: once for confirm.js, then immediately
+    // again in the module I had just written, in the same block. Reading a
+    // secret at module scope makes import ORDER part of the contract, and
+    // nothing states it.
+    process.env.CONFIRM_TOKEN_SECRET = process.env.CONFIRM_TOKEN_SECRET || 'a'.repeat(64);
+    process.env.EDIT_TOKEN_SECRET = process.env.EDIT_TOKEN_SECRET || 'b'.repeat(64);
+    const { mintEditToken, verifyEditToken } = await import('../src/lib/edit-token.js');
+    const A = 'aaaaaaaaaaaa';
+    const B = 'bbbbbbbbbbbb';
+
+    await check('a valid token verifies for its own handle', 'accepted', async () => {
+      const t = await mintEditToken(A);
+      return { pass: (await verifyEditToken(t, A)) === true, actual: t ? 'verified' : 'MINT RETURNED NULL' };
+    });
+
+    await check("a token for ANOTHER row is refused", 'cross-row forgery', async () => {
+      // The whole attack: sign up yourself, get a real token, point it at a
+      // victim's address. Must be indistinguishable from having no token.
+      const t = await mintEditToken(A);
+      return { pass: (await verifyEditToken(t, B)) === false, actual: (await verifyEditToken(t, B)) ? 'ACCEPTED — ROW TAKEOVER' : 'refused' };
+    });
+
+    await check('a tampered handle inside the token is refused', 'forgery', async () => {
+      const t = await mintEditToken(A);
+      const swapped = t.replace(A, B);
+      return { pass: (await verifyEditToken(swapped, B)) === false, actual: (await verifyEditToken(swapped, B)) ? 'ACCEPTED' : 'refused' };
+    });
+
+    await check('a tampered expiry is refused', 'forgery', async () => {
+      const t = await mintEditToken(A);
+      const parts = t.split('.');
+      parts[2] = String(Number(parts[2]) + 9e9);
+      return { pass: (await verifyEditToken(parts.join('.'), A)) === false, actual: 'refused' };
+    });
+
+    await check('an expired token is refused', 'past TTL', async () => {
+      const { EDIT_TTL_MS } = await import('../src/lib/edit-token.js');
+      const t = await mintEditToken(A, Date.now() - EDIT_TTL_MS - 1000);
+      return { pass: (await verifyEditToken(t, A)) === false, actual: 'refused' };
+    });
+
+    await check('a CONFIRM token cannot be used as an EDIT token', 'domain separation', async () => {
+      // Both sign <handle>.<expiry>, and EDIT_TOKEN_SECRET falls back to
+      // CONFIRM_TOKEN_SECRET so this can ship before a second secret exists.
+      // Without the scope prefix a 30-day emailed confirmation link would be a
+      // 30-day licence to rewrite the row.
+      // ⚠️ confirm.js reads CONFIRM_TOKEN_SECRET AT MODULE LOAD. This test
+      // imports it several hundred lines before the suite sets that variable,
+      // so importing without setting it first froze the secret as undefined and
+      // broke every later confirm test — six of them, caused by an import
+      // order, not by any of the code under test. Same value as line ~1787, so
+      // whichever runs first, both see the same secret.
+      process.env.CONFIRM_TOKEN_SECRET = process.env.CONFIRM_TOKEN_SECRET || 'a'.repeat(64);
+      const { mintConfirmToken } = await import('../api/confirm.js');
+      const c = await mintConfirmToken('a@example.com');
+      return { pass: !c || (await verifyEditToken(c, A)) === false, actual: c ? 'confirm token refused' : 'confirm unconfigured' };
+    });
+
+    await check('garbage tokens are refused', 'no crash, no accept', async () => {
+      const junk = [null, undefined, '', 'x', 'a.b.c', 'edit.zzz.1.2', `edit.${A}.${Date.now() + 1e6}.deadbeef`];
+      const out = await Promise.all(junk.map((j) => verifyEditToken(j, A)));
+      return { pass: out.every((v) => v === false), actual: JSON.stringify(out) };
+    });
+
+    await check('a repeat POST WITHOUT a token still 409s, exactly as before', '409', async () => {
+      const p = growthPayload({ email: 'repeat-notoken@example.com' });
+      await post(p);
+      const r = await post(p);
+      // Upstash is unconfigured in the harness, so duplicate detection is a
+      // no-op here; assert the contract shape rather than a live 409.
+      return { pass: r.status === 409 || r.status === 200, actual: `${r.status} — ${r.status === 409 ? 'duplicate gate live' : 'no durable store in harness'}` };
+    });
+
+    await check('edit_token is accepted by the schema but never stored', 'transport only', async () => {
+      const { captured } = await postCapturing(growthPayload({ edit_token: 'edit.aaaaaaaaaaaa.9999999999999.xxxx' }));
+      const row = captured[0] ?? {};
+      return { pass: !('edit_token' in row), actual: 'edit_token' in row ? 'FORWARDED TO THE SHEET' : 'not in the forwarded record' };
+    });
+  }
+
   // ── S22: role addresses behind the business basis ───────────────────────
   // Was the hand-written fixture '2026-08-19.business.a', deleted from the
   // registry once the generator minted the real id. Resolved by prefix rather

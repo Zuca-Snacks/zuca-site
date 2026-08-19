@@ -529,6 +529,197 @@ function doGet() {
  * double-clicked link or a mail client that prefetches URLs cannot corrupt the
  * timestamp of an already-confirmed row.
  */
+/**
+ * Consents that may be granted AFTER the row exists, with the field that
+ * records which wording was shown.
+ *
+ * `consent_marketing` is deliberately absent: it is collected at step 1 and
+ * exists from creation, so it is immutable here in the original sense. Same for
+ * `business_enquiry`. These three are the ones step 1 CANNOT collect, because
+ * the screens that ask for them come later.
+ */
+var LATE_CONSENTS = {
+  consent_health: 'motivation_consent_text_version',
+  consent_sms: 'sms_consent_text_version',
+  consent_postal: 'postal_consent_text_version'
+};
+
+/** Server-set evidence. An update may never touch these. */
+var IMMUTABLE = [
+  'timestamp', 'email', 'email_handle',
+  'consent_marketing', 'consent_text_version',
+  'business_enquiry', 'business_consent_text_version',
+  'consent_timestamp', 'consent_ip_prefix', 'country',
+  'confirmed', 'confirmed_at'
+];
+
+function truthy_(v) {
+  return String(v).trim().toUpperCase() === 'TRUE';
+}
+
+/**
+ * Merge a step 2–4 save into the row this handle already owns.  (S23)
+ *
+ * ─── Why the rule is APPEND-ONLY and not immutable ───────────────────────────
+ *
+ * My first design said "consent fields are immutable after creation". The
+ * Conversion agent caught that it would have been WORSE THAN THE BUG: step 1
+ * only ever sends `consent_marketing`, so the row is created with health, SMS
+ * and postal all false. Under immutability the update could never set them, and
+ * the endpoint's own gates would then drop `motivation`, `dietary`, `phone` and
+ * the address every time — permanently, with an audit line nobody reads.
+ *
+ * Today everything after step 1 is lost visibly and evenly. That would have
+ * lost only the gated fields, quietly, while looking fixed.
+ *
+ * So the transitions allowed here are:
+ *
+ *   absent/false -> true, with a version id   the consent moment itself
+ *   true -> false                             withdrawal, Art 7(3)
+ *   any -> a DIFFERENT version id             REFUSED, that rewrites what was agreed
+ *   anything in IMMUTABLE                     REFUSED
+ *
+ * ─── Why the timestamp is per-consent ────────────────────────────────────────
+ *
+ * A health opt-in stamped with the moment the person typed their email is
+ * evidence of something that did not happen. `observed_at` comes from the
+ * request, and is applied ONLY to consents transitioning to true in it, so each
+ * block in the receipt records when that consent was actually given.
+ */
+function updateRow_(payload) {
+  var handle = String(payload.email_handle || '');
+  if (!/^[0-9a-f]{12}$/.test(handle)) return json_({ ok: false, error: 'validation' });
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    return json_({ ok: false, error: 'server' });
+  }
+
+  try {
+    var sheet = getSheet_();
+    var index = ensureColumns_(sheet);
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2 || !index.email_handle) return json_({ ok: false, error: 'not_found' });
+
+    var handles = sheet.getRange(2, index.email_handle, lastRow - 1, 1).getValues();
+    for (var i = handles.length - 1; i >= 0; i--) {
+      if (String(handles[i][0]).trim() !== handle) continue;
+      var row = i + 2;
+
+      var granted = [];
+      var refused = [];
+
+      for (var key in payload) {
+        if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+        if (key === 'token' || key === 'action' || key === 'observed_at' || key === 'utm') continue;
+        if (IMMUTABLE.indexOf(key) !== -1) continue;
+
+        var at = index[key];
+        if (!at) continue;
+
+        var incoming = payload[key];
+        // A field the client did not answer must not blank one it answered
+        // earlier. Saves carry the full accumulated profile, so an empty value
+        // means "not answered", never "cleared".
+        if (incoming === null || incoming === undefined || incoming === '') continue;
+
+        // ── consent transitions ────────────────────────────────────────────
+        if (LATE_CONSENTS.hasOwnProperty(key)) {
+          var was = truthy_(sheet.getRange(row, at).getValue());
+          var now = incoming === true || truthy_(incoming);
+          if (now && !was) {
+            var vField = LATE_CONSENTS[key];
+            var vAt = index[vField];
+            var version = payload[vField];
+            // A consent with no record of the wording shown is not evidence of
+            // anything. Refuse the flag rather than store an unprovable TRUE.
+            if (!vAt || !version) { refused.push(key + ':no_version'); continue; }
+            sheet.getRange(row, at).setValue('TRUE');
+            sheet.getRange(row, vAt).setNumberFormat('@').setValue(sanitizeCell_(version, vField));
+            granted.push(key);
+          } else if (!now && was) {
+            sheet.getRange(row, at).setValue('FALSE');   // Art 7(3) withdrawal
+            granted.push(key + ':withdrawn');
+          }
+          continue;
+        }
+        // The version fields are written by their consent above, never alone —
+        // otherwise a later request could rewrite which wording a stored
+        // consent claims to rest on.
+        if (vFieldNames_().indexOf(key) !== -1) continue;
+
+        sheet.getRange(row, at).setValue(sanitizeCell_(incoming, key));
+      }
+
+      if (index.consent_receipt && granted.length) {
+        mergeReceipt_(sheet, row, index.consent_receipt, payload, granted, String(payload.observed_at || ''));
+      }
+
+      return json_({
+        ok: true,
+        updated: true,
+        granted: granted,
+        refused: refused,
+        count: Math.max(0, sheet.getLastRow() - 1)
+      });
+    }
+    // The row is gone, or the handle never existed. Appending here would create
+    // a second row for one person, which is the failure this whole path exists
+    // to prevent.
+    return json_({ ok: false, error: 'not_found' });
+  } catch (err) {
+    console.error('updateRow_ failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function vFieldNames_() {
+  var out = [];
+  for (var k in LATE_CONSENTS) if (Object.prototype.hasOwnProperty.call(LATE_CONSENTS, k)) out.push(LATE_CONSENTS[k]);
+  return out;
+}
+
+/**
+ * Add the newly-granted consents to the existing receipt rather than replacing
+ * it.
+ *
+ * Replacing would rewrite the marketing block with a fresh timestamp on every
+ * save — destroying the record of when the original consent was actually given,
+ * which is the one thing the receipt exists to prove.
+ */
+function mergeReceipt_(sheet, row, at, payload, granted, observedAt) {
+  var cell = sheet.getRange(row, at);
+  var existing = {};
+  try {
+    existing = JSON.parse(String(cell.getValue()) || '{}');
+  } catch (err) {
+    // An unparseable receipt is not a reason to lose the new consent, but it IS
+    // a reason to say so loudly rather than overwrite the evidence silently.
+    console.error('mergeReceipt_: existing receipt unparseable on row ' + row);
+    existing = { schema: 'zuca.consent.v4', recovered: true };
+  }
+  for (var i = 0; i < granted.length; i++) {
+    var key = String(granted[i]);
+    if (key.indexOf(':withdrawn') !== -1) {
+      var wname = key.replace('consent_', '').replace(':withdrawn', '');
+      if (existing[wname]) existing[wname].withdrawn_at = observedAt;
+      continue;
+    }
+    var name = key === 'consent_postal' ? 'postal' : key.replace('consent_', '');
+    existing[name] = {
+      granted: true,
+      version: payload[LATE_CONSENTS[key]] || null,
+      at: observedAt,
+      registry_match: null
+    };
+  }
+  cell.setNumberFormat('@').setValue(sanitizeCell_(JSON.stringify(existing), 'consent_receipt'));
+}
+
 function confirmRow_(handle, confirmedAt) {
   if (!/^[0-9a-f]{12}$/.test(handle)) return json_({ ok: false, error: 'validation' });
 
@@ -603,6 +794,10 @@ function doPost(e) {
   // ── action: confirm ───────────────────────────────────────────────────────
   // Flips an existing row to confirmed. Looks the row up by `email_handle`, a
   // keyed hash, so the confirmation path never needs the address itself.
+  if (payload.action === 'update') {
+    return updateRow_(payload);
+  }
+
   if (payload.action === 'confirm') {
     return confirmRow_(String(payload.email_handle || ''), String(payload.confirmed_at || ''));
   }

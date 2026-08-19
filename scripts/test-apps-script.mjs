@@ -472,6 +472,95 @@ console.log('\n  Scenario T — wrong-tab and empty-tab guards\n');
   );
 }
 
+console.log('\n  Scenario U — S23: the update path, and what it must refuse\n');
+{
+  // A row created by step 1, then a step 2 save arriving as action:'update'.
+  const sheet = makeSheet(OLD_HEADERS);
+  const T = '2026-08-19T10:00:00.000Z';
+  const T2 = '2026-08-19T10:05:00.000Z';
+
+  post(sheet, {
+    email: 'u@example.com', email_handle: 'aaaaaaaaaaaa',
+    consent_marketing: true, consent_text_version: 'mkt-eea-1',
+    consent_timestamp: T, country: 'NO', consent_receipt: JSON.stringify({
+      schema: 'zuca.consent.v4',
+      marketing: { granted: true, version: 'mkt-eea-1', at: T },
+    }),
+  });
+  const before = sheet.getLastRow();
+
+  const { sandbox } = loadScript(sheet, 'tok');
+  sandbox.doPost({ postData: { contents: JSON.stringify({
+    token: 'tok', action: 'update', email_handle: 'aaaaaaaaaaaa', observed_at: T2,
+    email: 'u@example.com',
+    // step 2 answers, including a consent step 1 could not collect
+    name: 'Sarah', intent: 'preorder_now', flavor: 'both',
+    consent_health: true, motivation_consent_text_version: 'mot-eea-9',
+    motivation: 'gut_health',
+    // and an attempt to rewrite evidence
+    consent_timestamp: '1999-01-01T00:00:00Z',
+    consent_text_version: 'ATTACKER',
+    country: 'XX',
+  }) } });
+
+  check('update does NOT append a second row', sheet.getLastRow() === before, `${before} -> ${sheet.getLastRow()}`);
+  check('profile fields land on the existing row', String(cellFor(sheet, 'name').value) === 'Sarah', JSON.stringify(cellFor(sheet, 'name').value));
+  check('a late consent CAN be granted after creation', String(cellFor(sheet, 'consent_health').value) === 'TRUE', JSON.stringify(cellFor(sheet, 'consent_health').value));
+  check('its wording id is recorded with it', String(cellFor(sheet, 'motivation_consent_text_version').value) === 'mot-eea-9', JSON.stringify(cellFor(sheet, 'motivation_consent_text_version').value));
+
+  // The three that make this safe rather than a rewrite primitive.
+  check('consent_timestamp is NOT rewritten', String(cellFor(sheet, 'consent_timestamp').value) === T, JSON.stringify(cellFor(sheet, 'consent_timestamp').value));
+  check('consent_text_version is NOT rewritten', String(cellFor(sheet, 'consent_text_version').value) === 'mkt-eea-1', JSON.stringify(cellFor(sheet, 'consent_text_version').value));
+  check('country is NOT rewritten', String(cellFor(sheet, 'country').value) === 'NO', JSON.stringify(cellFor(sheet, 'country').value));
+
+  // The receipt is the evidence; a fresh one each save would destroy it.
+  const r = JSON.parse(String(cellFor(sheet, 'consent_receipt').value).replace(/^'/, ''));
+  check('receipt MERGES — the original marketing moment survives',
+    r.marketing?.at === T && r.marketing?.version === 'mkt-eea-1', JSON.stringify(r.marketing));
+  check('the new consent carries ITS OWN moment, not step 1s',
+    r.health?.at === T2 && r.health?.granted === true, JSON.stringify(r.health));
+}
+
+{
+  // A consent flag with no wording behind it is not evidence of anything.
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'v@example.com', email_handle: 'bbbbbbbbbbbb', consent_marketing: true });
+  const { sandbox } = loadScript(sheet, 'tok');
+  sandbox.doPost({ postData: { contents: JSON.stringify({
+    token: 'tok', action: 'update', email_handle: 'bbbbbbbbbbbb', observed_at: '2026-08-19T11:00:00Z',
+    consent_sms: true, sms_phone: '+4791234567',
+  }) } });
+  check('a consent with NO wording id is refused, not stored',
+    String(cellFor(sheet, 'consent_sms').value).toUpperCase() !== 'TRUE',
+    JSON.stringify(cellFor(sheet, 'consent_sms').value || '(blank)'));
+}
+
+{
+  // An unknown handle must not become a new row.
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'w@example.com', email_handle: 'cccccccccccc', consent_marketing: true });
+  const before = sheet.getLastRow();
+  const { sandbox, responses } = loadScript(sheet, 'tok');
+  sandbox.doPost({ postData: { contents: JSON.stringify({
+    token: 'tok', action: 'update', email_handle: 'dddddddddddd', name: 'Ghost',
+  }) } });
+  check('an update for an unknown handle appends NOTHING',
+    sheet.getLastRow() === before && responses[responses.length - 1]?.error === 'not_found',
+    `${before} -> ${sheet.getLastRow()}, ${JSON.stringify(responses[responses.length - 1])}`);
+}
+
+{
+  // Saves carry the FULL accumulated profile, so a blank means "not answered".
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, { email: 'y@example.com', email_handle: 'eeeeeeeeeeee', consent_marketing: true, flavor: 'both' });
+  const { sandbox } = loadScript(sheet, 'tok');
+  sandbox.doPost({ postData: { contents: JSON.stringify({
+    token: 'tok', action: 'update', email_handle: 'eeeeeeeeeeee', flavor: null, name: 'Kari',
+  }) } });
+  check('a null does not blank an answer given earlier',
+    String(cellFor(sheet, 'flavor').value) === 'both', JSON.stringify(cellFor(sheet, 'flavor').value));
+}
+
 console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code.gs\n');
 {
   // Every other scenario hand-writes a payload and posts it to Code.gs, which
@@ -598,7 +687,10 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
     }
 
     {
-      const skip = new Set(['token', 'action', 'utm', 'consents']);
+      // Transport, not data. `observed_at` joined them for S23: it tells
+      // updateRow_ WHEN a consent was granted so each receipt block carries its
+      // own moment, and is consumed rather than stored.
+      const skip = new Set(['token', 'action', 'observed_at', 'utm', 'consents']);
       const dropped = Object.entries(forwarded)
         .filter(([k, v]) => !skip.has(k) && v !== null && v !== '' && v !== false)
         .filter(([k]) => cellFor(sheet, k).missing);

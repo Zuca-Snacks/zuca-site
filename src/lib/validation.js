@@ -898,6 +898,20 @@ export const waitlistSchema = z
      * `office_interest` is collected on screen 4. It gated on a field that does
      * not exist yet at the moment of the rejection.
      */
+    /**
+     * Transport credential, not data. Added 2026-08-19 for S23.
+     *
+     * Present ONLY on a step 2–4 save; step 1 has no token to send yet. It
+     * authorises updating the row this address already created, and is never
+     * stored — `sanitizeRecord` never sees it because the endpoint does not put
+     * it in the record.
+     *
+     * It has to be in the schema because the schema is `.strict()`: an unknown
+     * key is a 400, so a client sending a token to a server without this line
+     * would have every save rejected. ADD-class, server first.
+     */
+    edit_token: safeString(200).nullish().transform((v) => v || null),
+
     business_enquiry: z.boolean().nullish().transform((v) => v === true),
     business_consent_text_version: safeString(64).nullish().transform((v) => v || null),
     headcount: optionalEnum(HEADCOUNTS),
