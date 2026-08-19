@@ -118,6 +118,79 @@ Two things that live in your files, not mine:
 
 ---
 
+## ⚖️ FOR COOLEY REVIEW — two items, both added on instruction, neither to be assumed safe
+
+Emil instructed both of these on 18 Aug 2026 and asked that counsel **bless them
+explicitly rather than have us assume they are fine.** They are live on the
+branch. This section exists so the review has the reasoning in front of it, not
+just the strings.
+
+### 1. The disease-reversal line — the highest-risk sentence on the site
+
+Rendered in Kelley Yuan's credential list in the founders section:
+
+> **"Reversed her own autoimmune disease through a plant-based diet"**
+
+**Why it is the riskiest thing we publish.** It puts a disease outcome and a
+product we sell on the same page, under the byline of the company's Chief
+Medical Officer. Nothing in the sentence says Zuca did it — but the reader is
+not reading sentences, they are reading a page, and the inference *"our CMO
+reversed disease with food, and this is that food"* is one the reader supplies
+for free if we let the two sit together. That inference is a health claim
+whether or not we wrote it.
+
+**The framing it depends on.** Its defensibility is entirely in how it is
+written, so the wording is not editorial preference:
+
+- **Past tense, first person, about her.** Something that happened to a named
+  individual, not an outcome offered to a reader.
+- **The agent is named, and it is not Zuca.** "through a plant-based diet" —
+  a way of eating, not a product.
+- **No condition is named.** "autoimmune disease" as a category, never a
+  specific diagnosis.
+- **It sits in a biography list**, under her photo and title, with no product
+  statement inside the same block.
+
+**What would break it**, and what we have therefore not done:
+- moving it adjacent to any nutrient or product claim
+- naming the condition
+- rewriting it toward outcome language ("reversed disease with food")
+- repeating it anywhere outside the founders section — it appears **once**
+
+The code comment beside it in `src/content/copy.js` says the same thing, so
+whoever edits next sees the constraint rather than a plain string.
+
+### 2. The title "Founding CMO"
+
+Kelley's title changed from "Physician & Co-Founder" to **"Founding CMO"**.
+
+Worth reviewing **together with item 1, not separately** — they compound. A
+Chief Medical Officer title on a food company asserts medical authority over the
+product; the disease line asserts a medical outcome. Either alone is a narrower
+question than both on one card, under one photo, three lines apart.
+
+Specifically worth counsel's view: whether "CMO" on a food brand implies a
+clinical role in formulation that we would then have to substantiate, given the
+site also says she "leads Zuca's clinical network: 10+ physicians across 7
+specialties."
+
+### Context: what was removed at the same time
+
+The backing line — *"Supported by Stanford's NEXT Accelerator. Regulatory
+counsel provided pro bono by Cooley LLP. Manufactured with Step Change
+Innovations."* — is gone from the founders section on Emil's instruction.
+
+**I also removed the identical claim from the "Who's behind it?" FAQ answer**,
+which he did not explicitly ask for. Reason: leaving a withdrawn claim standing
+one section away is exactly how "130+ pre-orders" and "no added sugar" came
+back. If he meant only the founders section, the FAQ sentence is a one-line
+restore — flagging it rather than burying it.
+
+Note the site therefore no longer names Cooley anywhere, which independently
+removes any risk of implying FDA endorsement by association.
+
+---
+
 ## ⚠️ ALLERGEN PANEL IS CONFIRMED BUT NOT STABLE
 
 **Confirmed 18 Aug 2026:** both flavours contain tree nuts — almonds and pecans.
