@@ -91,6 +91,12 @@ export const CORE_KEYS = new Set([
   // valuable. buildPayload omits them entirely unless the box was ticked, so
   // for every personal signup their presence here costs nothing.
   "business_enquiry", "business_consent_text_version",
+  // ⚠️ SAME CLASS AS THE BUSINESS KEYS, AND FOR A SHARPER REASON.
+  // Without `edit_token` a step 2-4 save is a 409, which this client maps to
+  // success — so the answers are discarded silently. A rung that strips it does
+  // not degrade the record, it deletes it while reporting a save. It is a
+  // precondition of the write, not a field in it.
+  "edit_token",
 ]);
 
 /**
@@ -146,6 +152,7 @@ export function buildPayload({
   postalConsentTextVersion = null,
   businessEnquiry = false,
   businessConsentTextVersion = null,
+  editToken = null,
   profile = {},
   formRenderTs,
   hpField = "",
@@ -158,6 +165,10 @@ export function buildPayload({
   // point — the server suppresses marketing consent for any row where this is
   // true, so sending it speculatively would silently unsubscribe people.
   const business = businessEnquiry === true;
+  // Omitted entirely when absent. Step 1 has no token yet, and sending
+  // `edit_token: null` would be a key the pre-S23 server rejects outright —
+  // .strict() refuses on presence, not on value.
+  const edit = typeof editToken === "string" && editToken ? editToken : null;
   const p = profile;
 
   return {
@@ -181,6 +192,7 @@ export function buildPayload({
 
     // Present only for a shared-inbox signup. See CORE_KEYS for why they must
     // survive every rung of the downgrade ladder.
+    ...(edit ? { edit_token: edit } : {}),
     ...(business
       ? {
           business_enquiry: true,
@@ -285,6 +297,9 @@ export const MINIMAL_KEYS = new Set([
   // version of the record that validates; for a role address that stops being
   // true the moment these are dropped.
   "business_enquiry", "business_consent_text_version",
+  // And the floor must still be an UPDATE, or the last rescue rung writes a
+  // duplicate-rejected 409 and calls it saved.
+  "edit_token",
 ]);
 
 /** Widest to narrowest. Each rung keeps everything the next one would discard. */
@@ -456,13 +471,19 @@ async function post(payload, rung = 0) {
 
     const result = statusToResult(res.status);
     let position = null;
+    // The credential that lets steps 2-4 UPDATE the row step 1 created. Absent
+    // on a 409 and absent if the server could not mint one, so every consumer
+    // has to cope with not having it — which is the pre-S23 behaviour, i.e. the
+    // saves 409 and the answers are lost. It is not decoration.
+    let editToken = null;
     try {
       const body = await res.json();
       if (body && typeof body.position === "number") position = body.position;
+      if (body && typeof body.edit_token === "string" && body.edit_token) editToken = body.edit_token;
     } catch {
       /* 204, or a body we don't need */
     }
-    return { status: result, position, via: rung === 0 ? "api" : `api-rung${rung}` };
+    return { status: result, position, editToken, via: rung === 0 ? "api" : `api-rung${rung}` };
   } catch {
     /* A fetch that throws is TWO different failures wearing one coat, and they
        need opposite messages:

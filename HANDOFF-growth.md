@@ -311,6 +311,65 @@ belongs at a reserved domain unless the specific domain is what is being
 tested.** `.co` and `.no` are live TLDs and do not qualify; `.example`, `.test`,
 `.invalid` and `example.com/net/org` do.
 
+## 🔴 S23 — TEN DAYS OF STEP 2-4 ANSWERS DISCARDED IN PRODUCTION
+
+The largest failure this project has had, and the only one found by a person
+using the form rather than by either agent's tooling.
+
+`isDuplicate` is a Redis `SET NX`: step 1 marks the address, so **every
+subsequent save was a 409**. This client maps 409 to DUPLICATE and
+`Step2Profile.save()` treats DUPLICATE as success — sets `lastSaved`, advances
+the screen, discards the payload. One row, not four. The person is told their
+answers are saved on every screen.
+
+**Neither half was wrong.** The 409-is-success rule was correct for a one-shot
+form: telling a returning signup "you are already on the list" is bad UX and an
+enumeration oracle. My four-save flow arrived later and made it catastrophic.
+Your change, their contract, and the assumption written down in neither — the
+same shape as every other seam this week, at the largest scale.
+
+### The comment was the bug report, ten days early
+
+`save()` was headed `/** Upsert what we have. */` over code that has never
+upserted anything. **A comment naming a behaviour the system does not have is a
+claim, and nothing tests a claim.** It read as a description of intent and was
+in fact a description of something absent.
+
+### The fix, and the part of it that was ours to catch
+
+Server-side: step 1's 200 now returns a 2-hour non-renewing HMAC `edit_token`;
+steps 2-4 send it; the server forwards `action:'update'`. Client side: surface
+it, thread it through the store, include it in every step 2 payload — and keep
+it in **CORE and MINIMAL**, because a rung that strips it does not degrade the
+record, it deletes it while reporting a save.
+
+Security's first design froze all consent fields after row creation. That would
+have been worse than the bug: **step 1 only collects marketing consent**, so
+`consent_health`, `consent_sms` and `consent_postal` are all false at creation
+and are ticked on screens 2-4. Frozen, they could never be set — and the
+server's own gate then drops the data each authorises: motivation and dietary
+(Art 9), phone, address. Corrected to **append-only** — absent→true allowed with
+its version id, withdrawal allowed, version rewrites refused — with a per-consent
+timestamp, because a health opt-in stamped with the moment someone typed their
+email is evidence of something that did not happen.
+
+### ⚠️ THE LESSON IS ABOUT THE HARNESS, NOT THE BUG
+
+Two hundred passing tests across both repos could not see this. Every fetch stub
+in this suite was **stateless**, so `isDuplicate` never returned true and the
+409 branch was not untested — it was **unreachable**. Not a missing assertion, a
+missing world, and the missing world was *the same person submitting twice*,
+which is the most ordinary thing this form does.
+
+`test/failure-paths.test.mjs` now stands up a server that remembers, and the
+S23 tests **assert on what the server ended up storing, not on what the client
+was told** — the client was told "saved" throughout. Three mutations cover the
+token path.
+
+**The question worth asking of any suite: is there a production state it cannot
+express?** Coverage will not reveal it, because the uncovered branch does not
+appear as uncovered — it appears as absent.
+
 ## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT AND LIVE)
 
 Two things we built are in direct conflict, and neither team could see it alone.

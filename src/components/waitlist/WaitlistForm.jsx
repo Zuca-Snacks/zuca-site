@@ -59,9 +59,13 @@ export default function WaitlistForm({ location = "hero" }) {
     headingRef.current?.focus();
   }, [shared.stage]);
 
-  const handleStep1Success = useCallback(({ email, duplicate, position, business }) => {
+  const handleStep1Success = useCallback(({ email, duplicate, position, business, editToken }) => {
     advanced.current = true;
-    setState({ stage: "profile", email, duplicate, position, business: business === true });
+    setState({
+      stage: "profile", email, duplicate, position,
+      business: business === true,
+      editToken: editToken ?? null,
+    });
   }, []);
 
   const handleStep2Done = useCallback(() => {
@@ -95,6 +99,7 @@ export default function WaitlistForm({ location = "hero" }) {
         <Suspense fallback={<Skeleton />}>
           <Step2Profile
             email={shared.email}
+            editToken={shared.editToken}
             formRenderTs={formRenderTs}
             onName={(n) => setState({ name: n })}
             onDone={handleStep2Done}

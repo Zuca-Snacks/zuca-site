@@ -197,7 +197,7 @@ test('the floor is what the server actually requires', async () => {
   assert.deepEqual(
     [...mod.MINIMAL_KEYS].sort(),
     ['business_consent_text_version', 'business_enquiry', 'consent_marketing',
-      'consent_text_version', 'email'],
+      'consent_text_version', 'edit_token', 'email'],
     'the floor must stay irreducible',
   );
 });
@@ -566,4 +566,102 @@ test('the conditional keys are spelled the way the server spells them', async ()
   assert.ok(keys.includes('business_enquiry'), 'snake_case, as the server spells it');
   assert.ok(keys.includes('business_consent_text_version'));
   assert.equal(keys.some((k) => /[A-Z]/.test(k)), false, 'no wire key is camelCase');
+});
+
+// ─── S23: the world the harness could not express ────────────────────────────
+// Every fetch stub above is STATELESS, so "the same person submits twice" —
+// the single most ordinary thing this form does — was not merely untested, it
+// was unreachable. Two hundred passing tests across both repos could not see a
+// bug that discarded every step 2-4 answer in production.
+//
+// So this stands up a server that REMEMBERS, and asserts on what it ended up
+// storing rather than on what the client was told. That inversion is the whole
+// point: the client was told "saved" the entire time.
+
+/** A server that marks an address on first sight, as the real one does. */
+function statefulServer({ issueToken = true } = {}) {
+  const rows = new Map();
+  const calls = [];
+  const fetchImpl = async (_url, opts) => {
+    const body = JSON.parse(opts.body);
+    calls.push(body);
+    const handle = body.email;
+    const known = rows.has(handle);
+
+    if (known && body.edit_token === `edit.${handle}.valid`) {
+      Object.assign(rows.get(handle), body); // merge, as updateRow_ does
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    }
+    if (known) return { ok: false, status: 409, json: async () => ({ ok: false, error: 'duplicate' }) };
+
+    rows.set(handle, { ...body });
+    return {
+      ok: true, status: 200,
+      json: async () => ({ ok: true, position: 144, ...(issueToken ? { edit_token: `edit.${handle}.valid` } : {}) }),
+    };
+  };
+  return { fetchImpl, rows, calls };
+}
+
+const step2Profile = { flavor: 'maple_pecan', intent: 'preorder_now', price_band: '35_44' };
+
+test('S23: a four-screen signup ends with the answers ON THE SERVER', async () => {
+  const srv = statefulServer();
+  const { mod } = await withFetch(srv.fetchImpl);
+
+  const one = await mod.submitWaitlist(mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1', formRenderTs: Date.now() - 9000,
+  }));
+  assert.equal(one.status, mod.RESULT.OK);
+  assert.ok(one.editToken, 'step 1 must surface the token, or steps 2-4 cannot update');
+
+  for (const screen of [1, 2, 3]) {
+    const r = await mod.submitWaitlist(mod.buildPayload({
+      email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+      editToken: one.editToken, profile: step2Profile, formRenderTs: Date.now() - 9000,
+    }));
+    assert.equal(r.status, mod.RESULT.OK, `screen ${screen} must be accepted as an update`);
+  }
+
+  // The assertion that matters. Not "the client saw 200" — the client saw 200
+  // throughout S23 while every answer was thrown away.
+  const row = srv.rows.get('sarah@example.com');
+  assert.equal(row.flavor, 'maple_pecan', 'the flavor answer must have reached the server');
+  assert.equal(row.intent, 'preorder_now');
+  assert.equal(row.price_band, '35_44');
+  assert.equal(srv.rows.size, 1, 'one row, not four — an update, not four appends');
+});
+
+test('S23: without the token the save is a 409 and the answers are LOST', async () => {
+  // The pre-fix behaviour, pinned so the regression is loud rather than silent.
+  const srv = statefulServer({ issueToken: false });
+  const { mod } = await withFetch(srv.fetchImpl);
+
+  await mod.submitWaitlist(mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1', formRenderTs: Date.now() - 9000,
+  }));
+  const r = await mod.submitWaitlist(mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    profile: step2Profile, formRenderTs: Date.now() - 9000,
+  }));
+
+  // ⚠️ THIS IS THE SHAPE OF THE BUG, AND IT IS WHY IT SURVIVED TEN DAYS.
+  // A 409 maps to DUPLICATE, which Step2Profile treats as success. The client
+  // is told the save worked; the row never receives a single answer.
+  assert.equal(r.status, mod.RESULT.DUPLICATE, 'no token means duplicate, as before');
+  // Still the null step 1 wrote — not `undefined`, because buildPayload emits
+  // every unconditional key. The point stands and is sharper for it: the row
+  // exists, looks complete, and holds none of the answers.
+  assert.equal(srv.rows.get('sarah@example.com').flavor, null,
+    'and DUPLICATE-as-success is exactly why the loss was silent');
+  assert.equal(srv.calls.length, 2, 'the client did POST — it was refused, and called that success');
+});
+
+test('S23: the token survives every rung of the downgrade ladder', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  // A rung that strips edit_token does not degrade the record, it deletes it
+  // while reporting a save — the 409 path above, reached from inside the
+  // mechanism built to rescue submissions.
+  assert.ok(mod.CORE_KEYS.has('edit_token'));
+  assert.ok(mod.MINIMAL_KEYS.has('edit_token'));
 });

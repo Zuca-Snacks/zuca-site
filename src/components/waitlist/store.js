@@ -12,6 +12,11 @@ const EMPTY = {
   duplicate: false, profileSaved: false,
   // A shared-inbox signup. Changes what the confirmation may promise.
   business: false,
+  // Short-lived (2h, non-renewing) credential authorising steps 2-4 to update
+  // the row rather than be refused as duplicates. Deliberately NOT durable
+  // beyond the session: it is a credential, and sessionStorage already scopes
+  // it to this tab. An expired one behaves exactly like none.
+  editToken: null,
 };
 
 function load() {
