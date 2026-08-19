@@ -16,7 +16,8 @@
     "security:columns": "node scripts/sheet-columns.mjs",
     "security:columns:check": "node scripts/sheet-columns.mjs --check",
     "security:livewrite": "node scripts/live-write-test.mjs",
-    "security:mutate": "node scripts/mutate-compat.mjs"
+    "security:mutate": "node scripts/mutate-compat.mjs",
+    "security:repeat": "node scripts/simulate-repeat-signup.mjs no-secret && node scripts/simulate-repeat-signup.mjs with-secret"
   },
   "dependencies": {
     "react": "^19.2.0",

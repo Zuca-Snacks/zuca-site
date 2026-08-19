@@ -1393,6 +1393,52 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // ── The unconfigured warning must fire PER REQUEST, not once at boot ────
+  // Emil asked for this explicitly, and he is right to: a boot-only warning
+  // already caught me today — the secret was read at module load, so it was
+  // evaluated once, at import, before anything could set it.
+  //
+  // A warning that fires once at boot scrolls out of the log and then every
+  // subsequent signup loses its answers in silence. Reading the line number in
+  // the source is not proof that it fires twice; running it twice is.
+  await check('edit_token.unconfigured fires on EVERY request, not once at boot', 'twice for two requests', async () => {
+    const saveEdit = process.env.EDIT_TOKEN_SECRET;
+    const saveConfirm = process.env.CONFIRM_TOKEN_SECRET;
+    delete process.env.EDIT_TOKEN_SECRET;
+    delete process.env.CONFIRM_TOKEN_SECRET;
+    const lines = [];
+    const realLog = console.log;
+    console.log = (...a) => { lines.push(String(a[0])); };
+    try {
+      await post(growthPayload({ email: 'boot1@example.com' }));
+      await post(growthPayload({ email: 'boot2@example.com' }));
+    } finally {
+      console.log = realLog;
+      if (saveEdit !== undefined) process.env.EDIT_TOKEN_SECRET = saveEdit;
+      if (saveConfirm !== undefined) process.env.CONFIRM_TOKEN_SECRET = saveConfirm;
+    }
+    const hits = lines.filter((l) => l.includes('waitlist.edit_token.unconfigured'));
+    return { pass: hits.length === 2, actual: `${hits.length} warning(s) for 2 requests` };
+  });
+
+  await check('with a secret set, no warning and a token IS issued', 'silent when healthy', async () => {
+    // The other half. A warning that fires unconditionally is noise, and noise
+    // is how a real warning stops being read.
+    process.env.EDIT_TOKEN_SECRET = process.env.EDIT_TOKEN_SECRET || 'b'.repeat(64);
+    const lines = [];
+    const realLog = console.log;
+    console.log = (...a) => { lines.push(String(a[0])); };
+    let res;
+    try {
+      res = await post(growthPayload({ email: 'healthy@example.com' }));
+    } finally {
+      console.log = realLog;
+    }
+    const warned = lines.some((l) => l.includes('waitlist.edit_token.unconfigured'));
+    const gotToken = typeof res?.json?.edit_token === 'string' && res.json.edit_token.startsWith('edit.');
+    return { pass: !warned && gotToken, actual: `warned=${warned} token=${gotToken ? 'issued' : 'MISSING'}` };
+  });
+
   // ── S23: the edit token, and the vulnerability it exists to avoid ───────
   // "On duplicate, update instead of 409" would make this endpoint an
   // UNAUTHENTICATED WRITE KEYED ON AN EMAIL ADDRESS. These pin that it is not.
