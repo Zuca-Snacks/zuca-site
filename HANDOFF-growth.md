@@ -447,6 +447,8 @@ server, useless against a stale one — the floor cannot rescue a key the server
 has never heard of.
 
 `test/failure-paths.test.mjs` pins the unconditional key list for this reason.
+A new always-present key fails that test, which is the moment to ask whether
+its server is deployed yet.
 
 **And a second test pins the conditional pair, because the first one cannot see
 them.** A test that builds the default payload never constructs the keys that
@@ -465,7 +467,7 @@ payload for it.
 **A guard cannot be reviewed into correctness. Break it deliberately and watch
 whether it notices.** Four mutations were run against this suite; one passed.
 
-### `npm run mutate` — ten plausible defects, ~50s, non-zero on survival
+### `npm run mutate` — twelve plausible defects, ~60s, non-zero on survival
 
 I proposed doing that by hand whenever a field is added. Security's answer was
 better and it is now a script on both sides: forty seconds is cheap enough to do
@@ -544,8 +546,28 @@ Security now pins their gate patterns by fingerprint and fails their suite if
 they change, so the obligation to tell us is a test rather than a promise. **The
 rule this leaves: a test holding its own copy of the thing it checks has stopped
 checking it** — and re-read the source, never your last reading of it.
-A new always-present key fails that test, which is the moment to ask whether
-its server is deployed yet.
+
+### ⚠️ A LOOP OVER A LIST MEASURES THE LIST, NOT THE WORLD
+
+Security found this in their seam test and I went looking rather than agreeing
+there would be one. **Two, both in checks I had written this week.**
+
+The gated-wording test iterated a `GATES` array with nothing asserting what was
+in it. Deleting rows passed 28/28 in silence — **including the `motivation` row,
+the only check on the Art 9 health consent wording.** "5 gates, all matched" and
+"3 gates, all matched" print the same word. Zero was never the risk; *fewer than
+you think* is. Coverage is now declared separately from the data iterated.
+
+The `sendBeacon` scan was worse, because it was a coverage gap and not merely a
+structural one: it read `src/components/waitlist/` and therefore never looked at
+`src/lib/analytics.js` — **the single most likely place anyone would reach for
+`sendBeacon`**, since firing an event on unload is its textbook use. A scan that
+finds nothing and a scan that looked nowhere both print "no hits". It now walks
+all of `src/`, asserts how many files it scanned, and asserts `analytics.js` is
+among them. Verified by planting a `sendBeacon` call there.
+
+**Any assertion inside a loop is an assertion about the fixture until something
+floors the fixture.**
 
 **⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
 both sides are present. A deploy carrying this client without `sec@6efe051`

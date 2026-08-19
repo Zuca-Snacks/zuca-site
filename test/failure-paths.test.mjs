@@ -326,10 +326,28 @@ test('413 climbs the ladder — "do not retry unchanged" means change it', async
 
 test('there is no sendBeacon in the client', async () => {
   const { readFileSync, readdirSync } = await import('node:fs');
-  const dir = new URL('../src/components/waitlist/', import.meta.url);
-  const hits = readdirSync(dir)
-    .filter((f) => /\.(js|jsx)$/.test(f))
-    .filter((f) => /sendBeacon\s*\(/.test(readFileSync(new URL(f, dir), 'utf8')));
+
+  // ⚠️ SCANS ALL OF src/, NOT JUST THE FORM — AND COUNTS WHAT IT SCANNED.
+  // This used to read `src/components/waitlist/` only, which left out
+  // `src/lib/analytics.js`: the single most likely place anyone would reach for
+  // sendBeacon, since firing an event on unload is the textbook use for it.
+  // A scan that finds nothing and a scan that looked nowhere both print "no
+  // hits" — so the file count is asserted before the result is believed.
+  const root = new URL('../src/', import.meta.url);
+  const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const child = new URL(e.name + (e.isDirectory() ? '/' : ''), dir);
+    return e.isDirectory() ? walk(child) : [child];
+  });
+  const files = walk(root).filter((f) => /\.(js|jsx)$/.test(f.pathname));
+  assert.ok(files.length >= 20, `only ${files.length} files scanned — the walk is not reaching src/`);
+  assert.ok(
+    files.some((f) => f.pathname.endsWith('/lib/analytics.js')),
+    'analytics.js must be in scope — it is where sendBeacon would actually be written',
+  );
+
+  const hits = files
+    .filter((f) => /sendBeacon\s*\(/.test(readFileSync(f, 'utf8')))
+    .map((f) => f.pathname.split('/src/')[1]);
   // sendBeacon posts text/plain, which earns a 415 — a status the ladder does
   // not climb. A queue flushed with it drops signups inside the mechanism
   // built to stop signups being dropped.
@@ -401,6 +419,22 @@ test('every gated consent wording stays in the language the server reads', async
     ['business/stop', consentTexts.business.text, /\brepl(?:y|ying)\b|\bunsubscribe\b|\bstop\b/i],
     ['motivation', consentTexts.motivation.text, /\bmedicat|\bGLP-?\s?1\b/i],
   ];
+  // ⚠️ FLOORED, BECAUSE A LOOP OVER A LIST MEASURES THE LIST AND NOT THE WORLD.
+  // Without this, deleting rows from GATES passed the whole suite in silence —
+  // including the `motivation` row, which is the ONLY check on the Art 9 health
+  // wording. "5 gates, all matched" and "3 gates, all matched" print the same
+  // word. Zero was never the risk; fewer than you think is.
+  //
+  // So the coverage is declared separately from the data being iterated. Adding
+  // an element to security's gate means adding it here, deliberately, rather
+  // than the suite quietly continuing to report success about the old set.
+  assert.deepEqual(
+    GATES.map(([name]) => name).sort(),
+    ['business/basis', 'business/exclusion', 'business/exclusion-negation',
+      'business/stop', 'motivation'],
+    'a gate went missing from the list this test iterates',
+  );
+
   for (const [name, text, gate] of GATES) {
     assert.match(text, gate, `${name}: the server's gate cannot read this wording`);
   }

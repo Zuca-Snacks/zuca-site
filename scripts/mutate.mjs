@@ -82,6 +82,20 @@ const MUTATIONS = [
     also: { find: '  "business_enquiry", "business_consent_text_version",\n]);', with: ']);' },
   },
   {
+    label: 'sendBeacon appears where the old scan could not see it',
+    why: 'the scan read only the form directory; analytics.js is where it would actually be written',
+    file: 'src/lib/analytics.js',
+    find: 'export const EVENTS = {',
+    with: 'const _u = () => navigator.sendBeacon("/api/x");\nexport const EVENTS = {',
+  },
+  {
+    label: 'a gate is deleted from the list the test iterates',
+    why: 'a loop over a list measures the list; dropping the Art 9 row passed 28/28 in silence',
+    file: 'test/failure-paths.test.mjs',
+    find: "    ['motivation', consentTexts.motivation.text,",
+    with: "    ['motivation_DELETED', consentTexts.motivation.text,",
+  },
+  {
     label: 'a gated consent wording is translated',
     why: 'the server gates on the TEXT, so a translation fails closed and the path silently stops working',
     file: COPY,
