@@ -8,6 +8,13 @@ import { confirmation as copy } from "../../content/copy.js";
 import { fetchCount } from "./api.js";
 import { EVENTS, track } from "../../lib/analytics.js";
 
+/** 1st, 2nd, 3rd, 4th… including the 11–13 exceptions. */
+function ordinal(n) {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  return `${n}${{ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"}`;
+}
+
 function shareUrl() {
   if (typeof window === "undefined") return "";
   const url = new URL(window.location.origin + window.location.pathname);
@@ -96,25 +103,23 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
     setManualUrl(url);
   }
 
-  const title = duplicate
-    ? copy.duplicate
-    : position !== null
-      ? copy.title.replace("{position}", position.toLocaleString())
-      : copy.titleFallback;
+  const title = duplicate ? copy.duplicate : copy.title;
+  const welcome =
+    !duplicate && position !== null
+      ? copy.position.replace("{position}", ordinal(position))
+      : null;
 
   return (
     <div className="zw-card zw-card--tall">
       <div aria-live="polite">
-        {!duplicate && position !== null ? (
-          <p className="zw-position">#{position.toLocaleString()}</p>
-        ) : null}
         <h2 className="zw-title">{title}</h2>
+        {welcome ? <p className="zw-welcome">{welcome}</p> : null}
         <p className="zw-body">
           {duplicate
             ? copy.duplicateBody
             : profileSaved
-              ? "Thanks — those answers go straight into what we produce first."
-              : "Your spot is saved. Here's what happens from here."}
+              ? "Thanks — those answers go straight into what we make first."
+              : "Here's what happens from here."}
         </p>
       </div>
 
