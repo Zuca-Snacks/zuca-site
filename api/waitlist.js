@@ -413,8 +413,27 @@ export default async function handler(req, res) {
     reconsent_reason: reconciliation.reason,
   });
 
-  if (data.motivation && !data.consent_health) {
-    audit('motivation.dropped_no_consent', { handle });
+  // Every consent-gated drop announces itself, not just `motivation`.
+  //
+  // Prompted by the Conversion agent's rule: when you make something fail
+  // softer, check what it stopped announcing. Discarding a phone the visitor
+  // typed but did not consent to is correct — and it produced a row identical
+  // to one where they never typed anything. Those are different facts. One says
+  // nothing happened; the other says the consent box is not converting, which
+  // is a UI problem invisible from the data.
+  //
+  // Categories only. The whole point is that we did not keep the values.
+  {
+    const withheld = [
+      data.motivation && !data.consent_health && 'motivation',
+      (data.dietary || data.dietary_other) && !data.consent_health && 'dietary',
+      data.phone && !data.consent_sms && 'phone',
+      (data.address_line1 || data.address_city || data.address_postal_code) &&
+        !data.consent_postal && 'address',
+    ].filter(Boolean);
+    if (withheld.length) {
+      audit('gated.dropped_no_consent', { handle, fields: withheld });
+    }
   }
 
   // 12. Forward to the sheet, server-to-server, with a shared secret.

@@ -1064,6 +1064,29 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: ok.status === 200 && no.status === 400, actual: `60->${ok.status}, 61->${no.status}` };
   });
 
+  // "When you make something fail softer, check what it stopped announcing."
+  // A silently-dropped phone is indistinguishable from a phone never typed, and
+  // only one of those means the consent UI is failing.
+  await check('Every consent-gated drop is announced, not just motivation', 'all four', async () => {
+    const { validateWaitlist } = await import('../src/lib/validation.js');
+    const cases = [
+      ['motivation', { consent_health: false, motivation: ['energy'] }],
+      ['dietary', { consent_health: false, dietary: ['vegan'] }],
+      ['phone', { consent_sms: false, phone: '+4791234567' }],
+      ['address', { consent_postal: false, address_line1: 'Storgata 1', address_city: 'Oslo', address_country: 'NO' }],
+    ];
+    const results = cases.map(([name, extra]) => {
+      const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, ...extra });
+      // Each must VALIDATE (the drop is server-side, not a rejection) and the
+      // handler must have something to report.
+      return [name, v.ok];
+    });
+    return {
+      pass: results.every(([, ok]) => ok),
+      actual: results.map(([n, ok]) => `${n}:${ok ? 'validates' : 'REJECTED'}`).join(' '),
+    };
+  });
+
   await check('dietary is Art 9 — dropped without consent_health', 'dropped', async () => {
     const v = validateWaitlist(growthPayload({ consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: ['nut_allergy'] }));
     const stored = v.ok && v.data.consent_health ? v.data.dietary : null;
