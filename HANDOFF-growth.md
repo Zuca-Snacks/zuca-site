@@ -258,6 +258,59 @@ growth to defend against, only signal dilution.
 
 ---
 
+## 📧 THE REPO IS PUBLIC, SO EVERY EXAMPLE ADDRESS IS A PUBLISHED ONE
+
+Confirmed rather than assumed — `gh repo view` reports `Zuca-Snacks/zuca-site`
+as **PUBLIC**. That changes what an illustrative address is: not a placeholder,
+but a string committed to a scrapeable public tree, pointing at whoever owns the
+domain.
+
+Everything here now uses RFC 2606 reserved names — `example.com`, or a `.example`
+TLD where the fiction needs to read as a real business:
+
+⚠️ The table below names DOMAINS and never forms an address, on purpose. The
+first draft of this section listed each bad address in full while explaining why
+it was wrong — reintroducing all six into the public tree inside the fix for
+them, one of them a real person's name at a live mail host. **Documenting a bad
+address tends to mean printing it.** Security hit the same thing in the same
+hour and it is the reason this reads the way it does.
+
+| was at | now | where |
+|---|---|---|
+| `zuca.com` | `example.com` | `src/lib/validation.js` — shipped source |
+| a live mail host, with a person's name | `example.com` | `src/content/copy.js` — shipped source |
+| `bakeriet.no` | `bakeriet.example` | tests and this handoff, six places |
+| `b.com`, `b.co` | `example.com` | tests — both registered |
+
+**One correction on the record, because the commit message carries the wrong
+version.** `5747c89` claims I verified that security's `scripts/` fixtures are
+untouched on this branch, using `git log main..HEAD -- <paths>`. That base is
+wrong: my branch sits on top of security's work, so `main..HEAD` lists their
+commits too, and the command printed seventeen `fix(sec)` lines that I read as
+"not mine" only because I already believed the answer. The claim happens to be
+true — `git log polish/round-2..HEAD` on those paths is genuinely empty, and
+`src/lib/validation.js` shows only my one-line `4abd8b4` — but it was true by
+luck, and the check I cited did not test it. A green result that refers to
+something other than what you think it refers to, one more time, in the commit
+asserting there were no more of those.
+
+**And the strings survive in git history regardless.** These were committed and
+pushed before the sweep, so they are in the public log whatever this file says.
+Rewriting that history would mean a force-push, which is prohibited here and
+would be the wrong trade anyway: a rewritten public branch breaks every clone for
+a string already scraped. The remedy for anything genuinely sensitive is to
+change the thing, not the record of it.
+
+**`mailinator.com` stays, deliberately.** The disposable-domain test has to name a
+real disposable provider or it tests nothing — the string IS the thing under
+test, which is the same exemption-by-scope that keeps security's
+`admin@zucasnacks.com` role-address fixture where it is.
+
+The rule, since it is not obvious from any single instance: **an example address
+belongs at a reserved domain unless the specific domain is what is being
+tested.** `.co` and `.no` are live TLDs and do not qualify; `.example`, `.test`,
+`.invalid` and `example.com/net/org` do.
+
 ## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT AND LIVE)
 
 Two things we built are in direct conflict, and neither team could see it alone.
@@ -267,10 +320,10 @@ company name and headcount. The server's `ROLE_LOCALPARTS` rejects the address a
 small company actually uses:
 
 ```
-office@bakeriet.no    REJECTED   role_address
+office@bakeriet.example    REJECTED   role_address
 team@ · contact@ · info@ · sales@   REJECTED
-post@bakeriet.no      OK   ← the standard Norwegian business prefix
-emil@bakeriet.no      OK
+post@bakeriet.example      OK   ← the standard Norwegian business prefix
+emil@bakeriet.example      OK
 ```
 
 Setting `office_interest`, `company` and `headcount` does not help: the address
@@ -627,6 +680,27 @@ correct-looking failure, and the deletion had **not applied** — the floor's
 indentation differed from my patch. It failed for the wrong reason and I nearly
 wrote it up as a success. That is the did-not-apply rule from `mutate.mjs`,
 biting the person who wrote it, by hand, minutes later.
+
+**⚠️ AND THE COUPLING I FIRST STATED WAS INSUFFICIENT.** I told the merge
+session "my client with `sec@6efe051` or later". That is met on
+`polish/round-2`, both S22 halves are in, and the path works — but the gate
+protecting it is still the pre-`d5a6909` keyword search. Verified by extracting
+that branch's real `validation.js` and running it:
+
+```
+"Tell us about your workplace."     ACCEPTED as consent for a shared mailbox
+```
+
+Not blocking, and nothing misbehaves today: our shipped wording passes both
+versions. What is absent is the backstop — edit that sentence and the old gate
+accepts a rewrite that has stopped being a consent, while the row is still
+stored with marketing suppressed on the strength of wording that no longer says
+why. **`sec@d5a6909` is the minimum for the gate, not `6efe051`.**
+
+The lesson is not about S22. **A version floor stated as "the commit that makes
+it work" is the wrong floor.** The right one is the commit that makes it *safe*,
+and those were four commits apart here — with the working version arriving
+first, which is the order that hides the gap.
 
 **⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
 both sides are present. A deploy carrying this client without `sec@6efe051`

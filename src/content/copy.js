@@ -561,7 +561,7 @@ export const step1 = {
   errors: {
     empty: "Enter your email and we'll save your spot.",
     invalid: "That email doesn't look right — mind checking it?",
-    // A double dot is a plain typo (emil..nordin@gmail.com) and deserves to be
+    // A double dot is a plain typo (sarah..jones@example.com) and deserves to be
     // told so. The server rejects it, but its 400 body is {ok, error} only —
     // the rule name goes to its audit LOG, not to us — so we cannot branch on
     // the response. Catching it here is better anyway: no round trip, and the

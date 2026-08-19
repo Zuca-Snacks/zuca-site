@@ -62,7 +62,7 @@ const GATED_ELEMENTS = [
 ];
 
 const payload = (over = {}) => ({
-  email: 'a@b.com', consent_marketing: true, consent_health: false,
+  email: 'a@example.com', consent_marketing: true, consent_health: false,
   consent_text_version: 'mkt-us-2026-08-15-7d912cf1', ...over,
 });
 
@@ -117,7 +117,7 @@ test('genuinely offline → offline, and IS queued', async () => {
   // Entries are {payload, meta} now — the meta records the schema generation
   // so a replay after an enum change is recognisable rather than merely
   // unlucky. See the drift tests below.
-  assert.equal(q[0].payload.email, 'a@b.com');
+  assert.equal(q[0].payload.email, 'a@example.com');
 });
 
 test('400 → validation, distinct from both', async () => {
@@ -208,7 +208,7 @@ test('queued entries record the schema generation they were written under', asyn
   const [entry] = queued(store);
   assert.equal(entry.meta.schema, mod.SCHEMA_GENERATION,
     'a stale replay should be recognisable, not merely unlucky');
-  assert.equal(entry.payload.email, 'a@b.com');
+  assert.equal(entry.payload.email, 'a@example.com');
 });
 
 test('the floor still says what it discarded — a quiet loss is worse than a loud one', async () => {
@@ -229,7 +229,7 @@ test('the floor still says what it discarded — a quiet loss is worse than a lo
   assert.ok(landed.downgraded_fields, 'the record that landed must declare itself downgraded');
   assert.ok(landed.downgraded_fields.includes('price_band'),
     'and must name the field that actually caused it');
-  assert.equal(landed.email, 'a@b.com');
+  assert.equal(landed.email, 'a@example.com');
 });
 
 test('every rung accumulates, so the floor names losses from earlier rungs too', async () => {
@@ -313,8 +313,8 @@ test('the email is NOT control-stripped — repairing an identifier is worse tha
   // fields are cosmetic; an identifier is not.
   assert.ok(body.email.includes(String.fromCharCode(7)),
     'the control character must survive so the server can reject the address');
-  const clean = mod.buildPayload({ email: 'A@B.com ', consentMarketing: true });
-  assert.equal(clean.email, 'a@b.com', 'trim and lowercase still apply');
+  const clean = mod.buildPayload({ email: 'A@Example.com ', consentMarketing: true });
+  assert.equal(clean.email, 'a@example.com', 'trim and lowercase still apply');
 });
 
 test('a double-dot typo is named as a typo, not as a policy rejection', async () => {
@@ -480,9 +480,9 @@ test('a personal signup carries no business keys at all', async () => {
 
 test('the shared-inbox mirror decides presentation, never permission', async () => {
   const { looksLikeRoleAddress } = await import('../src/components/waitlist/roleAddress.js');
-  assert.equal(looksLikeRoleAddress('office@bakeriet.no'), true);
-  assert.equal(looksLikeRoleAddress('INFO@Bakeriet.no'), true);
-  assert.equal(looksLikeRoleAddress('sarah@bakeriet.no'), false);
+  assert.equal(looksLikeRoleAddress('office@bakeriet.example'), true);
+  assert.equal(looksLikeRoleAddress('INFO@Bakeriet.example'), true);
+  assert.equal(looksLikeRoleAddress('sarah@bakeriet.example'), false);
   assert.equal(looksLikeRoleAddress(''), false);
   assert.equal(looksLikeRoleAddress(null), false);
   // The point of the file: it must not be reachable from the submit path as a
@@ -506,7 +506,7 @@ test('the business consent id keeps its purpose and region tokens', async () => 
 test('an empty signup sends no key a deployed server has not seen', async () => {
   const mod = await import('../src/components/waitlist/api.js');
   const keys = Object.keys(mod.buildPayload({
-    email: 'a@b.co', consentMarketing: true, consentTextVersion: 'x',
+    email: 'a@example.com', consentMarketing: true, consentTextVersion: 'x',
     formRenderTs: Date.now() - 9000,
   })).sort();
 
@@ -547,7 +547,7 @@ test('the conditional keys are spelled the way the server spells them', async ()
   const mod = await import('../src/components/waitlist/api.js');
   const { businessConsent } = await import('../src/components/waitlist/consent.js');
   const keys = Object.keys(mod.buildPayload({
-    email: 'office@bakeriet.no', consentMarketing: true, consentTextVersion: 'x',
+    email: 'office@bakeriet.example', consentMarketing: true, consentTextVersion: 'x',
     businessEnquiry: true, businessConsentTextVersion: businessConsent().version,
     formRenderTs: Date.now() - 9000,
   }));
