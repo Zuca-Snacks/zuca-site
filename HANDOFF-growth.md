@@ -258,7 +258,7 @@ growth to defend against, only signal dilution.
 
 ---
 
-## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — Emil's call)
+## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT, awaiting registration)
 
 Two things we built are in direct conflict, and neither team could see it alone.
 
@@ -327,10 +327,104 @@ It is the condition the wording is standing on.
 It would mint its own version id (`biz-…`) through the existing fingerprint, so
 the evidence trail works unchanged.
 
-**Not built, not requested.** Recorded so the wording is not being drafted from
-scratch on the day the decision lands.
+**BUILT.** Emil approved it on 2026-08-19; server landed at `sec@02d148b`,
+client here. What follows is what the build taught that the draft above did not
+know.
 
----
+### The gate could not be `office_interest`, and the reason is pure sequencing
+
+Security's recommendation was to allow a role address when `office_interest` is
+set. It cannot work, and it is worth writing down because both sides read it
+twice without seeing it:
+
+```
+step 1, screen 0    email submitted and validated   ← role_address rejected HERE
+step 2, screen 4    office_interest / company / headcount   ← two screens later
+```
+
+The address is refused before the person has any way to say it is a work
+enquiry. The gate is a dedicated `business_enquiry` flag plus a consent version,
+tested the same way the medication gate is: against the **resolved wording**, not
+against the flag. Security accepted the correction and rebuilt it that way.
+
+### The 400 says nothing, so the offer is client-side — like the double-dot typo
+
+`{ ok: false, error: 'validation' }`. No path, no rule. That is deliberate
+(anti-enumeration, `api/waitlist.js:17`) and should stay. Security's note said
+"the path stays `['email']` with rule `role_address` so your client copy keeps
+working" — true inside their validator, invisible from here. **The rule name goes
+to their audit log, not to us.** Same discovery as the double-dot typo, same
+remedy: decide it on our side.
+
+So `roleAddress.js` mirrors `ROLE_LOCALPARTS` — **and I refused to mirror that
+same list a fortnight ago.** The difference is what the copy is allowed to do:
+
+| used for | stale copy fails… | verdict |
+|---|---|---|
+| pre-validation (refused) | optimistically — waves through what the server refuses | unsafe |
+| deciding what to OFFER (built) | either way, harmlessly — server still decides | safe |
+
+A mirror that grants nothing cannot be wrong in the direction that matters. If
+that file ever gains a caller that returns early, it has silently become
+pre-validation — there is a test asserting it has not.
+
+Drift is caught rather than merely tolerated: **any** step-1 validation failure
+offers the box, whatever our list says. `BUSINESS_OFFERED` records `via` —
+a rising `rejected` share against `local_part` means their list has moved and
+ours has not, which is otherwise invisible from here.
+
+### ⚠️ THE LADDER WOULD HAVE GUARANTEED THE FAILURE IT EXISTS TO PREVENT
+
+The one that would have shipped silently. `business_enquiry` reads like optional
+metadata, so it belonged in `SERVER_KNOWN_KEYS` and nowhere else. Verified
+against their real schema:
+
+```
+CORE (without the fix)      rejected  email:role_address
+MINIMAL (without the fix)   rejected  email:role_address
+```
+
+Every rung strips the field that made the address legal, so a business signup
+that hit any 400 would descend the ladder failing identically at each step and
+die at the floor. **For a shared inbox these keys are not data, they are the
+precondition of the address being accepted** — so they are in CORE and MINIMAL.
+
+It also narrows the floor's promise, and the test now says so: *"there is always
+a version of the record that validates"* holds only for an address the server
+would accept at all. A role address with an unregistered consent id has no valid
+form — keep the keys and it fails on the wording, drop them and it fails on
+`role_address`. Correct, but no longer unconditional.
+
+### The wording is authored here, and that is not a formality
+
+Security hand-registered `2026-08-19.business.a` — the single hand-maintained
+entry in a registry whose generator exists precisely to prevent them — and in
+doing so rewrote Emil's approved text into the third person ("Zuca will email"
+for "We'll email"). Two problems, one structural:
+
+- **display ≠ stored.** Rendering Emil's words while sending their id records a
+  consent the person never read. That is the defect class the fingerprint was
+  built to make impossible.
+- the wording stops living in `copy.js`, so the next edit changes what people
+  see without changing the evidence.
+
+So it is authored in `consentTexts.business` and minted the normal way:
+**`biz-eea-2026-08-19-fc6ba471`**. Region token `eea` for the same reason `mot`
+uses it — one wording at the strict bar, and `all` parses as `unknown` regime.
+
+`BUSINESS_BASIS_LIVE = false` until security regenerates. An unregistered id
+resolves to no text and is refused, so the checkbox stays hidden rather than
+offering a route that cannot work.
+
+### The confirmation had to change too, or we would have lied on the last screen
+
+The server stores `consent_marketing` FALSE for these rows regardless of what
+the box said — correct, since a shared mailbox cannot carry a named person's
+consent. But the confirmation promised *"We'll email you once before launch"*.
+**That is now an email we have committed not to send**, so a business enquiry
+gets `whatNextLineBusiness` instead. The suppression and the promise are the
+same fact in two places; only one of them was in security's diff.
+
 
 ## ⚖️ FOR COOLEY REVIEW — two items, both added on instruction, neither to be assumed safe
 

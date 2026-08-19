@@ -93,6 +93,23 @@ export function smsConsent(region = detectConsentRegion()) {
   return { region: key, text: entry.text, version: version("sms", key, entry) };
 }
 
+/**
+ * The business basis that lets a shared inbox (info@, office@) sign up at all.
+ *
+ * Audience token is `eea` for the same reason `mot` is: one wording written to
+ * the strict bar and served everywhere, and `all` parses as `unknown` regime on
+ * the server, which would leave these records unauditable.
+ *
+ * ⚠️ ORDERING: this id must be registered in security's generated registry
+ * BEFORE the client can send it. An unregistered id resolves to no text, the
+ * coverage test sees nothing, and the submission is refused — which is the
+ * right failure, but it is still a failure. See BUSINESS_BASIS_LIVE in api.js.
+ */
+export function businessConsent() {
+  const entry = consentTexts.business;
+  return { text: entry.text, version: version("biz", "eea", entry) };
+}
+
 /** Postal. Named for the wire key `consent_postal`, not for "mail". */
 export function postalConsent() {
   const entry = consentTexts.mail;

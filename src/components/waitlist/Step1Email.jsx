@@ -12,9 +12,10 @@ import Input from "../ui/Input.jsx";
 import Field from "../ui/Field.jsx";
 import Checkbox from "../ui/Checkbox.jsx";
 import { step1 as copy, hero } from "../../content/copy.js";
-import { buildPayload, RESULT, submitWaitlist } from "./api.js";
+import { BUSINESS_BASIS_LIVE, buildPayload, RESULT, submitWaitlist } from "./api.js";
 import { EVENTS, observeOnce, track, trackOnce } from "../../lib/analytics.js";
-import { marketingConsent } from "./consent.js";
+import { businessConsent, marketingConsent } from "./consent.js";
+import { looksLikeRoleAddress } from "./roleAddress.js";
 import { bumpCount } from "./countStore.js";
 
 // Deliberately permissive: the server is the authority on validity, and a
@@ -26,6 +27,14 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
   // stricter EEA wording — see consent.js. `consent.version` records what was
   // actually shown, so the evidence is truthful even if the region guess isn't.
   const [consentCopy] = useState(marketingConsent);
+  const [businessCopy] = useState(businessConsent);
+
+  // The shared-inbox path. `businessOffered` is set either by our local-part
+  // mirror while they type, or by a validation rejection of an address that
+  // passed every check we can make — the second is what catches a list that
+  // has drifted, since the server's 400 never says which rule fired.
+  const [businessOffered, setBusinessOffered] = useState(false);
+  const [businessTicked, setBusinessTicked] = useState(false); // never pre-checked
 
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false); // never pre-checked
@@ -41,6 +50,7 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
   const emailId = `zw-email-${uid}`;
   const hpId = `zw-website-${uid}`;
   const consentId = `zw-consent-marketing-${uid}`;
+  const businessId = `zw-consent-business-${uid}`;
 
   const rootRef = useRef(null);
   const inputRef = useRef(null);
@@ -71,6 +81,21 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
     window.addEventListener("zuca:hero-email", onHeroEmail);
     return () => window.removeEventListener("zuca:hero-email", onHeroEmail);
   }, [consentId, prefetchStep2]);
+
+  /**
+   * Offer the business basis, once, recording why it was offered.
+   *
+   * It never blocks and never pre-empts the server. Showing the box early only
+   * saves a doomed round trip for addresses we happen to recognise; the server
+   * remains the only thing that decides whether the address is acceptable.
+   */
+  function offerBusiness(via) {
+    if (!BUSINESS_BASIS_LIVE) return;
+    setBusinessOffered((already) => {
+      if (!already) track(EVENTS.BUSINESS_OFFERED, { location, via });
+      return true;
+    });
+  }
 
   function handleFocus() {
     if (focusTracked.current) return;
@@ -115,12 +140,22 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
     setBusy(true);
     setError("");
     setConsentError("");
-    track(EVENTS.STEP1_SUBMIT, { location, consent_region: consentCopy.region });
+    // Only true when the box is BOTH available and ticked. buildPayload drops
+    // the keys entirely when false — sending `business_enquiry` speculatively
+    // would suppress this person's marketing consent server-side.
+    const sendingBusiness = BUSINESS_BASIS_LIVE && businessOffered && businessTicked;
+    track(EVENTS.STEP1_SUBMIT, {
+      location,
+      consent_region: consentCopy.region,
+      business: sendingBusiness ? 1 : 0,
+    });
 
     const payload = buildPayload({
       email: value,
       consentMarketing: true,
       consentTextVersion: consentCopy.version,
+      businessEnquiry: sendingBusiness,
+      businessConsentTextVersion: sendingBusiness ? businessCopy.version : null,
       formRenderTs,
       hpField: hp,
     });
@@ -143,6 +178,9 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
         email: value,
         duplicate: result.status === RESULT.DUPLICATE,
         position: result.position ?? null,
+        // Carried so the confirmation does not promise a launch email the
+        // server has just committed to never sending.
+        business: sendingBusiness,
       });
       return;
     }
@@ -150,6 +188,19 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
     // Rollback: stay on step 1, keep what they typed, say something a human
     // would say. The raw error code never reaches the screen.
     track(EVENTS.STEP1_ERROR, { reason: result.status });
+
+    // The server refused an address that passed every check we can make, and
+    // its 400 body is {ok, error} — the rule name goes to its audit log, not to
+    // us. A shared inbox is the most likely cause we can actually do something
+    // about, so offer the route rather than asserting the diagnosis. Skipped
+    // once they have already ticked it: the box is plainly not the problem.
+    if (result.status === RESULT.VALIDATION && BUSINESS_BASIS_LIVE && !businessTicked) {
+      offerBusiness("rejected");
+      setError(copy.errors.business_hint);
+      inputRef.current?.focus();
+      return;
+    }
+
     setError(copy.errors[result.status] || copy.errors.server);
     inputRef.current?.focus();
   }
@@ -175,8 +226,12 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
               disabled={busy}
               onFocus={handleFocus}
               onChange={(e) => {
-                setEmail(e.target.value);
+                const next = e.target.value;
+                setEmail(next);
                 if (error) setError("");
+                // Offer, never retract: someone mid-way through typing
+                // `office@…` should not watch the box appear and vanish.
+                if (looksLikeRoleAddress(next)) offerBusiness("local_part");
               }}
             />
           )}
@@ -211,6 +266,29 @@ export default function Step1Email({ formRenderTs, location = "hero", onSuccess,
             if (next) setConsentError("");
           }}
         />
+
+        {/* Separated from the marketing consent above it for the same reason
+            the health opt-in is: two consents in one visual block read as one
+            consent, and this one carries a different legal basis entirely. */}
+        {businessOffered ? (
+          <div className="zw-consent--separate">
+            <p className="zw-note">{copy.businessPrompt}</p>
+            <Checkbox
+              id={businessId}
+              consentVersion={businessCopy.version}
+              checked={businessTicked}
+              label={businessCopy.text}
+              onChange={(e) => {
+                const next = e.target.checked;
+                setBusinessTicked(next);
+                if (next) {
+                  track(EVENTS.BUSINESS_TICKED, { location });
+                  setError("");
+                }
+              }}
+            />
+          </div>
+        ) : null}
 
         <Button type="submit" size="lg" block disabled={busy} loading={busy}>
           {copy.cta}

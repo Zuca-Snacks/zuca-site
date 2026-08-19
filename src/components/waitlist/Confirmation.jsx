@@ -30,7 +30,7 @@ function shareUrl() {
 // WaitlistForm's call so the distinction survives if the screen ever wants it
 // again — it is the difference between someone who answered and someone who
 // skipped, which is worth not throwing away at the call site.
-export default function Confirmation({ position: knownPosition, duplicate, name }) {
+export default function Confirmation({ position: knownPosition, duplicate, name, business = false }) {
   const [position, setPosition] = useState(knownPosition ?? null);
   const [shared, setShared] = useState(false);
   // "copy" once the native sheet is unavailable; "failed" if even that breaks.
@@ -146,8 +146,14 @@ export default function Confirmation({ position: knownPosition, duplicate, name 
         {duplicate ? <p className="zw-body">{copy.duplicateBody}</p> : null}
       </div>
 
+      {/* A business enquiry is stored with marketing consent FALSE — the server
+          suppresses it whatever the box said, because a shared mailbox cannot
+          carry an identifiable person's consent. The default line promises an
+          email we have therefore undertaken not to send. */}
       {copy.timeline === "line" ? (
-        <p className="zw-body zw-next">{copy.whatNextLine}</p>
+        <p className="zw-body zw-next">
+          {business ? copy.whatNextLineBusiness : copy.whatNextLine}
+        </p>
       ) : copy.timeline === "full" ? (
         <ol className="zw-timeline">
           {copy.whatNext.map((item) => (

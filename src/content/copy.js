@@ -510,6 +510,22 @@ export const consentTexts = {
   // load-bearing word. Do not upgrade it to "will", and do not name what gets
   // sent, until there is something we are certain we can send to everyone who
   // ticked this box.
+  // ⚠️ THIS STRING IS THE LEGAL BASIS, NOT A DESCRIPTION OF IT.
+  // A shared mailbox has no individual behind it who can consent, so there is
+  // nothing underneath to fall back on if the wording is wrong. Security's
+  // `consentCoversBusiness()` tests this exact text for "on behalf of",
+  // "workplace" or "business enquiry" — edit those phrases out and every office
+  // signup starts failing, which is the correct failure.
+  //
+  // The narrowing is a constraint on us, not a courtesy. Mailing a shared
+  // inbox about a consumer launch does not weaken this basis, it removes it —
+  // which is why the server stores `consent_marketing` as FALSE for these rows
+  // no matter what the marketing box said, and why the confirmation screen
+  // shows `whatNextLineBusiness` instead of promising a launch email.
+  business: {
+    authored: "2026-08-19",
+    text: "I'm asking on behalf of my workplace. This is a business enquiry, not a personal signup. We'll email this address about stocking Zuca at work — nothing else — and anyone reading this inbox can stop it by replying to that email. Because it's a shared address, we won't add it to our personal mailing list.",
+  },
   mail: {
     authored: "2026-08-18",
     text: "You can post me something. We'd like to show early supporters some love and may send you something — no promises about what or when. Your address isn't shared with anyone, and you can ask us to delete it whenever you like.",
@@ -519,6 +535,11 @@ export const consentTexts = {
 // ─── Step 1 ──────────────────────────────────────────────────────────────────
 export const step1 = {
   label: "Email address",
+  // Surfaced when the address looks like a shared inbox (info@, office@) and
+  // again if the server rejects one we didn't recognise. Never blocks: the
+  // server is the authority on whether an address is acceptable, and a client
+  // that refuses to submit is a client that can be wrong on its own.
+  businessPrompt: "Asking for your workplace?",
   placeholder: "you@example.com",
   cta: ACTIVE_CTA.step1,
   ctaBusy: ACTIVE_CTA.step1Busy,
@@ -534,6 +555,11 @@ export const step1 = {
     // message arrives while their hands are still on the field.
     typo: "There's a double dot in there — looks like a typo?",
     consent: "Tick the box so we're allowed to email you.",
+    // Shown when the server refuses an address that passed every check we can
+    // make. Its 400 says only {ok, error} — see the note on `typo` — so we
+    // cannot know it was the shared-inbox rule. The message therefore offers
+    // the one route we have rather than asserting a cause we can't see.
+    business_hint: "We can't take that address as a personal signup. If you're asking for your workplace, tick the box below and we'll take it as a business enquiry.",
     rate_limited: "That's a lot of tries. Give it a minute and we'll take it from there.",
     // ⚠️ ONLY `offline` may say the address is saved. It is the only failure
     // we actually queue. `server` covers a 404, a 5xx, a timeout and an
@@ -665,6 +691,12 @@ export const confirmation = {
   timeline: "line",
   whatNextLine:
     "We'll email you once before launch with the ship date and your ordering window — ahead of the public.",
+  // A business enquiry is stored with marketing consent FALSE — the server
+  // suppresses it regardless of what the box said, because a shared mailbox
+  // cannot give an identifiable person's consent. So the launch email above is
+  // one we have promised not to send, and this line replaces it.
+  whatNextLineBusiness:
+    "We'll be in touch about stocking Zuca at work. Nothing else — and anyone reading this inbox can stop it by replying.",
   whatNext: [
     { when: "Right now", what: "Your spot is saved. No card, no charge, nothing to confirm." },
     { when: "Before launch", what: "One email with the ship date and your ordering window, ahead of the public." },

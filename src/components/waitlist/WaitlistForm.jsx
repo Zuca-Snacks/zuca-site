@@ -59,9 +59,9 @@ export default function WaitlistForm({ location = "hero" }) {
     headingRef.current?.focus();
   }, [shared.stage]);
 
-  const handleStep1Success = useCallback(({ email, duplicate, position }) => {
+  const handleStep1Success = useCallback(({ email, duplicate, position, business }) => {
     advanced.current = true;
-    setState({ stage: "profile", email, duplicate, position });
+    setState({ stage: "profile", email, duplicate, position, business: business === true });
   }, []);
 
   const handleStep2Done = useCallback(() => {
@@ -108,6 +108,7 @@ export default function WaitlistForm({ location = "hero" }) {
           <Confirmation
             position={shared.position}
             name={shared.name}
+            business={shared.business}
             duplicate={shared.duplicate}
             profileSaved={shared.profileSaved}
           />

@@ -159,8 +159,27 @@ test('the floor is what the server actually requires', async () => {
   assert.ok(mod.MINIMAL_KEYS.has('email'));
   assert.ok(mod.MINIMAL_KEYS.has('consent_marketing'));
   // Anything beyond email + consent is a value that could itself be rejected,
-  // which would defeat the point of having a floor at all.
-  assert.ok(mod.MINIMAL_KEYS.size <= 3, 'the floor must stay irreducible');
+  // which would defeat the point of having a floor at all. So the floor is
+  // asserted by exact membership rather than by size: a new entry fails here
+  // until someone writes down why it is a PRECONDITION and not merely useful.
+  //
+  // The two business keys are the one justified exception. For a shared inbox
+  // they are what makes the address acceptable, so dropping them does not
+  // shrink the record, it destroys it — verified against zuca-sec@02d148b,
+  // where a stripped business payload is refused at CORE and at MINIMAL alike.
+  //
+  // ⚠️ AND IT NARROWS THE FLOOR'S PROMISE, WHICH IS WORTH SAYING PLAINLY.
+  // "There is always a version of the record that validates" is now true only
+  // for an address the server would accept at all. A role address whose consent
+  // id is unregistered has no valid form: keeping the keys fails on the wording,
+  // dropping them fails on `role_address`. That is correct — we should not
+  // store a shared mailbox with no basis — but it is no longer unconditional.
+  assert.deepEqual(
+    [...mod.MINIMAL_KEYS].sort(),
+    ['business_consent_text_version', 'business_enquiry', 'consent_marketing',
+      'consent_text_version', 'email'],
+    'the floor must stay irreducible',
+  );
 });
 
 test('queued entries record the schema generation they were written under', async () => {
@@ -315,4 +334,57 @@ test('there is no sendBeacon in the client', async () => {
   // not climb. A queue flushed with it drops signups inside the mechanism
   // built to stop signups being dropped.
   assert.deepEqual(hits, [], 'sendBeacon would make queue flushes fail as 415');
+});
+
+// ─── S22: the business basis for shared inboxes ──────────────────────────────
+
+test('the business wording still contains the phrases the server gates on', async () => {
+  const { consentTexts } = await import('../src/content/copy.js');
+  const text = consentTexts.business.text;
+  // Mirrors security's consentCoversBusiness(). The wording IS the legal basis
+  // for a shared mailbox — there is no individual's consent underneath to fall
+  // back on — so an edit that drops these phrases must fail here rather than
+  // silently start refusing every office signup in production.
+  assert.match(text, /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i);
+  // And the narrowing that makes the basis lawful at all.
+  assert.match(text, /replying/i, 'the inbox must be told how to stop it');
+  assert.match(text, /not|won't/i, 'and told it is excluded from the personal list');
+});
+
+test('the business keys survive every rung of the downgrade ladder', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  for (const [name, set] of [['CORE', mod.CORE_KEYS], ['MINIMAL', mod.MINIMAL_KEYS]]) {
+    // Verified against zuca-sec@02d148b: strip these and the retry fails on
+    // `role_address` at every rung, so the ladder converts a recoverable 400
+    // into a guaranteed one. For a shared inbox they are not optional data,
+    // they are the precondition of the address being accepted.
+    assert.ok(set.has('business_enquiry'), `${name} must keep business_enquiry`);
+    assert.ok(set.has('business_consent_text_version'), `${name} must keep the version`);
+  }
+});
+
+test('a personal signup carries no business keys at all', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const p = mod.buildPayload({ email: 'sarah@example.com', consentMarketing: true,
+    consentTextVersion: 'mkt-us-2026-08-15-00000000', formRenderTs: Date.now() - 9000 });
+  // The server stores consent_marketing FALSE for any row where business_enquiry
+  // is true. Sending it speculatively would unsubscribe people who never asked.
+  assert.equal('business_enquiry' in p, false);
+  assert.equal('business_consent_text_version' in p, false);
+});
+
+test('the shared-inbox mirror decides presentation, never permission', async () => {
+  const { looksLikeRoleAddress } = await import('../src/components/waitlist/roleAddress.js');
+  assert.equal(looksLikeRoleAddress('office@bakeriet.no'), true);
+  assert.equal(looksLikeRoleAddress('INFO@Bakeriet.no'), true);
+  assert.equal(looksLikeRoleAddress('sarah@bakeriet.no'), false);
+  assert.equal(looksLikeRoleAddress(''), false);
+  assert.equal(looksLikeRoleAddress(null), false);
+  // The point of the file: it must not be reachable from the submit path as a
+  // gate. If this ever grows a "return early" caller, the mirror has become
+  // pre-validation and a stale copy starts refusing addresses the server takes.
+  const { readFileSync } = await import('node:fs');
+  const step1 = readFileSync(new URL('../src/components/waitlist/Step1Email.jsx', import.meta.url), 'utf8');
+  assert.equal(/looksLikeRoleAddress\([^)]*\)\s*\)?\s*(return|\{\s*return)/.test(step1), false,
+    'the mirror must never short-circuit a submission');
 });
