@@ -367,7 +367,14 @@ export default async function handler(req, res) {
           ['marketing', data.consent_marketing, consent],
           ['health', data.consent_health, healthConsent],
           ['sms', data.consent_sms, smsConsent],
-          ['mail', data.consent_postal, postalConsent],
+          // `postal`, matching consent_postal and postal_consent_text_version.
+          // It was `mail` — a leftover from the naming revert that renamed the
+          // fields and missed the receipt block, leaving one document that said
+          // postal in two places and mail in a third. Two people misread it in
+          // one day, which is enough evidence that the inconsistency is not
+          // cosmetic. The version string inside still carries growth's `mail-`
+          // prefix, so provenance survives; that is their id, not our field.
+          ['postal', data.consent_postal, postalConsent],
         ].map(([name, granted, resolved]) => [
           name,
           {
