@@ -120,6 +120,7 @@ const results = { value: [], key: [], cap: [] };
  * FAILS if an expected extractor came back empty, and the report always states
  * what was actually compared. A verdict with no denominator is not a verdict.
  */
+const blindEarly = [];
 const coverage = { enums: [], missed: [], values: 0, keys: 0, knownKeys: 0, keySetDisagreement: [], caps: 0, capsMissed: [] };
 
 // ─── VALUE drift ─────────────────────────────────────────────────────────────
@@ -136,6 +137,35 @@ const ENUMS = [
   ['OFFICE_INTEREST', 'office_interest', false],
   ['COMPANY_HEADCOUNT', 'headcount', false],
 ];
+
+// FLOOR THE LIST BEFORE ITERATING IT.
+//
+// Deleting four rows from ENUMS above — including MOTIVATION and DIETARY, the
+// two Art 9 health fields — produced:
+//
+//   compared 29 enum values across 6 enums ... COMPATIBLE
+//
+// Green, exit 0, and the checks on special-category data simply gone. An
+// assertion inside a loop is an assertion about the fixture until something
+// floors the fixture (Conversion's phrasing, after finding the same shape twice
+// in their own suite).
+//
+// So the floor is a SECOND, INDEPENDENT reading: every field the schema declares
+// with optionalEnum() or multiEnum() must appear in ENUMS. Two readings that
+// disagree prove one is wrong — the discipline already used for the payload
+// keys via SERVER_KNOWN_KEYS.
+{
+  const declared = [...readFileSync(new URL('../src/lib/validation.js', import.meta.url), 'utf8')
+    .matchAll(/^\s+([a-z_0-9]+): (?:optionalEnum|multiEnum)\(([A-Z_0-9]+)\)/gm)].map((m) => m[1]);
+  if (declared.length < 8) {
+    blindEarly.push(`read only ${declared.length} enum-typed fields from the schema — the floor itself is broken`);
+  }
+  const covered = new Set(ENUMS.map(([, field]) => field));
+  const uncovered = declared.filter((f) => !covered.has(f));
+  if (uncovered.length) {
+    blindEarly.push(`ENUMS does not cover schema enum fields: ${uncovered.join(', ')}`);
+  }
+}
 
 for (const [constName, field, isArray] of ENUMS) {
   const opts = optionsOf(constName);
@@ -254,6 +284,7 @@ if (coverage.missed.length) blind.push(`could not read: ${coverage.missed.join('
 // COMPATIBLE with full confidence. So the checks below are RELATIVE — they
 // compare two independent readings — rather than merely asking whether one of
 // them returned something.
+blind.push(...blindEarly);
 if (!coverage.keys) blind.push('read no payload keys from buildPayload');
 if (!coverage.knownKeys) blind.push('read no SERVER_KNOWN_KEYS — second reading unavailable, so nothing cross-checks the first');
 if (coverage.keySetDisagreement?.length) {

@@ -73,11 +73,34 @@ const run = (dir) => {
 };
 const caught = (out) => /INCOMPATIBILITY|COVERAGE FAILURE/.test(out);
 
+/**
+ * Declared SEPARATELY from the array, on purpose.
+ *
+ * Deleting four rows from MUTATIONS printed "All 2 mutations caught" and exited
+ * 0 — the tool built to catch pass-on-nothing had pass-on-nothing. Conversion
+ * found the same shape twice in their own suite on the same day and named it:
+ * an assertion inside a loop is an assertion about the fixture until something
+ * floors the fixture.
+ *
+ * A count kept beside the data it counts is not a floor — it is edited in the
+ * same motion. This one is meant to be a nuisance: raising it is the moment to
+ * ask whether the new mutation actually tests something, and lowering it is a
+ * deliberate act that shows up in a diff on its own line.
+ */
+const EXPECTED_MUTATIONS = 6;
+
+if (MUTATIONS.length !== EXPECTED_MUTATIONS) {
+  console.log(`\n  ✗ MUTATION LIST CHANGED — ${MUTATIONS.length} present, ${EXPECTED_MUTATIONS} expected.`);
+  console.log('    Every result below would describe a smaller check than the one this file claims.');
+  console.log(`    If the change is intended, update EXPECTED_MUTATIONS to ${MUTATIONS.length}.\n`);
+  process.exit(1);
+}
+
 const tmp = mkdtempSync(join(tmpdir(), 'zuca-mutate-'));
 let failures = 0;
 
 try {
-  console.log(`\n  mutating ${CLIENT}\n`);
+  console.log(`\n  mutating ${CLIENT} — ${MUTATIONS.length} mutations\n`);
 
   // ── negative control ──────────────────────────────────────────────────────
   const clean = join(tmp, 'clean');
