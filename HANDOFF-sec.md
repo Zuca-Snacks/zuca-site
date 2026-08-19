@@ -733,6 +733,48 @@ business wording (`46acf5e` then `789ffdb`). Checked rather than assumed, becaus
 pair is exactly where a restored string gets lost: the wording there is byte-identical to this
 branch. No action needed — recorded so nobody re-checks it.
 
+## 0-TOMORROW → Two items parked by Emil on 2026-08-19, scheduled for 20 Aug
+
+Both are **built on the server and unbuilt on the client**. Neither is blocking; both are one
+small change away from done, and both are parked deliberately rather than forgotten.
+
+### T1 — `session_expired` client handling · **Conversion owns the change**
+
+Server side shipped in `0a52d48`. The endpoint already distinguishes them:
+
+```
+409 {"ok":false,"error":"duplicate"}         genuine returning signup — keep mapping to success
+409 {"ok":false,"error":"session_expired"}   valid token for this row, past the 2h TTL
+```
+
+**Why it matters:** someone who leaves the form open and returns three hours later completes
+every screen, is told *"Your spot is saved"*, and has everything after step 1 discarded. S23's
+shape in a two-hour window.
+
+Client side is small: a `SESSION_EXPIRED` result, `save()` stops mapping it to success, and one
+line of copy. Conversion has the copy and it is the accurate one — **their place IS saved, only
+steps 2–4 were lost**, so anything implying they must re-join is false and costs the person.
+
+Cannot be reissued server-side: minting a fresh token on a duplicate is the unauthenticated-write
+hole S23 exists to avoid. The 409 is correct; only the telling is missing.
+
+### T2 — targeted descent · **Conversion owns the change; the server support is done**
+
+`refused: [{field, rule, block?}]` shipped in `b5f6fa1`.
+
+⚠️ **The whole point is `block`, not `field`.** A descent driven by the named field is WORSE than
+the untargeted one it replaces — demonstrated end to end:
+
+```
+400  refused: [{field:"consent_postal", rule:"mail_consent_without_address", block:"postal"}]
+     drop just the named field, retry
+200  dropped: ["address"]     ← the address gone, and the opt-in with it
+```
+
+`field` is what was WRONG; `block` is what to DROP. They differ for every consent pairing,
+because the rule attaches to the consent and not the datum. **Descend by `block` when one is
+present; fall back to cheapest-loss-first ordering when it is absent.**
+
 ## 0a → AND: `npm run security:mutate` · **run this BEFORE trusting item 0**
 
 `security:compat` has had **three separate blindness bugs**, each of which reported
