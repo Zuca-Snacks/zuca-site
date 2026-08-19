@@ -7,7 +7,7 @@
 const KEY = "zuca_waitlist_state_v1";
 
 /** stage: 'email' → 'profile' → 'done' */
-const EMPTY = { stage: "email", email: "", position: null, duplicate: false, profileSaved: false };
+const EMPTY = { stage: "email", email: "", name: "", position: null, duplicate: false, profileSaved: false };
 
 function load() {
   if (typeof window === "undefined") return { ...EMPTY };

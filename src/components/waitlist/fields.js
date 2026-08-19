@@ -16,6 +16,35 @@
  */
 export const DIETARY_OTHER_MAX = 60;
 
+/**
+ * First name. The FIRST question on screen 1, before flavour — it is the
+ * lowest-effort question in the flow, and opening with an easy one lifts
+ * completion on everything after it.
+ *
+ * ⚠️ TWO CONDITIONS FROM SECURITY, BOTH LOAD-BEARING:
+ *
+ *  1. GENUINELY OPTIONAL. Not required, no soft-required styling, nothing
+ *     blocking Continue. The privacy policy promises "only your email address
+ *     and your consent are required" and that promise has to stay true.
+ *
+ *  2. LABELLED "FIRST NAME", never "Name" or "Full name". The policy says
+ *     first name and the 40 cap is set on that basis. "Full name" would make
+ *     the policy inaccurate AND invite surnames the cap then rejects — a
+ *     rejection nobody can understand, on a field they were told was optional.
+ *
+ * No separate consent: GDPR needs consent per PURPOSE, not per field, and a
+ * name used to address the launch email is inside the purpose the marketing
+ * wording already names. Security's call, on the record.
+ */
+export const NAME = {
+  key: "name",
+  label: "First name",
+  hint: "Optional — so our emails can say your name rather than your inbox.",
+  placeholder: "Sarah",
+  maxLength: 40,
+  why: "Lets the launch email address a person.",
+};
+
 /** Which flavor to produce first. Lowest-friction question, so it opens step 2. */
 export const FLAVOR = {
   key: "flavor",

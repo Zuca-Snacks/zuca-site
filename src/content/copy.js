@@ -622,6 +622,11 @@ export const confirmation = {
   // responsible for our production run — pressure they did not ask for — and
   // promised something outside our control.
   title: "Welcome to Zuca.",
+  // Used only when a name was given. The unnamed version has to stay good on
+  // its own: the question is optional, so plenty of people will never answer
+  // it, and a greeting that only works with a name is a greeting that fails
+  // for everyone who skipped.
+  titleNamed: "Welcome to Zuca, {name}.",
   position: "You're the {position} member of our family.",
   titleFallback: "Welcome to Zuca.",
   duplicate: "You're already one of us.",

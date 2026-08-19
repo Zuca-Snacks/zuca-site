@@ -30,7 +30,7 @@ function shareUrl() {
 // WaitlistForm's call so the distinction survives if the screen ever wants it
 // again — it is the difference between someone who answered and someone who
 // skipped, which is worth not throwing away at the call site.
-export default function Confirmation({ position: knownPosition, duplicate }) {
+export default function Confirmation({ position: knownPosition, duplicate, name }) {
   const [position, setPosition] = useState(knownPosition ?? null);
   const [shared, setShared] = useState(false);
   // "copy" once the native sheet is unavailable; "failed" if even that breaks.
@@ -125,7 +125,14 @@ export default function Confirmation({ position: knownPosition, duplicate }) {
     }
   }
 
-  const title = duplicate ? copy.duplicate : copy.title;
+  // React escapes this, so a hostile string cannot inject — but it CAN read
+  // oddly ("Welcome to Zuca, asdfgh."). Worth it: the upside on real names
+  // outweighs looking silly on junk ones, and the unnamed path is the fallback.
+  const title = duplicate
+    ? copy.duplicate
+    : name
+      ? copy.titleNamed.replace("{name}", name)
+      : copy.title;
   const welcome =
     !duplicate && position !== null
       ? copy.position.replace("{position}", ordinal(position))

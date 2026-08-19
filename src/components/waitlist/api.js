@@ -23,7 +23,7 @@
 // difference is that we now know it hasn't landed yet.
 
 import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
-import { CHANNEL, DIETARY, MOTIVATION, OTHER_MAX, PRICE_BAND, otherMaxFor } from "./fields.js";
+import { CHANNEL, DIETARY, MOTIVATION, NAME, OTHER_MAX, PRICE_BAND, otherMaxFor } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 const COUNT_ENDPOINT = "/api/count";
@@ -79,13 +79,33 @@ export const RESULT = {
  */
 export const CORE_KEYS = new Set([
   "downgraded_fields",
+  "name",
   "email", "zip", "motivation", "intent", "price_band", "flavor", "is_clinician",
   "referral_source", "consent_marketing", "consent_health", "consent_text_version",
   "motivation_consent_text_version", "utm", "page_path", "hp_field", "form_render_ts",
 ]);
 
+/**
+ * Trim, strip control characters, cap.
+ *
+ * The server's FORBIDDEN_CHARS covers CR, LF, NUL and bidi overrides — the
+ * injection-relevant set — but not C0 generally, so a bell character inside a
+ * name is currently accepted in every free-text field. Security flagged it and
+ * deliberately did NOT tighten it server-side: that is a REMOVE-class change,
+ * and our ordering rule puts those client-first, or the server starts 400ing
+ * payloads the client still considers valid.
+ *
+ * So the client goes first. Stripping C0 loses nothing — a control character
+ * in a first name is never intentional — and being stricter than the server is
+ * the safe direction. When security follows, this is already true and nothing
+ * breaks in between.
+ */
+// eslint-disable-next-line no-control-regex -- matching control characters is
+// the entire point; the rule exists to catch them appearing by accident.
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+
 const str = (v, max) => {
-  const t = typeof v === "string" ? v.trim() : "";
+  const t = typeof v === "string" ? v.replace(CONTROL_CHARS, "").trim() : "";
   return t ? t.slice(0, max) : null;
 };
 const arr = (v, max) => (Array.isArray(v) && v.length ? v.slice(0, max) : null);
@@ -125,6 +145,9 @@ export function buildPayload({
   return {
     // ── Core: accepted by the strict schema today ───────────────────────────
     email: String(email || "").trim().toLowerCase().slice(0, 254),
+    // Cap 40, matching the server exactly. First name only — a client cap
+    // above the server's is a 400 for everything in the gap.
+    name: str(p.name, NAME.maxLength),
     zip: p.zip || null,
     // Health-adjacent values never travel without their Art 9 opt-in, on our
     // side as well as the server's.
