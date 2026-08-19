@@ -29,3 +29,6 @@ secrets/
 # Generated from src/content/copy.js at build time.
 src/lib/consent-registry.generated.js
 .testdrive.pid
+
+# Test-drive rig output — real submissions, never committed (see DECISIONS.md).
+testdrive-rows.jsonl
