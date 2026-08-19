@@ -467,7 +467,7 @@ payload for it.
 **A guard cannot be reviewed into correctness. Break it deliberately and watch
 whether it notices.** Four mutations were run against this suite; one passed.
 
-### `npm run mutate` — twelve plausible defects, ~60s, non-zero on survival
+### `npm run mutate` — fifteen plausible defects, ~75s, non-zero on survival
 
 I proposed doing that by hand whenever a field is added. Security's answer was
 better and it is now a script on both sides: forty seconds is cheap enough to do
@@ -590,6 +590,37 @@ passes 28/28. Distance is a speed bump, not a control. It buys exactly one
 thing — removing a gate stops being a single-line deletion — and both files now
 state that ceiling instead of letting their placement imply a strength they do
 not have.
+
+### ⚠️ ASK WHAT THE MUTATIONS COVER, NOT ONLY WHETHER THEY PASS
+
+`all 12 mutations caught` was reading as though it meant the suite worked. It
+meant only that every mutation was noticed by *something*. Security asked the
+other question first — which of the checks has ever been shown a failure — and
+it found an unexercised category on their side immediately. It found one here
+too.
+
+**A mutation labelled `business keys dropped from the floor` had only ever
+edited CORE.** Its pattern matched the first `business_enquiry…]);` in the file,
+which is `CORE_KEYS`. So the mutation applied, was caught, reported green — and
+`the floor is what the server actually requires` had never once been shown a
+failure, despite the floor being the last rescue a role address has. **A
+mutation can lie about what it does while passing.**
+
+`npm run mutate` now reports which tests each mutation actually fails, and lists
+the ones nothing has ever exercised. Three static assertions were in that list
+and now are not:
+
+- `the floor is what the server actually requires`
+- `the shared-inbox mirror decides presentation, never permission` — a regex
+  over `Step1Email.jsx` source, the same family as the `sendBeacon` scan
+- `the business consent id keeps its purpose and region tokens`
+
+The eighteen still unexercised are all behavioural: they stub a 404, a 413, an
+offline fetch, and construct the failure they assert on. **Those are
+self-exercising; a STATIC assertion in that list would be a gap** — a regex over
+source or a pinned list passes forever if written wrong, and nothing else will
+ever tell it so. The list is printed rather than floored with another constant,
+because the useful output is which names are in it.
 
 The near-miss worth recording: the first run of that experiment reported a
 correct-looking failure, and the deletion had **not applied** — the floor's

@@ -57,7 +57,7 @@ import { spawnSync } from 'node:child_process';
  * to the gate floor in the test suite, which still passed. A declared constant
  * buys one thing: removal stops being a single-line edit.
  */
-const EXPECTED_MUTATIONS = 12;
+const EXPECTED_MUTATIONS = 15;
 
 const API = 'src/components/waitlist/api.js';
 const COPY = 'src/content/copy.js';
@@ -99,12 +99,38 @@ const MUTATIONS = [
     with: '    ...(true\n      ? {',
   },
   {
-    label: 'business keys dropped from the floor',
-    why: 'the ladder strips what made a role address legal and fails at every rung',
+    // ⚠️ THIS MUTATION USED TO BE MISLABELLED, AND THE COVERAGE REPORT FOUND IT.
+    // Its pattern matched the FIRST `business_enquiry…]);` in the file, which is
+    // CORE_KEYS — so a mutation named "the floor" never touched the floor, and
+    // `the floor is what the server actually requires` was never exercised by
+    // anything. It applied, it was caught, and it was catching the wrong test.
+    // A mutation can lie about what it does while passing.
+    label: 'business keys dropped from CORE',
+    why: 'rung 2 strips what made a role address legal and the descent fails identically',
     file: API,
-    find: '  "email", "consent_marketing", "consent_text_version",\n',
-    with: '  "email", "consent_marketing", "consent_text_version",\n  // dropped\n',
-    also: { find: '  "business_enquiry", "business_consent_text_version",\n]);', with: ']);' },
+    find: '  // for every personal signup their presence here costs nothing.\n  "business_enquiry", "business_consent_text_version",\n',
+    with: '  // for every personal signup their presence here costs nothing.\n',
+  },
+  {
+    label: 'business keys dropped from the floor',
+    why: 'the floor is the last rescue; a role address then has no valid form at all',
+    file: API,
+    find: '  // true the moment these are dropped.\n  "business_enquiry", "business_consent_text_version",\n',
+    with: '  // true the moment these are dropped.\n',
+  },
+  {
+    label: 'the shared-inbox mirror short-circuits a submission',
+    why: 'a presentation-only mirror turned into pre-validation fails optimistically when stale',
+    file: 'src/components/waitlist/Step1Email.jsx',
+    find: '    if (!value) {',
+    with: '    if (looksLikeRoleAddress(value)) { return; }\n    if (!value) {',
+  },
+  {
+    label: 'the business consent id loses its region token',
+    why: '`all` once parsed as an unknown regime and left every record unauditable',
+    file: 'src/components/waitlist/consent.js',
+    find: 'return { text: entry.text, version: version("biz", "eea", entry) };',
+    with: 'return { text: entry.text, version: version("biz", "all", entry) };',
   },
   {
     label: 'sendBeacon appears where the old scan could not see it',
@@ -160,11 +186,25 @@ if (MUTATIONS.length !== EXPECTED_MUTATIONS) {
   process.exit(2);
 }
 
-const suite = () =>
-  spawnSync('npm test', { encoding: 'utf8', stdio: 'pipe', shell: true }).status === 0;
+// Returns { ok, failed } — WHICH tests failed, not merely whether any did.
+// "Do my mutations pass?" and "what do my mutations exercise?" are different
+// questions, and only the first was ever being asked here.
+const suite = () => {
+  const r = spawnSync('npm test', { encoding: 'utf8', stdio: 'pipe', shell: true });
+  const failed = new Set();
+  const all = new Set();
+  for (const line of (r.stdout || '').split('\n')) {
+    const m = /^\s*[\u2714\u2716] (.+?) \(\d/.exec(line);
+    if (!m || m[1] === 'test' || m[1].endsWith('.test.mjs')) continue;
+    all.add(m[1]);
+    if (line.includes('\u2716')) failed.add(m[1]);
+  }
+  return { ok: r.status === 0, failed, all };
+};
 
 console.log('negative control — the unmutated tree must be green');
-if (!suite()) {
+const control = suite();
+if (!control.ok) {
   console.error('\n✗ ABORTED: the suite is already failing.');
   console.error('  Every result below would be a false "caught". Fix the tree first.');
   process.exit(2);
@@ -172,6 +212,7 @@ if (!suite()) {
 console.log('  ✓ green\n');
 
 let survived = 0;
+const exercised = new Set();
 for (const m of MUTATIONS) {
   const edits = [{ file: m.file, ...m }, ...(m.also ? [{ file: m.file, ...m.also }] : [])];
   const originals = new Map();
@@ -193,7 +234,9 @@ for (const m of MUTATIONS) {
       continue;
     }
 
-    if (suite()) {
+    const { ok, failed } = suite();
+    for (const t of failed) exercised.add(t);
+    if (ok) {
       console.log(`  ✗ ${m.label} — SURVIVED`);
       console.log(`      ${m.why}`);
       survived += 1;
@@ -204,6 +247,27 @@ for (const m of MUTATIONS) {
     for (const [file, text] of originals) writeFileSync(file, text);
   }
 }
+
+// ── Coverage, not just outcome ──────────────────────────────────────────────
+// "Do my mutations pass?" and "what do my mutations exercise?" are different
+// questions and only the first was being asked. Asking the second found a
+// mutation labelled "dropped from the floor" that had only ever edited CORE —
+// so `the floor is what the server actually requires` had never once been shown
+// a failure, while the run reported all mutations caught.
+//
+// The unexercised list is PRINTED rather than floored with another constant.
+// Most of these are behavioural tests that construct their own failure (they
+// stub a 404, a 413, an offline fetch) and are self-exercising by design. The
+// ones worth looking at are STATIC assertions — a regex over source, a pinned
+// list, a shape check — because those pass forever if written wrong, and
+// nothing else will ever tell them so.
+console.log(`\n${exercised.size} of ${control.all.size} test(s) exercised by these mutations:`);
+for (const t of [...exercised].sort()) console.log(`    ${t}`);
+
+const untouched = [...control.all].filter((t) => !exercised.has(t)).sort();
+console.log(`\n${untouched.length} never shown a failure by any mutation:`);
+for (const t of untouched) console.log(`    ${t}`);
+console.log('  (behavioural tests stub their own failures; a STATIC assertion here is a gap)');
 
 console.log();
 if (survived) {
