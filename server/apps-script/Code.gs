@@ -1,8 +1,10 @@
 /**
  * Zuca waitlist — hardened Google Apps Script backend.
  *
- * REPLACES the entire contents of your current Apps Script file. Deployment
- * instructions are at the bottom of this file and in SECURITY.md §8 item 3.
+ * This is the ENTIRE contents of a NEW, standalone Apps Script project. It is
+ * not a patch and not an edit to the script you are running today — that one
+ * stays untouched and serving until step 7. Deployment instructions are at the
+ * bottom of this file and in SECURITY.md §8 item 3.
  *
  * What changed and why:
  *
@@ -753,7 +755,35 @@ function doPost(e) {
  * The old URL stays live and working throughout steps 1-6. Nothing you do
  * before step 7 can take the form down.
  *
- *  1. Apps Script editor -> paste this over the entire existing file -> Save.
+ * TWO ACCOUNTS AND TWO PROJECTS. Keep them straight:
+ *
+ *   OLD  chefemilnordin@gmail.com  the script running today.
+ *        DO NOT OPEN IT until step 7. Every step before that happens
+ *        somewhere else. If you find yourself editing code that already has
+ *        your data-handling in it, you are in the wrong project — stop.
+ *
+ *   NEW  emil@zucasnacks.com       a new STANDALONE project you create.
+ *        Standalone means script.google.com -> New project, NOT
+ *        Extensions -> Apps Script from inside the sheet.
+ *
+ *  0. FIRST, because step 1 cannot work without it: the new project runs as
+ *     emil@zucasnacks.com, and this script reaches the sheet with
+ *     SpreadsheetApp.openById(). openById can only open a spreadsheet the
+ *     executing account can already open.
+ *
+ *     The sheet is owned by chefemilnordin@gmail.com. Share it with
+ *     emil@zucasnacks.com as EDITOR (Share -> add the address -> Editor).
+ *     Viewer is not enough; the script writes.
+ *
+ *     Without this, step 6 fails with a permissions error that names the file
+ *     ID and not the cause, which reads like the ID is wrong when it is not.
+ *
+ *  1. In the NEW project: select everything in the starter file (it contains a
+ *     stub `myFunction()` and nothing else) and paste this over it -> Save.
+ *
+ *     "Paste over the existing file" means that starter stub. It does NOT mean
+ *     the script under chefemilnordin@gmail.com. Do not open that one.
+ *
  *     SPREADSHEET_ID and SHEET_NAME are already set. Nothing else to edit.
  *
  *  2. Project Settings (gear) -> Script Properties -> Add script property
@@ -768,7 +798,9 @@ function doPost(e) {
  *       Who has access:  Anyone
  *     "Anyone" is still required — Vercel calls this without a Google account.
  *     The token is what authenticates now, not the URL's obscurity.
- *     DO NOT touch the existing deployment. It stays live and serving.
+ *     This is the NEW project's first deployment, so there is nothing here to
+ *     overwrite. The old project's deployment lives in the other account
+ *     entirely and is not visible from this screen. It stays live and serving.
  *
  *  4. Copy the NEW /exec URL. In Vercel -> Settings -> Environment Variables:
  *       SHEETS_WEBHOOK_URL    = the new /exec URL
@@ -781,13 +813,25 @@ function doPost(e) {
  *  6. VERIFY WITH A REAL SIGNUP before going further:
  *       - private window, fill the form properly, take more than 2 seconds
  *       - a new row appears on the "Pre-orders" tab (NOT Sheet1)
- *       - column C has your email, and the consent columns are populated
+ *       - CHECK BY HEADER NAME, NOT COLUMN LETTER. Read row 1, find the
+ *         column headed `Email`, and confirm your address is in it on the new
+ *         row. Then the same for `consent_marketing` and `consent_receipt`.
+ *
+ *         An earlier version of this step said "column C has your email".
+ *         Column C is `Phone`. Following it would have shown you an empty
+ *         cell and told you the pipeline was broken while it was working.
+ *         This script matches on header TEXT and ignores position entirely,
+ *         so the header is the only thing that is actually load-bearing —
+ *         and `node scripts/sheet-columns.mjs` prints the letters if you
+ *         want them, derived rather than remembered.
  *       - delete the test row
  *     If nothing appears, check Apps Script -> Executions. `misconfigured`
  *     means a settings problem — wrong tab, wrong token. `server` means
  *     something transient; retry before changing anything.
  *
- *  7. ⚠️ ONLY NOW: Deploy -> Manage deployments -> archive the OLD deployment.
+ *  7. ⚠️ ONLY NOW, and this is the first and only step that touches the old
+ *     account: sign in as chefemilnordin@gmail.com, open the OLD project,
+ *     Deploy -> Manage deployments -> archive the deployment.
  *
  *     IRREVERSIBLE UNTIL REDEPLOYED. Archiving permanently kills that URL —
  *     un-archiving does not bring it back, and a new deployment gets a new

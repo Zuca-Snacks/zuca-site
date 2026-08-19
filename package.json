@@ -12,7 +12,9 @@
     "security:test:sheet": "node scripts/test-apps-script.mjs",
     "security:headers": "node scripts/check-headers.mjs",
     "build:consent": "node scripts/build-consent-registry.mjs",
-    "security:compat": "node scripts/check-merge-compat.mjs"
+    "security:compat": "node scripts/check-merge-compat.mjs",
+    "security:columns": "node scripts/sheet-columns.mjs",
+    "security:columns:check": "node scripts/sheet-columns.mjs --check"
   },
   "dependencies": {
     "react": "^19.2.0",
