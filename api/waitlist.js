@@ -292,6 +292,9 @@ export default async function handler(req, res) {
     flavor: data.flavor,
     is_clinician: data.is_clinician,
     referral_source: data.referral_source,
+    // Same health gate as `motivation` and `dietary` — an open box beside the
+    // Art 9 question is Art 9 data whatever ends up in it.
+    motivation_other: data.consent_health ? data.motivation_other : null,
     referral_source_other: data.referral_source_other,
     price_band_other: data.price_band_other,
 

