@@ -730,6 +730,78 @@ The same audit across the rest of the tooling found two more:
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
 
+## 1k → The office path rejects office@ · **Emil's decision, not mine**
+
+Surfaced while answering Conversion's question about email-rejection copy. Two things we
+built this week disagree, and the disagreement is demonstrated, not theoretical:
+
+```
+office@bakeriet.no    REJECTED  role_address
+team@bakeriet.no      REJECTED  role_address
+contact@bakeriet.no   REJECTED  role_address
+info@bakeriet.no      REJECTED  role_address
+admin@bakeriet.no     REJECTED  role_address
+sales@bakeriet.no     REJECTED  role_address
+post@bakeriet.no      OK          ← the standard Norwegian business prefix, and it passes
+emil@bakeriet.no      OK
+```
+
+Filling in `office_interest: yes`, `company` and `headcount` does not help — the email is
+rejected before any of it is looked at.
+
+**The 2026-08-17 extension added an office-snack path that asks "would you want these at
+work?" and collects a company name and headcount. Then the validator rejects the address a
+small company actually uses.** `ROLE_LOCALPARTS` literally contains `'office'`.
+
+### Why the rule exists, and it is not a bad rule
+
+1. **Deliverability.** Role addresses are a standard list-hygiene reject; several ESPs
+   penalise or block them, and they attract spam-trap classification.
+2. **Consent evidence, which is the stronger reason.** Art 7(1) requires us to demonstrate
+   that *a person* consented. A shared mailbox is read by several people and staffed by
+   different ones over time. A consent receipt naming `info@` cannot identify who agreed,
+   and the person who eventually receives the mail may never have.
+
+### Why it is nonetheless probably wrong here
+
+Norway's Marketing Control Act §15 governs marketing to **natural persons**. Marketing to a
+generic business address is treated more leniently across the EEA precisely because there is
+no identified individual — the same fact that weakens the consent evidence also lowers what
+is required. So the rule is stricter than the law demands, in exactly the segment the office
+path was built to reach.
+
+And the conversion cost is invisible: the person types their work address, is told it did not
+work, and leaves. We never see it. `post@` passing while `office@` fails also makes the
+behaviour look arbitrary to anyone who tries twice.
+
+### Options, and what I would do
+
+| | |
+|---|---|
+| **A. Leave it** | Cleanest list, strongest consent evidence. Loses office signups silently. |
+| **B. Allow role addresses only when `office_interest` is set** ⭐ | Keeps the rule for consumer signups where the consent-evidence argument is strongest; relaxes it exactly where a shared mailbox is the honest answer. Store them but **flag the row** so they are never mixed into the personal send list. |
+| **C. Drop the list** | Simplest. Gives up both the hygiene and the evidence argument. |
+
+I recommend **B**, and I have NOT implemented it. Loosening the server is an ADD-class change
+and safe to do server-first, so the ordering rule is not what is holding it — this is a
+decision about **who we send marketing email to**, which Emil has reserved. It also needs a
+consent-wording answer from Conversion: a shared mailbox cannot give Art 7 consent as an
+individual, so those rows should be treated as a business-contact segment with its own basis,
+not folded into the consented personal list.
+
+### The complete rejection list, for Conversion's copy
+
+Six ways the email field can reject, not three. Any copy naming a subset will mislabel the
+rest:
+
+| `rule` | Trigger |
+|---|---|
+| `too_long` | over 320 raw, or over 254 after normalising |
+| `illegal_chars` | CR, LF, NUL, or a bidi override |
+| `invalid_email` | fails the address regex, **or** contains `..` |
+| `role_address` | local part in `ROLE_LOCALPARTS` (36 entries) |
+| `disposable` | domain in `DISPOSABLE_DOMAINS` (31 entries) |
+
 ## 3a-quater → The week's actual lesson: components verified, joins not
 
 Six failures across two branches, all one shape. Worth stating once rather than
