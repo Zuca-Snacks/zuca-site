@@ -703,7 +703,7 @@ export const confirmation = {
   // Flip `timeline` to "none" to see that version. Nothing else changes.
   timeline: "line",
   whatNextLine:
-    "We'll email you once before launch with the ship date and your ordering window — ahead of the public.",
+    "We'll email you before launch with the ship date and your ordering window — ahead of the public.",
   // A business enquiry is stored with marketing consent FALSE — the server
   // suppresses it regardless of what the box said, because a shared mailbox
   // cannot give an identifiable person's consent. So the launch email above is
