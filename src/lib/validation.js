@@ -58,15 +58,35 @@ const BUILTIN_CONSENT_TEXTS = {
   // courtesy: a mailbox nobody personally consented from can only support a
   // purpose genuinely about the organisation. Mailing it about a consumer
   // launch does not weaken this basis, it removes it.
+  /**
+   * ⚠️ PRE-MERGE FIXTURE. NOT the production id.
+   *
+   * Production is Conversion's fingerprinted `biz-eea-2026-08-19-fc6ba471`,
+   * generated from their copy.js by scripts/build-consent-registry.mjs. This
+   * entry exists only so the S22 gate is testable on a branch where
+   * src/content/copy.js does not exist yet.
+   *
+   * It is deleted at merge, and the suite FAILS if it is not — see
+   * "the pre-merge business fixture is retired at merge" in the attack suite.
+   * A hand-maintained entry in a generated registry is precisely what the
+   * generator was written to prevent, so it does not get to survive on trust.
+   *
+   * TEXT IS EMIL'S APPROVED WORDING VERBATIM. The first version of this entry
+   * silently rewrote it into the third person — "Zuca will email" for "We'll
+   * email", "it will not be added to Zuca's" for "we won't add it to our".
+   * Conversion caught it. If they render his sentence and the registry stores
+   * mine, the consent evidence is not what the person read, which is the exact
+   * defect the fingerprint exists to make impossible.
+   */
   '2026-08-19.business.a': {
     purpose: 'business',
     regime: 'global',
     text:
       "I'm asking on behalf of my workplace. This is a business enquiry, not a " +
-      'personal signup. Zuca will email this address about stocking Zuca at ' +
-      'work — nothing else — and anyone reading this inbox can stop it by ' +
-      'replying to that email. Because it is a shared address, it will not be ' +
-      "added to Zuca's personal mailing list.",
+      "personal signup. We'll email this address about stocking Zuca at work — " +
+      'nothing else — and anyone reading this inbox can stop it by replying to ' +
+      "that email. Because it's a shared address, we won't add it to our " +
+      'personal mailing list.',
   },
   '2026-08-19.health-medication.a': {
     purpose: 'health',
@@ -937,8 +957,18 @@ export const waitlistSchema = z
     // mentioned it — the failure mode Art 9(2)(a) exists to prevent.
     // ── Role addresses, and the business basis that permits them ──────────
     // Moved out of emailSchema because the verdict depends on a sibling field.
-    // Path stays ['email'] with rule `role_address` so the client copy written
-    // against the old shape keeps working.
+    // Path stays ['email'] with rule `role_address`.
+    //
+    // NOT for any client's benefit — an earlier version of this comment said
+    // "so the client copy written against the old shape keeps working", and
+    // that was false. The 400 body is `{ok:false, error:'validation'}` and
+    // carries neither path nor rule; no client can read either, deliberately.
+    // I made the identical mistake in a message to Conversion two hours before
+    // writing it here, which is a good measure of how convincing an assumption
+    // about your own neighbouring layer feels.
+    //
+    // The path is for the AUDIT LOG, which records `path:rule`, and for the
+    // suite. Both are real consumers; neither is a browser.
     const localPart = String(d.email || '').split('@')[0];
     const isRole = ROLE_LOCALPARTS.has(localPart);
     const businessText = CONSENT_TEXTS[d.business_consent_text_version]?.text ?? null;
