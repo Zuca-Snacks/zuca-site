@@ -190,6 +190,12 @@ var COLUMNS = [
   'dietary',
   'dietary_other',
   'research_optin',
+
+  // S22, 2026-08-19. business_enquiry MUST be readable at a glance: it is the
+  // flag that keeps a shared mailbox off the personal send list, and we
+  // promised the person in writing that it would.
+  'business_enquiry',
+  'business_consent_text_version',
   // NOT 'phone'. The existing sheet already has a `phone` column holding 137
   // legacy numbers captured by the old modal with no consent of any kind.
   // Writing consent-gated numbers into that same column would make the two

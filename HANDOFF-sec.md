@@ -730,7 +730,18 @@ The same audit across the rest of the tooling found two more:
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
 
-## 1k → The office path rejects office@ · **Emil's decision, not mine**
+## 1k → The office path rejects office@ · **BUILT 2026-08-19**
+
+> **Approved by Emil, relayed through Conversion — I did not hear it from Emil directly.**
+> Built because growth is blocked server-first and nothing sends email yet. One commit to
+> revert if the relay was wrong.
+>
+> **Shipped shape differs from the recommendation below.** My proposal gated on
+> `office_interest`; Conversion was right that it cannot work, because the email is validated
+> on step 1 screen 0 and `office_interest` is collected on screen 4 — it gated on a field that
+> does not exist yet at the moment of rejection. Shipped instead: `business_enquiry` +
+> `business_consent_text_version`, verbatim-text gated. The reasoning below is kept because the
+> problem statement still holds; only the mechanism changed.
 
 Surfaced while answering Conversion's question about email-rejection copy. Two things we
 built this week disagree, and the disagreement is demonstrated, not theoretical:
@@ -975,35 +986,36 @@ capitalisation and spaces do not matter, underscores do.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **H1** | `zip` | **AI1** | `address_region` |
-| **I1** | `intent` | **AJ1** | `address_postal_code` |
-| **J1** | `price_band` | **AK1** | `address_country` |
-| **K1** | `price_band_other` | **AL1** | `consent_postal` |
-| **L1** | `flavor` | **AM1** | `postal_consent_text_version` |
-| **M1** | `is_clinician` | **AN1** | `is_downgraded` |
-| **N1** | `referral_source` | **AO1** | `downgraded_fields` |
-| **O1** | `referral_source_other` | **AP1** | `email_handle` |
-| **P1** | `consent_marketing` | **AQ1** | `confirmed` |
-| **Q1** | `consent_health` | **AR1** | `confirmed_at` |
-| **R1** | `motivation` | **AS1** | `utm_source` |
-| **S1** | `motivation_other` | **AT1** | `utm_medium` |
-| **T1** | `quantity_band` | **AU1** | `utm_campaign` |
-| **U1** | `office_interest` | **AV1** | `utm_content` |
-| **V1** | `company` | **AW1** | `utm_term` |
-| **W1** | `headcount` | **AX1** | `page_path` |
-| **X1** | `channel` | **AY1** | `consent_text_version` |
-| **Y1** | `channel_other` | **AZ1** | `motivation_consent_text_version` |
-| **Z1** | `dietary` | **BA1** | `consent_timestamp` |
-| **AA1** | `dietary_other` | **BB1** | `country` |
-| **AB1** | `research_optin` | **BC1** | `needs_reconsent` |
-| **AC1** | `sms_phone` | **BD1** | `consent_regime_status` |
-| **AD1** | `consent_sms` | **BE1** | `reconsent_reason` |
-| **AE1** | `sms_consent_text_version` | **BF1** | `consent_receipt` |
-| **AF1** | `address_line1` | **BG1** | `consent_ip_prefix` |
-| **AG1** | `address_line2` | **BH1** | `user_agent` |
-| **AH1** | `address_city` | | |
+| **H1** | `zip` | **AJ1** | `address_city` |
+| **I1** | `intent` | **AK1** | `address_region` |
+| **J1** | `price_band` | **AL1** | `address_postal_code` |
+| **K1** | `price_band_other` | **AM1** | `address_country` |
+| **L1** | `flavor` | **AN1** | `consent_postal` |
+| **M1** | `is_clinician` | **AO1** | `postal_consent_text_version` |
+| **N1** | `referral_source` | **AP1** | `is_downgraded` |
+| **O1** | `referral_source_other` | **AQ1** | `downgraded_fields` |
+| **P1** | `consent_marketing` | **AR1** | `email_handle` |
+| **Q1** | `consent_health` | **AS1** | `confirmed` |
+| **R1** | `motivation` | **AT1** | `confirmed_at` |
+| **S1** | `motivation_other` | **AU1** | `utm_source` |
+| **T1** | `quantity_band` | **AV1** | `utm_medium` |
+| **U1** | `office_interest` | **AW1** | `utm_campaign` |
+| **V1** | `company` | **AX1** | `utm_content` |
+| **W1** | `headcount` | **AY1** | `utm_term` |
+| **X1** | `channel` | **AZ1** | `page_path` |
+| **Y1** | `channel_other` | **BA1** | `consent_text_version` |
+| **Z1** | `dietary` | **BB1** | `motivation_consent_text_version` |
+| **AA1** | `dietary_other` | **BC1** | `consent_timestamp` |
+| **AB1** | `research_optin` | **BD1** | `country` |
+| **AC1** | `business_enquiry` | **BE1** | `needs_reconsent` |
+| **AD1** | `business_consent_text_version` | **BF1** | `consent_regime_status` |
+| **AE1** | `sms_phone` | **BG1** | `reconsent_reason` |
+| **AF1** | `consent_sms` | **BH1** | `consent_receipt` |
+| **AG1** | `sms_consent_text_version` | **BI1** | `consent_ip_prefix` |
+| **AH1** | `address_line1` | **BJ1** | `user_agent` |
+| **AI1** | `address_line2` | | |
 
-53 new columns, `H` through `BH`. 60 columns total when you are done.
+55 new columns, `H` through `BJ`. 62 columns total when you are done.
 
 > **If you already added an earlier version of this list**, the 2026-08-17 extension appends 17 more
 > (`referral_source_other`, `motivation_other`, `quantity_band`, `office_interest`, `company`,

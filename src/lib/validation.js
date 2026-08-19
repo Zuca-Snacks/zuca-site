@@ -50,6 +50,24 @@ const BUILTIN_CONSENT_TEXTS = {
   // Names medication explicitly, which the wording above does not. A signup
   // selecting a medication value against the OLDER wording is rejected: the
   // sentence they read did not mention it, so their consent does not cover it.
+  // The business basis (S22), approved by Emil 2026-08-19. Verbatim, because
+  // `consentCoversBusiness` tests THIS STRING — the wording is not decoration
+  // around the basis, for a shared mailbox it IS the basis.
+  //
+  // The narrowing to the office conversation is a constraint on us, not a
+  // courtesy: a mailbox nobody personally consented from can only support a
+  // purpose genuinely about the organisation. Mailing it about a consumer
+  // launch does not weaken this basis, it removes it.
+  '2026-08-19.business.a': {
+    purpose: 'business',
+    regime: 'global',
+    text:
+      "I'm asking on behalf of my workplace. This is a business enquiry, not a " +
+      'personal signup. Zuca will email this address about stocking Zuca at ' +
+      'work — nothing else — and anyone reading this inbox can stop it by ' +
+      'replying to that email. Because it is a shared address, it will not be ' +
+      "added to Zuca's personal mailing list.",
+  },
   '2026-08-19.health-medication.a': {
     purpose: 'health',
     regime: 'global',
@@ -91,6 +109,7 @@ export const CONSENT_PURPOSES = {
   health: { flag: 'consent_health', version: 'motivation_consent_text_version', gates: 'motivation' },
   sms: { flag: 'consent_sms', version: 'sms_consent_text_version', gates: 'phone' },
   mail: { flag: 'consent_postal', version: 'postal_consent_text_version', gates: 'address' },
+  business: { flag: 'business_enquiry', version: 'business_consent_text_version', gates: 'role_address' },
 };
 
 /**
@@ -183,6 +202,7 @@ export function reconcileConsentRegime({
   healthVersion,
   smsVersion,
   postalVersion,
+  businessVersion,
 }) {
   const inEea = isEea(country);
 
@@ -194,6 +214,7 @@ export function reconcileConsentRegime({
     ['health', healthVersion],
     ['sms', smsVersion],
     ['postal', postalVersion],
+    ['business', businessVersion],
   ].filter(([, v]) => v);
 
   const regimes = {};
@@ -488,7 +509,10 @@ const emailSchema = z
   .refine((v) => !FORBIDDEN_CHARS.test(v), { message: 'illegal_chars' })
   .refine((v) => EMAIL_RE.test(v), { message: 'invalid_email' })
   .refine((v) => !v.includes('..'), { message: 'invalid_email' })
-  .refine((v) => !ROLE_LOCALPARTS.has(v.split('@')[0]), { message: 'role_address' })
+  // NOTE: the role-address check is NOT here. It moved to superRefine on
+  // 2026-08-19 because it now depends on `business_enquiry`, a sibling field
+  // this schema cannot see. `disposable` stays — a throwaway domain is not a
+  // workplace, and nothing about the business basis makes it one.
   .refine((v) => !DISPOSABLE_DOMAINS.has(v.split('@')[1]), { message: 'disposable' });
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -523,6 +547,22 @@ export const MEDICATION_MOTIVATIONS = new Set(['glp1_medication']);
  *
  * Fails closed. An unresolved version has no text, so it covers nothing.
  */
+/**
+ * Does this wording actually tell the person it is a BUSINESS enquiry?
+ *
+ * Same test as `consentCoversMedication`, for the same reason: read what the
+ * person was shown, not a flag we set ourselves. A boolean says somebody sent
+ * `business_enquiry: true`; the verbatim text is the only evidence that the
+ * sentence establishing the basis was on the screen.
+ *
+ * Matters more here than for medication. A shared mailbox gives no individual's
+ * consent at all, so the wording is not decorating the basis — it IS the basis.
+ */
+export function consentCoversBusiness(resolvedText) {
+  if (typeof resolvedText !== 'string' || !resolvedText) return false;
+  return /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i.test(resolvedText);
+}
+
 export function consentCoversMedication(resolvedText) {
   if (typeof resolvedText !== 'string' || !resolvedText) return false;
   return /\bmedicat|\bGLP-?\s?1\b/i.test(resolvedText);
@@ -772,6 +812,21 @@ export const waitlistSchema = z
      * holds for every row would be a control that never fires.
      */
     name: safeString(40).nullish().transform((v) => v || null),
+
+    /**
+     * "I'm asking on behalf of my workplace." Added 2026-08-19 (S22).
+     *
+     * The ONLY thing that permits a role address (office@, info@, team@).
+     * Rejecting those was losing exactly the audience the office-snack path was
+     * built to reach — the list literally contains 'office'.
+     *
+     * My first proposal gated this on `office_interest`, and Conversion was
+     * right that it cannot work: the email is validated on step 1 screen 0 and
+     * `office_interest` is collected on screen 4. It gated on a field that does
+     * not exist yet at the moment of the rejection.
+     */
+    business_enquiry: z.boolean().nullish().transform((v) => v === true),
+    business_consent_text_version: safeString(64).nullish().transform((v) => v || null),
     headcount: optionalEnum(HEADCOUNTS),
 
     // A free-text escape for the enums that offer "Other". Pairing is enforced
@@ -880,6 +935,28 @@ export const waitlistSchema = z
     // general health opt-in does not, so selecting it against the old sentence
     // is rejected rather than quietly stored under a consent that never
     // mentioned it — the failure mode Art 9(2)(a) exists to prevent.
+    // ── Role addresses, and the business basis that permits them ──────────
+    // Moved out of emailSchema because the verdict depends on a sibling field.
+    // Path stays ['email'] with rule `role_address` so the client copy written
+    // against the old shape keeps working.
+    const localPart = String(d.email || '').split('@')[0];
+    const isRole = ROLE_LOCALPARTS.has(localPart);
+    const businessText = CONSENT_TEXTS[d.business_consent_text_version]?.text ?? null;
+    const businessCovered = consentCoversBusiness(businessText);
+
+    if (d.business_enquiry && !businessCovered) {
+      // Declaring the basis is not the same as having shown it. Without the
+      // wording there is no consent to point at, and for a shared mailbox
+      // there is no individual's consent underneath to fall back on.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['business_consent_text_version'],
+        message: 'consent_wording_omits_business',
+      });
+    } else if (isRole && !d.business_enquiry) {
+      ctx.addIssue({ code: 'custom', path: ['email'], message: 'role_address' });
+    }
+
     const wantsMedication = (d.motivation ?? []).some((v) => MEDICATION_MOTIVATIONS.has(v));
     if (wantsMedication) {
       const shown = CONSENT_TEXTS[d.motivation_consent_text_version]?.text ?? null;

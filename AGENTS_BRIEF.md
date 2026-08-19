@@ -118,6 +118,23 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   // ordinary contact data covered by the marketing consent, and since
   // `consent_marketing` is mandatory a gate would never fire.
   "name":         "string|null, <=40 chars",
+
+  // ── S22, added 2026-08-19 ─────────────────────────────────────────────────
+  // The ONLY thing that permits a role address (office@, info@, team@, …).
+  // Send BOTH or neither. The version must resolve to wording that NAMES the
+  // business basis — the verbatim text is tested, not the boolean, exactly as
+  // for glp1_medication. Registered wording: `2026-08-19.business.a`.
+  //
+  // ⚠️ A row with business_enquiry:true is STORED WITH consent_marketing FALSE
+  // regardless of what the client sent, because we promised the person in
+  // writing that a shared inbox would not join the personal mailing list. The
+  // send list filters on consent_marketing = TRUE, so the promise holds
+  // structurally rather than by anyone remembering an extra clause.
+  //
+  // Disposable domains stay rejected regardless. A throwaway domain is not a
+  // workplace and the business basis does not make it one.
+  "business_enquiry":              "boolean, default false",
+  "business_consent_text_version": "string|null, <=64 chars",
   "headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
 
   "channel":       "array<enum>|null, no product cap: online_dtc | grocery | gym_studio | office | clinic | other",

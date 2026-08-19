@@ -28,6 +28,8 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 // it pins the lie in place. Shape adopted from the merge session's harness,
 // which caught it.
 let stubRows = 137;
+/** Every payload the endpoint has forwarded upstream, newest last. */
+const stubForwarded = [];
 const stub = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => (body += c));
@@ -39,6 +41,7 @@ const stub = http.createServer((req, res) => {
       /* malformed — still answer, the endpoint only reads `count` */
     }
     if (payload.action !== 'confirm') stubRows += 1;
+    stubForwarded.push(payload);
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true, count: stubRows }));
   });
@@ -69,6 +72,17 @@ let ipCounter = 0;
 function freshIp() {
   ipCounter += 1;
   return `198.51.100.${ipCounter % 250}`;
+}
+
+/**
+ * POST, then return the row the endpoint actually FORWARDED — not the row the
+ * test author believes it forwards. Same reasoning as the sheet suite's
+ * Scenario S: the gap between those two is where sms_phone was dropped.
+ */
+async function postCapturing(body, opts = {}) {
+  const before = stubForwarded.length;
+  const res = await post(body, opts);
+  return { ...res, captured: stubForwarded.slice(before) };
 }
 
 async function post(body, { ip = freshIp(), contentType = 'application/json', method = 'POST', raw = null, headers = {} } = {}) {
@@ -1140,6 +1154,76 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
+  // ── S22: role addresses behind the business basis ───────────────────────
+  const BIZ = '2026-08-19.business.a';
+
+  await check('office@ still rejected without the business basis', 'role_address', async () => {
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no' }));
+    const i = v.ok ? null : v.issues.find((x) => x.path === 'email');
+    return { pass: !v.ok && i?.rule === 'role_address', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+  });
+
+  await check('business_enquiry WITHOUT wording is refused', 'omits_business', async () => {
+    // Declaring the basis is not showing it. A boolean proves only that
+    // somebody sent a boolean.
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true }));
+    const i = v.ok ? null : v.issues.find((x) => x.path === 'business_consent_text_version');
+    return { pass: !v.ok && i?.rule === 'consent_wording_omits_business', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+  });
+
+  await check('business_enquiry with the WRONG wording is refused', 'omits_business', async () => {
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: '2026-08-15.marketing.a' }));
+    return { pass: !v.ok, actual: v.ok ? 'ACCEPTED — marketing wording passed as business' : 'rejected' };
+  });
+
+  await check('office@ accepted with the registered business wording', 'accepted', async () => {
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ }));
+    return { pass: v.ok, actual: v.ok ? 'ACCEPTED' : JSON.stringify(v.issues) };
+  });
+
+  await check('a DISPOSABLE domain is still refused, business basis or not', 'disposable', async () => {
+    // A throwaway domain is not a workplace and the basis does not make it one.
+    const v = validateWaitlist(growthPayload({ email: 'office@mailinator.com', business_enquiry: true, business_consent_text_version: BIZ }));
+    const i = v.ok ? null : v.issues.find((x) => x.path === 'email');
+    return { pass: !v.ok && i?.rule === 'disposable', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+  });
+
+  // THE PROMISE. Everything above is access control; this is the sentence we
+  // showed the person. If a business row can reach a send list filtered on
+  // consent_marketing = TRUE, the wording we displayed was false.
+  await check('THE PROMISE: a business row stores consent_marketing FALSE', 'excluded structurally', async () => {
+    const { captured } = await postCapturing(growthPayload({
+      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+    }));
+    const row = captured[0] ?? {};
+    return {
+      pass: row.consent_marketing === false && row.business_enquiry === true,
+      actual: `consent_marketing=${row.consent_marketing} business_enquiry=${row.business_enquiry}`,
+    };
+  });
+
+  await check('a normal signup is untouched by any of it', 'marketing TRUE', async () => {
+    const { captured } = await postCapturing(growthPayload());
+    const row = captured[0] ?? {};
+    return {
+      pass: row.consent_marketing === true && row.business_enquiry === false,
+      actual: `consent_marketing=${row.consent_marketing} business_enquiry=${row.business_enquiry}`,
+    };
+  });
+
+  await check('receipt v4 records the business block and the suppression', 'both present', async () => {
+    const { captured } = await postCapturing(growthPayload({
+      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+    }));
+    const r = JSON.parse(captured[0]?.consent_receipt ?? '{}');
+    const ok = r.schema === 'zuca.consent.v4'
+      && r.business?.granted === true
+      && typeof r.business?.text === 'string' && r.business.text.includes('on behalf of')
+      && r.personal_marketing_suppressed === true
+      && r.marketing?.granted === false;
+    return { pass: ok, actual: `schema=${r.schema} biz=${r.business?.granted} sup=${r.personal_marketing_suppressed} mkt=${r.marketing?.granted}` };
+  });
+
   // ── The size cap must not reject what the schema accepts ────────────────
   // MAX_BODY_BYTES carried the comment "the largest legitimate payload is well
   // under 1 KB". That was true when it was written and the 2026-08-17 extension
@@ -1307,17 +1391,47 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: ok, actual: JSON.stringify(b) };
   });
 
-  await check('Receipt block names match the field names they document', 'no mixed vocabulary', async () => {
+  await check('Receipt block names match the fields they document', 'no mixed vocabulary', async () => {
     // `mail` vs `postal` in one document cost two people an hour between them.
-    // Asserting the relationship rather than the literal, so a future rename
-    // that moves one and not the other fails here.
+    // This caught the S22 restructure immediately, which is the whole point —
+    // two of the five blocks stopped following the `data.consent_X` shape and
+    // it noticed rather than shrugging.
+    //
+    // The exceptions are now declared rather than pattern-matched away:
+    //   marketing  reads `holdsPersonalMarketingConsent`, the single derivation
+    //              that also feeds the stored column and the audit log. It must
+    //              NOT read data.consent_marketing again — that is exactly the
+    //              divergence that made the receipt contradict the sheet.
+    //   business   reads `data.business_enquiry`; there is no consent_business
+    //              flag, the enquiry declaration IS the flag.
+    const { CONSENT_PURPOSES } = await import('../src/lib/validation.js');
+    // purpose key -> receipt block name. `mail` differs on purpose and is
+    // documented at the receipt; everything else is identity.
+    const BLOCK_FOR_PURPOSE = { marketing: 'marketing', health: 'health', sms: 'sms', mail: 'postal', business: 'business' };
+    const EXPECTED_EXPR = { marketing: 'holdsPersonalMarketingConsent', business: 'data.business_enquiry' };
+
     const src = (await import('node:fs')).readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
-    const blocks = [...src.matchAll(/\['(\w+)', data\.consent_(\w+),/g)].map((m) => [m[1], m[2]]);
-    const mismatched = blocks.filter(([block, field]) => block !== field);
-    return {
-      pass: blocks.length === 4 && mismatched.length === 0,
-      actual: mismatched.length ? `block "${mismatched[0][0]}" documents consent_${mismatched[0][1]}` : `${blocks.length} blocks, all aligned`,
-    };
+    const table = src.slice(src.indexOf('consent_receipt: JSON.stringify('));
+    const blocks = [...table.matchAll(/\['(\w+)', ([\w.]+),/g)].map((m) => [m[1], m[2]]);
+
+    const problems = [];
+    // A purpose added without a block here fails, rather than silently
+    // producing a receipt that omits a consent we took.
+    const declared = Object.keys(CONSENT_PURPOSES).sort().join(',');
+    if (declared !== Object.keys(BLOCK_FOR_PURPOSE).sort().join(',')) {
+      problems.push(`CONSENT_PURPOSES is ${declared} — update BLOCK_FOR_PURPOSE`);
+    }
+    const found = blocks.map(([b]) => b).sort().join(',');
+    const want = Object.values(BLOCK_FOR_PURPOSE).sort().join(',');
+    if (found !== want) problems.push(`receipt has ${found}, expected ${want}`);
+
+    for (const [purpose, block] of Object.entries(BLOCK_FOR_PURPOSE)) {
+      const entry = blocks.find(([b]) => b === block);
+      if (!entry) continue;
+      const expected = EXPECTED_EXPR[purpose] ?? `data.consent_${block}`;
+      if (entry[1] !== expected) problems.push(`block "${block}" reads ${entry[1]}, expected ${expected}`);
+    }
+    return { pass: problems.length === 0, actual: problems.length ? problems.join(' · ') : `${blocks.length} blocks, all aligned` };
   });
 
   await check('Server-derived fields still rejected from the client', '400', async () => {
