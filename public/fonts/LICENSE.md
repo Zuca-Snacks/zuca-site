@@ -8,9 +8,12 @@ is loaded from a third-party CDN.
 - **Font:** Lazydog Kids Font
 - **Foundry:** JuliyArt
 - **Licence:** Creative Market Webfont License
-- **Order:** 148142438
 - **Purchased:** 19 August 2026
 - **Pageview cap: 10,000 pageviews per month.**
+
+The purchase order reference is recorded in `DECISIONS.md`, not here — this file is
+served publicly at `/fonts/LICENSE.md`, and an order number is not something a
+licence notice needs to carry.
 
 The file here is a latin subset of the purchased original (100 KB OTF → 23 KB WOFF2).
 

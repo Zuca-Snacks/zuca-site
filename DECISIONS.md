@@ -36,6 +36,77 @@ for the whole engagement and should not be moved or deleted.
 
 ---
 
+## Font licences — Lazy Dog purchase reference (Emil, 19 Aug 2026)
+
+`public/fonts/LICENSE.md` records the licence terms and travels with the fonts,
+because the OFL expects a redistributed face to carry its licence. It does **not**
+carry the purchase order number: `public/` is copied verbatim into `dist/`, so
+that file is served at `zucasnacks.com/fonts/LICENSE.md`, and an order reference
+is not something a licence notice needs to publish.
+
+**Lazydog Kids Font — JuliyArt, Creative Market Webfont License, order
+`148142438`, purchased 19 August 2026. Cap: 10,000 pageviews/month.**
+
+Outfit is SIL OFL and uncapped.
+
+### Revisit trigger
+
+**Traffic approaching 10,000 pageviews/month.** Nothing measures this. Nothing in
+the build, in Vercel, or in the font file fails when the cap is passed — the
+licence stops covering the site silently and the font keeps serving. Upgrading the
+tier has to happen *before* the traffic arrives, which means it is a launch-
+marketing decision rather than an engineering one.
+
+---
+
+## Art 27 EEA representative — the placeholder is removed and stays removed (Emil, 19 Aug 2026)
+
+### What was decided
+
+`public/privacy.html` carried two `[EEA REPRESENTATIVE … TO BE INSERTED BEFORE
+LAUNCH]` markers — one in the body, one in the footer. Both are **removed, not
+filled**, with no sample and no "TBD". The body paragraph went whole rather than
+leaving the sentence *"GDPR Article 27 requires us to appoint a representative in
+the EEA who you can contact instead of us"* standing above a blank.
+
+**The removal stands. A paragraph naming nobody does not cure the appointment
+obligation** — it only makes the page look like it has been dealt with.
+
+### The objection on the record
+
+Raised by the conversion agent after the removal, and verified independently:
+`privacy.html` now contains **zero** occurrences of "representative", "Article
+27" or "Art 27", against 7 mentions of the EEA in that file and 3 in
+`terms.html`, with `api/waitlist.js:461` branching on `isEea()` to select the
+consent regime. So the site distinguishes EEA subjects in running code.
+
+Their argument: if Art 27 applies, **Art 13(1)(a)** requires the
+representative's identity and contact details in the notice itself, so silence
+is a *different* failure from a placeholder rather than a smaller one — nothing
+now signals that anything is missing.
+
+Emil's answer is that this is true and does not change the decision. Neither
+state is compliant; only appointing a representative is. A placeholder does not
+buy partial credit, and the marker's real function was to remind us, which is
+what this entry is now for.
+
+### Scope correction
+
+The obligation was previously discussed as though it were triggered by *emailing*
+EEA subjects, which made it look deferrable until a sender exists. **It is not.**
+Art 27 follows from Art 3(2) — offering goods or services to people in the Union
+and processing their data. **We collect from EEA subjects the moment the waitlist
+is live**, region-detected consent wording and all. The question is therefore
+live at publication, not at first send.
+
+### Revisit trigger
+
+**The Cooley review.** It is the only thing that can close this, since appointing
+a representative is a legal engagement rather than a code change. Nothing in the
+repository can detect the omission, and no test will fail because of it.
+
+---
+
 ## 📋 UNANSWERED QUESTIONS IN HANDOFFS ARE OPEN ITEMS (Emil, 19 Aug 2026)
 
 **A question an agent asks in a handoff file is an open item, not a note.** It
