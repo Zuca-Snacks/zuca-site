@@ -36,6 +36,91 @@ for the whole engagement and should not be moved or deleted.
 
 ---
 
+## S23 — every step 2–4 answer was discarded in production (19 Aug 2026)
+
+Found by Emil, walking a live signup on the production site within an hour of
+the first deploy. Fixed the same day by security and growth; confirmed fixed by
+a second live signup — profile answers persist, exactly one row per address.
+
+### What happened
+
+The waitlist form saves on every screen advance, so a person who abandons at
+screen 3 still has their email. Four screens, four POSTs, each carrying the full
+payload including `email`. `Step2Profile.jsx` called that operation an *upsert*.
+Nothing in the system implemented one.
+
+`/api/waitlist` checked for duplicates at step 9 and forwarded to the sheet at
+step 12, so it returned before ever reaching the sheet:
+
+```
+if (await isDuplicate(handle)) {
+  audit('duplicate', { handle });
+  return send(res, 409, { ok: false, error: 'duplicate' });
+}
+```
+
+`isDuplicate` is an atomic `SET NX` with a 400-day TTL. POST 1 set the key;
+POSTs 2–4 found it and were rejected. The client then mapped 409 to
+`RESULT.DUPLICATE` and treated it as success — correct on step 1, where it means
+"you are already on the list", and wrong on every later save, where it means the
+answers were thrown away. The person saw the confirmation screen. Four live
+signups were affected before it was caught.
+
+### The fix
+
+An authorised update path: the server issues an `edit_token` on the first write,
+the client returns it on later saves, and a known handle routes to an update
+instead of a 409. `edit_token` is now in `MINIMAL_KEYS` — the floor of the
+downgrade ladder — because a rescue rung that drops it writes a 409 and calls it
+saved.
+
+### What generalises — a missing world, not a missing assertion
+
+**Two hundred passing checks could not express the state the bug lived in.**
+
+```
+if (!DURABLE) return false;
+```
+
+`DURABLE` is false without Upstash. Upstash existed only in production. So the
+duplicate check — the entire failing branch — never ran locally, never ran in
+CI, and never ran in any of the 200 checks. Every green run was green because
+the code that breaks was switched off.
+
+This is the failure mode worth remembering: not a test that forgot to assert
+something, but a **world the suite could not construct**. No amount of care
+writing assertions would have found it, because there was no state in which to
+assert. The bug shipped through a suite that was, on its own terms, exhaustive.
+
+**`npm run security:repeat` exists to make that world constructible.** It runs
+the repeat-signup sequence twice, once without the secret and once with it, and
+prints what actually reached the sheet:
+
+```
+reached the sheet: [{"action":"create",...},{"action":"update",...},{"action":"update",...}]
+```
+
+It is not a regression test for S23. It is the missing world, kept around so the
+next bug of this shape has somewhere to show itself. Treat "this code path only
+runs when an env var is set" as a gap in the harness, not a detail of deployment.
+
+### The other half — why S24 took one comparison
+
+S24 (growth's downgrade ladder strips seventeen fields when health consent is
+declined, including SMS and postal consents the person granted) was found
+immediately, by comparing two rows.
+
+That was possible because **`is_downgraded` and `downgraded_fields` are written
+to every row.** A downgraded record is not merely incomplete, it is *labelled*
+incomplete and says which fields went. Without those columns a stripped row is
+indistinguishable from someone who skipped step 2 — "looks normal but isn't",
+which is the exact condition the endpoint was built against.
+
+The cost was two columns. The return was finding a consent-integrity bug in a
+single comparison rather than by re-deriving what should have been there.
+
+---
+
 ## Font licences — Lazy Dog purchase reference (Emil, 19 Aug 2026)
 
 `public/fonts/LICENSE.md` records the licence terms and travels with the fonts,
