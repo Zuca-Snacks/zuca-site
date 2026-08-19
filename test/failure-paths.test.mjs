@@ -437,3 +437,28 @@ test('an empty signup sends no key a deployed server has not seen', async () => 
   // And the business keys must NOT be among them — the whole point.
   assert.equal(keys.some((k) => k.startsWith('business_')), false);
 });
+
+test('the conditional keys are spelled the way the server spells them', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const { businessConsent } = await import('../src/components/waitlist/consent.js');
+  const keys = Object.keys(mod.buildPayload({
+    email: 'office@bakeriet.no', consentMarketing: true, consentTextVersion: 'x',
+    businessEnquiry: true, businessConsentTextVersion: businessConsent().version,
+    formRenderTs: Date.now() - 9000,
+  }));
+
+  // ⚠️ THE TEST ABOVE CANNOT SEE THESE, AND THAT IS THE POINT OF THIS ONE.
+  // It builds a payload with no business enquiry, so the conditionally-spread
+  // pair never exists in it and their SPELLING is never checked. Renaming the
+  // wire key to `businessEnquiry` passed the whole suite silently — proven by
+  // mutation, not by reading. Conditional keys are the newest and most
+  // drift-prone in any payload and they are exactly the ones a test that
+  // exercises the default path will never reach.
+  //
+  // camelCase is this codebase's natural style and snake_case is the deliberate
+  // exception for wire keys, so this is the likeliest drift there is: strict()
+  // would reject the payload outright and every office signup would fail.
+  assert.ok(keys.includes('business_enquiry'), 'snake_case, as the server spells it');
+  assert.ok(keys.includes('business_consent_text_version'));
+  assert.equal(keys.some((k) => /[A-Z]/.test(k)), false, 'no wire key is camelCase');
+});

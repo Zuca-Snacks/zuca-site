@@ -447,6 +447,23 @@ server, useless against a stale one — the floor cannot rescue a key the server
 has never heard of.
 
 `test/failure-paths.test.mjs` pins the unconditional key list for this reason.
+
+**And a second test pins the conditional pair, because the first one cannot see
+them.** A test that builds the default payload never constructs the keys that
+only appear on a branch — so renaming `business_enquiry` to `businessEnquiry`
+passed the entire suite silently. Found by mutation, not by reading, after
+security hit the identical blindness in `security:compat`: its extractor read
+only flat keys and reported COMPATIBLE while missing exactly the two newest
+fields. Conditional keys are the newest and most drift-prone in any payload and
+they are precisely the ones a default-path test never reaches.
+
+The drift is not hypothetical: camelCase is this codebase's natural style and
+snake_case is the deliberate exception for wire keys, so `businessEnquiry` is
+the single likeliest key mistake here — and `.strict()` would reject the whole
+payload for it.
+
+**A guard cannot be reviewed into correctness. Break it deliberately and watch
+whether it notices.** Four mutations were run against this suite; one passed.
 A new always-present key fails that test, which is the moment to ask whether
 its server is deployed yet.
 
