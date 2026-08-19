@@ -1153,6 +1153,19 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: ok, actual: JSON.stringify(b) };
   });
 
+  await check('Receipt block names match the field names they document', 'no mixed vocabulary', async () => {
+    // `mail` vs `postal` in one document cost two people an hour between them.
+    // Asserting the relationship rather than the literal, so a future rename
+    // that moves one and not the other fails here.
+    const src = (await import('node:fs')).readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+    const blocks = [...src.matchAll(/\['(\w+)', data\.consent_(\w+),/g)].map((m) => [m[1], m[2]]);
+    const mismatched = blocks.filter(([block, field]) => block !== field);
+    return {
+      pass: blocks.length === 4 && mismatched.length === 0,
+      actual: mismatched.length ? `block "${mismatched[0][0]}" documents consent_${mismatched[0][1]}` : `${blocks.length} blocks, all aligned`,
+    };
+  });
+
   await check('Server-derived fields still rejected from the client', '400', async () => {
     const codes = await Promise.all([
       post(growthPayload({ country: 'NO' })),

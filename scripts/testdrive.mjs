@@ -259,12 +259,10 @@ const vite = await createVite({
       '/api': {
         target: `http://127.0.0.1:${API_PORT}`,
         changeOrigin: false,
-        /* TEST-HARNESS ONLY. api/waitlist.js allows http://localhost:3003 and
-           :5173 and nothing else — a LAN origin from a phone is exactly what
-           that control exists to refuse. Rewriting it here keeps the production
-           control untouched. CONSEQUENCE, stated not buried: the origin check is
-           NOT exercised in a test drive. Everything else is, including the bot
-           timer, the rate limit, schema validation and the real Code.gs write. */
+        /* TEST-HARNESS ONLY. api/waitlist.js allows localhost:3003 and :5173;
+           a phone's LAN origin is exactly what that control exists to refuse.
+           Rewritten here so the production control stays untouched. COST: the
+           origin check alone is not exercised in a test drive. */
         configure: (proxy) => {
           proxy.on('proxyReq', (rq) => {
             rq.setHeader('origin', 'http://localhost:3003');
@@ -287,27 +285,19 @@ try {
 // Report the port the server actually bound, never the constant we asked for.
 const boundPort = vite.httpServer?.address()?.port ?? WEB_PORT;
 
-/* ⚠️ WRITE THE PID AND PRINT IT.
-   On 18 Aug this rig was stopped with `pkill -9 -f testdrive.mjs`, which matches
-   on the command line and is blind to the directory — so it killed a second rig
-   running the same script from a different worktree, and the URL a human had
-   just been given went dead. `pkill -f` cannot tell the process it is aimed at
-   from the one beside it, which is the same defect as a checker that cannot tell
-   "no drift" from "read nothing".
-   Stop this rig by PID:   kill $(cat .testdrive.pid)
-   Never by pattern while more than one worktree exists. */
-try {
-  fs.writeFileSync('.testdrive.pid', String(process.pid));
-} catch { /* non-fatal: the banner still prints the pid below */ }
-
-
 const region = process.env.TESTDRIVE_COUNTRY || 'NO';
 console.log(`
   ┌──────────────────────────────────────────────────────────────┐
   │  ZUCA TEST DRIVE — local only, production untouched          │
   └──────────────────────────────────────────────────────────────┘
 
-     PID         ${process.pid}  (stop with: kill \$(cat .testdrive.pid))\n     Open        http://localhost:${boundPort}
+     To stop:    kill ${process.pid}
+                 NOT `pkill -f testdrive.mjs` — that matches on the command
+                 line, so it kills every copy of this script on the machine
+                 regardless of directory. It has already taken out someone
+                 else's rig once.
+
+     Open        http://localhost:${boundPort}
      Sheet       ${SHEET}          (the real column grid)
      Readable    ${ROWS}   (one row per line)
      Watch them  tail -f testdrive-rows.jsonl
