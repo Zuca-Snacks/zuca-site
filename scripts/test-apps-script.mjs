@@ -507,6 +507,11 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       email: 'seam@example.no', consent_marketing: true,
+      // 28 chars. The obvious canary is 43 and the cap is 40 — the first
+      // version of this line was REJECTED for length, which proved the cap and
+      // tested nothing else. A sanitisation fixture has to fit through
+      // validation first or it silently stops being a sanitisation fixture.
+      name: '=IMPORTXML("http://x","//a")',
       phone: '+4791234567', consent_sms: true, sms_consent_text_version: '2026-08-17.sms.a',
       consent_postal: true, address_line1: 'Storgata 1', address_city: 'Oslo',
       address_postal_code: '0150', address_country: 'NO',
@@ -564,6 +569,23 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
       const c = cellFor(sheet, col);
       check(`seam: ${col} survives (${why})`, !c.missing && String(c.value) !== '', JSON.stringify(String(c.value).slice(0, 46)));
     }
+    // ── name maps onto the EXISTING legacy column ────────────────────────
+    // The whole point of the 2026-08-19 field is that new and historical rows
+    // share one column. A `name_v2` appearing beside `Name` would satisfy
+    // "every forwarded field has a column" above while defeating the reason
+    // the field was specced that way — so it needs its own assertion.
+    {
+      const c = cellFor(sheet, 'name');
+      const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+      const nameCols = headers.filter((h) => /^name(_v\d+)?$/i.test(h.trim()));
+      check('seam: name reuses the existing Name column, no second one created',
+        nameCols.length === 1 && headers.indexOf('Name') === 6,
+        `${nameCols.length} name-ish column(s): ${nameCols.join(', ')} @ index ${headers.indexOf('Name')}`);
+      check('seam: name formula neutralised, exactly once',
+        String(c.value).startsWith("'=") && !String(c.value).startsWith("''"),
+        JSON.stringify(String(c.value)));
+    }
+
     check('seam: confirmed written as FALSE, not blank',
       String(cellFor(sheet, 'confirmed').value) === 'FALSE',
       JSON.stringify(cellFor(sheet, 'confirmed').value));

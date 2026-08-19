@@ -32,7 +32,7 @@ const EMAIL = `zuca-livetest-${STAMP}@example.com`;
 /** Free-text fields: the value names its own column. */
 const selfNaming = (k) => `col:${k}`;
 const TEXT = [
-  'company', 'motivation_other', 'referral_source_other', 'channel_other',
+  'name', 'company', 'motivation_other', 'referral_source_other', 'channel_other',
   'dietary_other', 'price_band_other',
   'address_line1', 'address_line2', 'address_city', 'address_region',
   'address_country',
@@ -146,7 +146,10 @@ for (const [k, v] of Object.entries(TYPED)) {
   console.log(`     ${k.padEnd(34)} ${v === '' ? '(blank)' : String(v)}`);
 }
 console.log(`\n4. LEGACY COLUMNS — must be EMPTY on this row:`);
-console.log(`     Phone   How They Heard   Reason   Source   Name`);
+console.log(`     Phone   How They Heard   Reason   Source`);
+console.log(`\n   NOT Name. As of 2026-08-19 the new form writes an optional first`);
+console.log(`   name into that same column on purpose, so historical and new rows`);
+console.log(`   line up. It should read "col:name" on this row.`);
 console.log(`\n   Phone empty matters most: the number went to sms_phone, and the`);
 console.log(`   whole point is that consent-gated numbers never touch the legacy`);
 console.log(`   column holding 137 numbers nobody consented to.`);

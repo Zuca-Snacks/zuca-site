@@ -108,6 +108,34 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   // "would you want these at work?" and is real signal for an office pilot.
   "office_interest":   "enum|null: yes | maybe | no",
   "company":      "string|null, <=80 chars",
+
+  // ── Added 2026-08-19 ──────────────────────────────────────────────────────
+  // Optional FIRST NAME. Maps onto the sheet's existing legacy `Name` column,
+  // deliberately, so historical and new rows share one place.
+  //
+  // Cap 40 is agreed EQUAL on both sides, not independently chosen. First name
+  // only — no surname is asked for, and the privacy policy already declares it
+  // as "First name (optional)". No pairing rule and NO consent gate: it is
+  // ordinary contact data covered by the marketing consent, and since
+  // `consent_marketing` is mandatory a gate would never fire.
+  "name":         "string|null, <=40 chars",
+
+  // ── S22, added 2026-08-19 ─────────────────────────────────────────────────
+  // The ONLY thing that permits a role address (office@, info@, team@, …).
+  // Send BOTH or neither. The version must resolve to wording that NAMES the
+  // business basis — the verbatim text is tested, not the boolean, exactly as
+  // for glp1_medication. Registered wording: `2026-08-19.business.a`.
+  //
+  // ⚠️ A row with business_enquiry:true is STORED WITH consent_marketing FALSE
+  // regardless of what the client sent, because we promised the person in
+  // writing that a shared inbox would not join the personal mailing list. The
+  // send list filters on consent_marketing = TRUE, so the promise holds
+  // structurally rather than by anyone remembering an extra clause.
+  //
+  // Disposable domains stay rejected regardless. A throwaway domain is not a
+  // workplace and the business basis does not make it one.
+  "business_enquiry":              "boolean, default false",
+  "business_consent_text_version": "string|null, <=64 chars",
   "headcount": "enum|null: lt_10 | 10_49 | 50_199 | 200_999 | gt_1000",
 
   "channel":       "array<enum>|null, no product cap: online_dtc | grocery | gym_studio | office | clinic | other",
@@ -180,7 +208,26 @@ ignoring the extra key behaves exactly as before. Use it to update the live coun
 issuing a follow-up `GET /api/count`, which an edge cache can answer with a number from *before*
 this very write. If you genuinely need a separate read, `GET /api/count?fresh=1` bypasses the cache.
 
-Response: `200 {"ok":true}` · `400 {"ok":false,"error":"validation"}` · `409 {"ok":false,"error":"duplicate"}` (treat as success in the UI) · `429 {"ok":false,"error":"rate_limited"}` · `500 {"ok":false,"error":"server"}`.
+**Response contract — ALL NINE statuses.** Every body is exactly `{"ok":false,"error":"<slug>"}`
+and carries **nothing else**. There is no field naming which input failed: the validator's
+per-field `rule` goes to the server audit log only, and assuming otherwise is a mistake I made
+in writing and Conversion caught by reading the code.
+
+| Status | `error` | When | Client should |
+|---|---|---|---|
+| `200` | — | Accepted. Body is `{"ok":true,"count":N,"position":N}` | Success |
+| `400` | `validation` | Any field failed any rule | Show a general message; **you cannot tell which field** |
+| `403` | `forbidden` | `Origin` header present and not ours | Not reachable from our own pages |
+| `405` | `method_not_allowed` | Not a POST | Bug if you see it |
+| `409` | `duplicate` | Address already on the list | **Treat as success** |
+| `413` | `payload_too_large` | Body over the cap | Do not retry unchanged |
+| `415` | `unsupported_media_type` | Content-Type is not JSON | ⚠️ `navigator.sendBeacon` sends `text/plain` — an offline queue flushed with it gets 415, not 400, and the downgrade ladder will not save it |
+| `429` | `rate_limited` | Rate limit hit | Back off; `Retry-After` is set |
+| `500` | `server` | Our fault, including an unconfigured webhook | Retry later |
+
+The four in the middle were previously undocumented. They are emitted by the running code, so
+a client written against the old five-status list had no defined behaviour for a third of what
+it can receive.
 
 **Only `email` + `consent_marketing` are required.** Everything else is optional and collected
 *after* the email is already captured. The email must be persisted even if the user abandons step 2.

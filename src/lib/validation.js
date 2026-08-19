@@ -50,6 +50,24 @@ const BUILTIN_CONSENT_TEXTS = {
   // Names medication explicitly, which the wording above does not. A signup
   // selecting a medication value against the OLDER wording is rejected: the
   // sentence they read did not mention it, so their consent does not cover it.
+  // The business basis (S22), approved by Emil 2026-08-19. Verbatim, because
+  // `consentCoversBusiness` tests THIS STRING — the wording is not decoration
+  // around the basis, for a shared mailbox it IS the basis.
+  //
+  // The narrowing to the office conversation is a constraint on us, not a
+  // courtesy: a mailbox nobody personally consented from can only support a
+  // purpose genuinely about the organisation. Mailing it about a consumer
+  // launch does not weaken this basis, it removes it.
+  '2026-08-19.business.a': {
+    purpose: 'business',
+    regime: 'global',
+    text:
+      "I'm asking on behalf of my workplace. This is a business enquiry, not a " +
+      'personal signup. Zuca will email this address about stocking Zuca at ' +
+      'work — nothing else — and anyone reading this inbox can stop it by ' +
+      'replying to that email. Because it is a shared address, it will not be ' +
+      "added to Zuca's personal mailing list.",
+  },
   '2026-08-19.health-medication.a': {
     purpose: 'health',
     regime: 'global',
@@ -91,6 +109,7 @@ export const CONSENT_PURPOSES = {
   health: { flag: 'consent_health', version: 'motivation_consent_text_version', gates: 'motivation' },
   sms: { flag: 'consent_sms', version: 'sms_consent_text_version', gates: 'phone' },
   mail: { flag: 'consent_postal', version: 'postal_consent_text_version', gates: 'address' },
+  business: { flag: 'business_enquiry', version: 'business_consent_text_version', gates: 'role_address' },
 };
 
 /**
@@ -183,6 +202,7 @@ export function reconcileConsentRegime({
   healthVersion,
   smsVersion,
   postalVersion,
+  businessVersion,
 }) {
   const inEea = isEea(country);
 
@@ -194,6 +214,7 @@ export function reconcileConsentRegime({
     ['health', healthVersion],
     ['sms', smsVersion],
     ['postal', postalVersion],
+    ['business', businessVersion],
   ].filter(([, v]) => v);
 
   const regimes = {};
@@ -298,7 +319,23 @@ export function deriveCountry(req) {
   return /^[A-Z]{2}$/.test(code) ? code : 'XX';
 }
 
-export const MAX_BODY_BYTES = 8 * 1024; // 8 KB. The largest legitimate payload is well under 1 KB.
+/**
+ * 8 KB. A maximal VALID payload — every field present, every string at its cap,
+ * every multi-select fully chosen — measures 2956 bytes after the 2026-08-17
+ * extension, leaving 2.8x headroom.
+ *
+ * This comment said "well under 1 KB" until 2026-08-19. That was true when it
+ * was written and the extension tripled the field count without anyone
+ * re-measuring — a hand-maintained derived number, the same failure as the
+ * runbook's column letters.
+ *
+ * DO NOT TIGHTEN THIS FROM THE COMMENT. The stale figure was dangerous
+ * precisely because it invited one: read "under 1 KB", set the cap to 2 KB with
+ * apparently generous margin, and start rejecting people who filled the form in
+ * properly. The attack suite measures the real maximum and prints the margin —
+ * change the cap only against a number that run produces.
+ */
+export const MAX_BODY_BYTES = 8 * 1024;
 export const MIN_FILL_MS = 2000; // Faster than a human can read the form, let alone fill it.
 export const MAX_FORM_AGE_MS = 12 * 60 * 60 * 1000; // Stale timestamp = replayed or forged.
 
@@ -345,11 +382,37 @@ function normalizeText(value) {
 }
 
 /** A trimmed, normalized, header-injection-free string with a hard length cap. */
+/**
+ * C0 and C1 control characters that get STRIPPED rather than rejected.
+ *
+ * Deliberately EXCLUDES \u0000, \r and \n — those stay in FORBIDDEN_CHARS and
+ * are still a hard rejection. Stripping them here would silently downgrade an
+ * existing security control into a cleanup, which is the worse kind of change
+ * because the tests would keep passing.
+ *
+ * Also excludes \t \u000B \u000C: normalizeText already folds them to a space,
+ * and "a<TAB>b" should read "a b", not "ab".
+ *
+ * What is left — \u0001-\u0008, \u000E-\u001F, DEL, and the C1 block — is
+ * invisible junk. A bell character in a first name is never intentional, so
+ * stripping loses nothing a person meant to type, and unlike rejecting it
+ * cannot 400 a submission somebody cannot see the problem with.
+ *
+ * Added 2026-08-19, AFTER Conversion shipped the same strip client-side. Order
+ * matters: this is a REMOVE-class change, so the client goes first. Doing it
+ * server-side while an older client was still posting would have turned
+ * payloads that client considers valid into rejections in flight.
+ */
+// eslint-disable-next-line no-control-regex -- matching control chars is the point
+const STRIPPED_CONTROLS = /[\u0001-\u0008\u000E-\u001F\u007F-\u009F]/g;
+
 function safeString(max) {
   return z
     .string()
     .max(max * 4, { message: 'too_long' }) // Cheap pre-check before we spend cycles normalizing.
-    .transform(normalizeText)
+    // Strip BEFORE normalizing so the space-collapse and trim run afterwards:
+    // "a <BEL> b" becomes "a b", not "a  b".
+    .transform((v) => normalizeText(v.replace(STRIPPED_CONTROLS, '')))
     .refine((v) => !FORBIDDEN_CHARS.test(v), { message: 'illegal_chars' })
     .refine((v) => v.length <= max, { message: 'too_long' });
 }
@@ -446,7 +509,10 @@ const emailSchema = z
   .refine((v) => !FORBIDDEN_CHARS.test(v), { message: 'illegal_chars' })
   .refine((v) => EMAIL_RE.test(v), { message: 'invalid_email' })
   .refine((v) => !v.includes('..'), { message: 'invalid_email' })
-  .refine((v) => !ROLE_LOCALPARTS.has(v.split('@')[0]), { message: 'role_address' })
+  // NOTE: the role-address check is NOT here. It moved to superRefine on
+  // 2026-08-19 because it now depends on `business_enquiry`, a sibling field
+  // this schema cannot see. `disposable` stays — a throwaway domain is not a
+  // workplace, and nothing about the business basis makes it one.
   .refine((v) => !DISPOSABLE_DOMAINS.has(v.split('@')[1]), { message: 'disposable' });
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -481,6 +547,22 @@ export const MEDICATION_MOTIVATIONS = new Set(['glp1_medication']);
  *
  * Fails closed. An unresolved version has no text, so it covers nothing.
  */
+/**
+ * Does this wording actually tell the person it is a BUSINESS enquiry?
+ *
+ * Same test as `consentCoversMedication`, for the same reason: read what the
+ * person was shown, not a flag we set ourselves. A boolean says somebody sent
+ * `business_enquiry: true`; the verbatim text is the only evidence that the
+ * sentence establishing the basis was on the screen.
+ *
+ * Matters more here than for medication. A shared mailbox gives no individual's
+ * consent at all, so the wording is not decorating the basis — it IS the basis.
+ */
+export function consentCoversBusiness(resolvedText) {
+  if (typeof resolvedText !== 'string' || !resolvedText) return false;
+  return /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i.test(resolvedText);
+}
+
 export function consentCoversMedication(resolvedText) {
   if (typeof resolvedText !== 'string' || !resolvedText) return false;
   return /\bmedicat|\bGLP-?\s?1\b/i.test(resolvedText);
@@ -702,6 +784,49 @@ export const waitlistSchema = z
     // and is formula-sanitised before it reaches a cell.
     office_interest: optionalEnum(OFFICE_INTERESTS),
     company: safeString(80).nullish().transform((v) => v || null),
+
+    /**
+     * First name, optional. Added 2026-08-19.
+     *
+     * NOT a new field on the sheet — it maps onto the `Name` column the old
+     * modal already wrote to, so historical and new rows line up in one place.
+     * That is safe here in a way it explicitly was NOT for `phone`, and the
+     * difference is worth stating because the two look alike:
+     *
+     *   A name is not a contact channel. The phone hazard was that "text
+     *   everyone with a number" would reach 137 people who never agreed, so
+     *   the consented numbers needed a column of their own. There is no query
+     *   over the name column that contacts anybody — you cannot send to a
+     *   name — so merging costs nothing and the rows stay distinguishable by
+     *   `consent_timestamp` anyway.
+     *
+     * Cap 40, agreed with Conversion so the two caps are EQUAL rather than
+     * each independently reasonable — the failure mode we already hit once,
+     * where a client cap of 120 above a server cap of 40 turned the gap into
+     * a 400. 40 is first-name-only: Emil does not ask for a surname, and the
+     * privacy policy's entry already reads "First name (optional)".
+     *
+     * No pairing rule and no consent gate. `consent_marketing` is mandatory —
+     * the schema rejects its absence AND its being false — so there is no such
+     * thing as a stored row without it, and gating this on a condition that
+     * holds for every row would be a control that never fires.
+     */
+    name: safeString(40).nullish().transform((v) => v || null),
+
+    /**
+     * "I'm asking on behalf of my workplace." Added 2026-08-19 (S22).
+     *
+     * The ONLY thing that permits a role address (office@, info@, team@).
+     * Rejecting those was losing exactly the audience the office-snack path was
+     * built to reach — the list literally contains 'office'.
+     *
+     * My first proposal gated this on `office_interest`, and Conversion was
+     * right that it cannot work: the email is validated on step 1 screen 0 and
+     * `office_interest` is collected on screen 4. It gated on a field that does
+     * not exist yet at the moment of the rejection.
+     */
+    business_enquiry: z.boolean().nullish().transform((v) => v === true),
+    business_consent_text_version: safeString(64).nullish().transform((v) => v || null),
     headcount: optionalEnum(HEADCOUNTS),
 
     // A free-text escape for the enums that offer "Other". Pairing is enforced
@@ -810,6 +935,28 @@ export const waitlistSchema = z
     // general health opt-in does not, so selecting it against the old sentence
     // is rejected rather than quietly stored under a consent that never
     // mentioned it — the failure mode Art 9(2)(a) exists to prevent.
+    // ── Role addresses, and the business basis that permits them ──────────
+    // Moved out of emailSchema because the verdict depends on a sibling field.
+    // Path stays ['email'] with rule `role_address` so the client copy written
+    // against the old shape keeps working.
+    const localPart = String(d.email || '').split('@')[0];
+    const isRole = ROLE_LOCALPARTS.has(localPart);
+    const businessText = CONSENT_TEXTS[d.business_consent_text_version]?.text ?? null;
+    const businessCovered = consentCoversBusiness(businessText);
+
+    if (d.business_enquiry && !businessCovered) {
+      // Declaring the basis is not the same as having shown it. Without the
+      // wording there is no consent to point at, and for a shared mailbox
+      // there is no individual's consent underneath to fall back on.
+      ctx.addIssue({
+        code: 'custom',
+        path: ['business_consent_text_version'],
+        message: 'consent_wording_omits_business',
+      });
+    } else if (isRole && !d.business_enquiry) {
+      ctx.addIssue({ code: 'custom', path: ['email'], message: 'role_address' });
+    }
+
     const wantsMedication = (d.motivation ?? []).some((v) => MEDICATION_MOTIVATIONS.has(v));
     if (wantsMedication) {
       const shown = CONSENT_TEXTS[d.motivation_consent_text_version]?.text ?? null;

@@ -45,7 +45,16 @@ const ALLOWED_ORIGINS = new Set(
   [
     'https://zucasnacks.com',
     'https://www.zucasnacks.com',
+    // VERCEL_URL is the DEPLOYMENT-specific host (zuca-site-a1b2c3.vercel.app).
+    // Preview links are normally opened through the BRANCH alias instead
+    // (zuca-site-git-sec-hardening-team.vercel.app), which is a different host,
+    // so origin-matching on VERCEL_URL alone 403s every preview reached the
+    // normal way. Both are ours; both belong here.
+    //
+    // The failure mode is nasty: the form looks broken on preview and fine in
+    // production, so it reads as a deploy problem rather than an allowlist one.
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : null,
     process.env.NODE_ENV !== 'production' ? 'http://localhost:3003' : null,
     process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : null,
   ].filter(Boolean)
@@ -227,6 +236,23 @@ export default async function handler(req, res) {
   const healthConsent = resolveConsentText(data.motivation_consent_text_version, 'health');
   const smsConsent = resolveConsentText(data.sms_consent_text_version, 'sms');
   const postalConsent = resolveConsentText(data.postal_consent_text_version, 'mail');
+  const businessConsent = resolveConsentText(data.business_consent_text_version, 'business');
+
+  /**
+   * Whether we hold PERSONAL marketing consent, as opposed to what was ticked.
+   *
+   * Derived exactly once, here, and used by the stored column, the consent
+   * receipt and the audit log alike. The first version of S22 computed it
+   * inline in the record only — so the sheet said FALSE while the receipt in
+   * the very same row said `marketing.granted: true`, and the audit log agreed
+   * with the receipt. Consent evidence that contradicts itself is worse than
+   * either answer alone: it proves only that we do not know.
+   *
+   * Same defect as everything else this week — one fact derived in three places
+   * and updated in one — committed inside the change whose entire purpose was
+   * to make a promise structural rather than remembered.
+   */
+  const holdsPersonalMarketingConsent = data.consent_marketing && !data.business_enquiry;
   const ipPrefix = ip.includes(':')
     ? ip.split(':').slice(0, 3).join(':')
     : ip.split('.').slice(0, 3).join('.') + '.0';
@@ -240,6 +266,7 @@ export default async function handler(req, res) {
     healthVersion: data.consent_health ? data.motivation_consent_text_version : null,
     smsVersion: data.consent_sms ? data.sms_consent_text_version : null,
     postalVersion: data.consent_postal ? data.postal_consent_text_version : null,
+    businessVersion: data.business_enquiry ? data.business_consent_text_version : null,
   });
 
   if (reconciliation.needs_reconsent) {
@@ -310,6 +337,15 @@ export default async function handler(req, res) {
     company: data.company,
     headcount: data.headcount,
 
+    // First name, optional. Written to the legacy `Name` column so new and
+    // historical rows share one place. Ungated on purpose: `consent_marketing`
+    // is mandatory, so a gate here would be a condition that is always true.
+    name: data.name,
+
+    // ── S22: the business basis, and the promise it rests on ───────────────
+    business_enquiry: data.business_enquiry,
+    business_consent_text_version: data.business_enquiry ? data.business_consent_text_version : null,
+
     // Phone and postal address are each stored ONLY behind their own opt-in,
     // the same rule already applied to `motivation`. Someone typing an address
     // into a form is not the same as consenting to us keeping it, and a home
@@ -330,7 +366,27 @@ export default async function handler(req, res) {
     address_country: data.consent_postal ? data.address_country : null,
     consent_postal: data.consent_postal,
     postal_consent_text_version: data.consent_postal ? postalConsent.version : null,
-    consent_marketing: data.consent_marketing,
+    /**
+     * FALSE on a business enquiry, even though the client sent `true`.
+     *
+     * THIS IS WHAT MAKES THE PROMISE STRUCTURAL. We told the person "it will
+     * not be added to Zuca's personal mailing list". Conversion's flow is
+     * submit -> rejected -> tick the business box -> resubmit, so the payload
+     * arrives carrying BOTH consents, and the personal send list is built by
+     * filtering `consent_marketing = TRUE`. Storing true would put a shared
+     * mailbox on that list by default, and the promise would then depend on
+     * whoever builds the list remembering an extra AND clause. A promise kept
+     * only by remembering is not kept.
+     *
+     * It is also the accurate answer. A shared mailbox cannot give an
+     * individual's consent — that is the entire premise of the business basis —
+     * so recording `consent_marketing: TRUE` against info@ would be recording
+     * a consent we could never demonstrate for any named person under Art 7(1).
+     *
+     * What they did tick is not lost: the receipt records
+     * `personal_marketing_suppressed` so the row explains itself.
+     */
+    consent_marketing: holdsPersonalMarketingConsent,
     utm: data.utm,
     page_path: data.page_path,
     // ── Consent evidence (contract amendment) ──────────────────────────────
@@ -357,14 +413,25 @@ export default async function handler(req, res) {
     // its own, but the sentence the person actually read still means exactly
     // what it meant.
     consent_receipt: JSON.stringify({
-      schema: 'zuca.consent.v3',
+      // v4: adds the `business` block (S22). Bumped rather than extended
+      // silently, because the shape changed and a reader in eighteen months
+      // needs to know which shape they are holding.
+      schema: 'zuca.consent.v4',
+      /**
+       * Explains why `marketing.granted` is false on a row where the person
+       * plainly ticked a marketing box: we declined to rely on it, because a
+       * shared mailbox cannot give one identifiable person's consent. Without
+       * this the receipt looks like they never ticked anything, which is a
+       * different and untrue story.
+       */
+      personal_marketing_suppressed: data.business_enquiry || undefined,
       // Four consents, recorded symmetrically and independently. Built from a
       // table rather than four hand-copied blocks: the v1 receipt hardcoded the
       // health wording and recorded no version for it, and that class of bug
       // comes from duplicating the shape by hand each time a consent is added.
       ...Object.fromEntries(
         [
-          ['marketing', data.consent_marketing, consent],
+          ['marketing', holdsPersonalMarketingConsent, consent],
           ['health', data.consent_health, healthConsent],
           ['sms', data.consent_sms, smsConsent],
           // `postal`, matching consent_postal and postal_consent_text_version.
@@ -375,6 +442,10 @@ export default async function handler(req, res) {
           // cosmetic. The version string inside still carries growth's `mail-`
           // prefix, so provenance survives; that is their id, not our field.
           ['postal', data.consent_postal, postalConsent],
+          // The business basis. For a role address this is the ONLY thing
+          // permitting the row to exist at all — everything else is optional
+          // detail, this is load-bearing.
+          ['business', data.business_enquiry, businessConsent],
         ].map(([name, granted, resolved]) => [
           name,
           {
@@ -517,10 +588,11 @@ export default async function handler(req, res) {
     handle,
     country,
     consents: [
-      data.consent_marketing && 'marketing',
+      holdsPersonalMarketingConsent && 'marketing',
       data.consent_health && 'health',
       data.consent_sms && 'sms',
       data.consent_postal && 'mail',
+      data.business_enquiry && 'business',
     ].filter(Boolean),
   });
   // `count` is additive: the contract's 200 shape is `{"ok":true}` and any
