@@ -27,6 +27,9 @@
 
 ---
 
+> **Deliberate choices** — things that look like gaps but are not — are recorded in
+> [DECISIONS.md](DECISIONS.md), each with what would make us revisit it.
+
 ## 1. What this system actually is
 
 Before the threat list, the architecture — because it is not what the brief assumed.
@@ -101,7 +104,7 @@ Exploitability = skill and access required. "Proof" = how I verified it, without
 | **S6** | **High** | **Forbidden health claims are live on the site**, including in `<title>` and OG/Twitter meta | N/A — regulatory | FDA/FTC exposure on a food product; directly contradicts the brief's non-negotiable guardrails | **Not mine to fix** → `HANDOFF-sec.md` |
 | **S20** | **Medium** | **I reproduced S7 in my own code.** `/api/waitlist` returned `200 {"ok":true}` when `SHEETS_WEBHOOK_URL` was unset — no row stored, visitor told otherwise | N/A — reliability | Silent signup loss during the deploy window, and a test suite that asserted the false 200 and so pinned it | Fixed 2026-08-18; caught in review by the merge session |
 | **S21** | **Low** | `FORBIDDEN_CHARS` blocked CR/LF/NUL and bidi overrides but not C0/C1 controls generally, so invisible junk (BEL, DEL) was accepted into every free-text field and written to the sheet | Terminal-escape and display-spoofing surface on export; no injection path — the dangerous characters were already covered | Cosmetic corruption of stored values; a sheet export piped to a terminal can emit escape sequences | Fixed 2026-08-19, client-first |
-| **S22** | **Low** | `ROLE_LOCALPARTS` rejects `office@`, `team@`, `info@`, `contact@`, `sales@`, `admin@` — while the 2026-08-17 office-snack path actively solicits workplace signups | N/A — conflicting requirements, not a vulnerability | Silent loss of exactly the B2B segment that path was built for; consent evidence from a shared mailbox is separately weak under Art 7(1) | Fixed 2026-08-19 — approved by Emil, relayed via Conversion. Role addresses accepted behind `business_enquiry` + verbatim business wording; row stored with `consent_marketing` FALSE so it cannot reach the personal send list |
+| **S22** | **Low** | `ROLE_LOCALPARTS` rejects `office@`, `team@`, `info@`, `contact@`, `sales@`, `admin@` — while the 2026-08-17 office-snack path actively solicits workplace signups | N/A — conflicting requirements, not a vulnerability | Silent loss of exactly the B2B segment that path was built for; consent evidence from a shared mailbox is separately weak under Art 7(1) | Fixed 2026-08-19 — **approved by Emil directly** (initially relayed via Conversion; confirmed first-hand 2026-08-19). Role addresses accepted behind `business_enquiry` + verbatim business wording; row stored with `consent_marketing` FALSE so it cannot reach the personal send list |
 | **S7** | **Medium** | `mode:"no-cors"` ⇒ opaque response ⇒ **every submission reports success even when it fails** | N/A — reliability | Silent, unrecoverable loss of real signups; makes the contract's 409/429/500 responses impossible to implement | Fixed on branch |
 | **S8** | **Medium** | Duplicate detection is `localStorage`-only; also persists the user's full PII in their browser indefinitely | Trivial — incognito window | Duplicate rows inflate the counter; unnecessary PII at rest on user devices | Fixed on branch |
 | **S9** | **Medium** | **No security headers at all** — no CSP, HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors` | Low — clickjacking needs a lure | Pre-order modal can be framed and overlaid; no XSS containment | Fixed on branch |
@@ -899,21 +902,12 @@ Ranked by urgency. **Items 1–3 must be settled before a single email is sent.*
    Workspace DKIM was never switched on. Admin console → Apps → Google Workspace → Gmail →
    Authenticate email → Generate new record → publish the TXT → Start authentication. Without DKIM,
    DMARC cannot pass on forwarded mail.
-9. **Create `privacy@zucasnacks.com`** — the privacy policy names it as the rights address and it
-   must actually receive mail.
-10. **Provision Upstash in an EU region** (`eu-west-1` / `eu-central-1`). Google and Vercel are
-    both certified under the EU–US Data Privacy Framework so transfers to them are covered; Upstash
-    is not on that list. Choosing an EU region removes the question rather than needing a safeguard
-    for it. **The region is fixed at database creation and cannot be changed afterwards.** Also set
-    `EMAIL_HASH_PEPPER` (`openssl rand -hex 32`) — without it, email handles fall back to an unkeyed
-    hash that is reversible by enumeration.
-11. **Write a one-page Art 30 record of processing, and get the Art 28 processor agreements on
-    file.** The under-250-employee exemption from Art 30 does not apply to us, because it is
-    disapplied the moment special category data is involved. The record is a table: purposes,
-    categories of data and people, recipients, transfers, retention, security measures — §2, §5.5
-    and §6 of this document already contain every answer, it just needs to live in one place. For
-    Art 28, Google's Cloud Data Processing Addendum and Vercel's DPA both need accepting in their
-    respective consoles; Upstash's on request.
+9. ~~**Create `privacy@zucasnacks.com`**~~ — **DONE 2026-08-19.** Workspace alias on Emil's
+   account; test message sent and received. This was the last thing blocking publication of
+   `privacy.html`: the page names it in three places as the Art 15–22 rights address, and
+   publishing a rights channel that does not answer is an Art 12(2) failure — the controller
+   must *facilitate* the exercise of rights. Nothing else about the page changed; the address
+   was always correct, it simply did not exist.
 
 12. **Add a CAA record:** `zucasnacks.com. CAA 0 issue "letsencrypt.org"` and
    `0 issue "digicert.com"` (Vercel uses Let's Encrypt).

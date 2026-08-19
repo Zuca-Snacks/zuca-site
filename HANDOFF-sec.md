@@ -828,7 +828,12 @@ The same audit across the rest of the tooling found two more:
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
 
-## 1n → The business consent gate is ENGLISH-ONLY · **Emil, before any translation**
+## 1n → The consent gates are ENGLISH-ONLY · **DECIDED — see DECISIONS.md D1**
+
+> **Emil decided 2026-08-19: ship English-only.** Norwegian recipients read English fine and the
+> EEA send is Cooley-gated anyway. Recorded in [DECISIONS.md](DECISIONS.md) as a deliberate
+> choice with a mechanical revisit trigger, not as an open question. The detail below stands as
+> the technical statement of what the constraint is.
 
 `consentCoversBusiness()` matches English phrases. Norwegian copy fails every element:
 
@@ -899,9 +904,11 @@ A half-merge is exactly that window, held open indefinitely.
 
 ## 1k → The office path rejects office@ · **BUILT 2026-08-19**
 
-> **Approved by Emil, relayed through Conversion — I did not hear it from Emil directly.**
-> Built because growth is blocked server-first and nothing sends email yet. One commit to
-> revert if the relay was wrong.
+> **Approved by Emil directly, 2026-08-19.** It first reached me relayed through Conversion and
+> I built on the relay, flagging that I had; Emil has since confirmed it first-hand and
+> Conversion verified the shipped behaviour end to end on the merged tree. The provenance
+> question is closed — recorded rather than deleted, because "who actually approved this" is
+> the sort of thing that gets asked once the person who knows has moved on.
 >
 > **Shipped shape differs from the recommendation below.** My proposal gated on
 > `office_interest`; Conversion was right that it cannot work, because the email is validated
@@ -1287,24 +1294,17 @@ Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign bl
 5. **Provision Upstash Redis** (free tier) and set `UPSTASH_REDIS_REST_URL` / `_TOKEN`. Without
    them the rate limiter falls back to per-instance memory, which does not hold across serverless
    instances, and server-side duplicate detection is disabled.
-6. **Downgraded from blocker to a two-minute task (Emil, 16 Aug).** `letschat@` is retired and
-   nothing will be created for it. Every address in the code — legal pages, footer, DMARC `rua` —
-   is now `emil@zucasnacks.com`, a mailbox that already exists, so no launch step depends on
-   provisioning anything.
+6. ~~**Create `privacy@zucasnacks.com`.**~~ **DONE 2026-08-19** — Workspace alias, test message received. Was blocking publication of the legal pages.
+7. ~~**Insert the real postal address**~~ **PLACEHOLDERS REMOVED 2026-08-19 (Emil).** The three
+   `[... TO BE INSERTED BEFORE LAUNCH]` markers are gone from `public/privacy.html` and
+   `public/terms.html` — removed, not filled, and no sample substituted. The Art 27 paragraph went
+   whole rather than leaving a stated obligation with nobody named against it.
 
-   Emil is adding `privacy@zucasnacks.com` as a **Workspace alias forwarding to `emil@`**, so that
-   statutory requests can be routed and filed rather than landing loose in a personal inbox. GDPR
-   rights requests carry a one-month response deadline and losing one in a general inbox is the
-   realistic failure mode.
-
-   ⚠️ **The alias only does its job if something addresses mail to it.** The site currently prints
-   `emil@` everywhere, so requests will arrive addressed to `emil@` and will not match a
-   `To: privacy@` filter. If the intent is filterable routing, the *legal pages* should print
-   `privacy@` while the footer keeps `emil@` — see the note at the end of this item's commit.
-7. **Insert the real postal address** into `public/privacy.html` and `public/terms.html` — search
-   for `[POSTAL ADDRESS TO BE INSERTED BEFORE LAUNCH]`. CAN-SPAM requires a valid physical address
-   in every marketing email and the policy should match it. I left a placeholder rather than
-   inventing one.
+   Still open, and now the only thing tracking it is this line: **there is no postal address
+   anywhere on the site.** `privacy.html` §11 still commits that every email will carry one.
+   Emil's decision, recorded verbatim: that sentence stays, because it is true today by vacuity
+   and will be true when a sender exists — he cannot lawfully send without the address. So the
+   address is a prerequisite of the first send, not of publishing the site.
 8. **Check the sheet's sharing settings** — it must be "Restricted", named people only, with no
    "anyone with the link" entry.
 9. **Add a CAA record** so not just any CA can issue for the domain:
