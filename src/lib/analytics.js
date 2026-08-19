@@ -220,6 +220,9 @@ export const EVENTS = {
   STEP2_FIELD: "step2_field",
   STEP2_SUBMIT: "step2_submit",
   STEP2_SKIP: "step2_skip",
+  // Skipping one screen is not leaving; measuring them together hid that
+  // everyone "skipping" was actually exiting.
+  STEP2_SCREEN_SKIP: "step2_screen_skip",
   SHARE_CLICK: "share_click",
   // Supporting events, outside the core funnel.
   STEP2_SCREEN_VIEW: "step2_screen_view",

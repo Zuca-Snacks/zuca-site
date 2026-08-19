@@ -80,6 +80,11 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const [consentPostal, setConsentPostal] = useState(false);
 
   const inFlight = useRef(false);
+  // Fingerprint of the last record the server accepted. Moving Back and forward
+  // again re-submitted a byte-identical payload, which the rate limiter
+  // correctly refused — and the refusal surfaced as red text blocking a
+  // navigation the person had every right to make. Navigating is not saving.
+  const lastSaved = useRef("");
   const touched = useRef(new Set());
   const headingRef = useRef(null);
 
@@ -129,13 +134,20 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   /** Upsert what we have. Never blocks the person from moving on. */
   async function save() {
     if (inFlight.current) return true;
+    // Nothing changed since the last accepted save — moving between screens is
+    // free. This is what stops Back-then-Continue costing a request.
+    const fingerprint = JSON.stringify(payload());
+    if (fingerprint === lastSaved.current) return true;
     inFlight.current = true;
     setBusy(true);
     setError("");
     const result = await submitWaitlist(payload());
     inFlight.current = false;
     setBusy(false);
-    if (result.status === RESULT.OK || result.status === RESULT.DUPLICATE) return true;
+    if (result.status === RESULT.OK || result.status === RESULT.DUPLICATE) {
+      lastSaved.current = fingerprint;
+      return true;
+    }
     if (result.status === RESULT.RATE_LIMITED) {
       setError("Give that a couple of seconds — your spot is already saved.");
       return false;
@@ -166,9 +178,23 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     else onDone();
   }
 
-  function skip() {
+  /** Leave the whole flow. Deliberately the quieter of the two exits. */
+  function finish() {
     trackOnce(EVENTS.STEP2_SKIP, { answered, screen: SCREENS[screen].id });
     onSkip();
+  }
+
+  /**
+   * Skip THIS screen only. The previous single control did what `finish` does,
+   * from the position where a next-question skip belongs — so anyone who used
+   * it never saw screens 3 or 4. Two exits, and the loud one advances.
+   */
+  async function skipScreen() {
+    track(EVENTS.STEP2_SCREEN_SKIP, { screen: SCREENS[screen].id, answered });
+    // Still saves: a screen skipped after two were answered must not lose them.
+    await save();
+    if (screen + 1 < SCREENS.length) setScreen(screen + 1);
+    else onDone();
   }
 
   function optin(name, on) {
@@ -433,6 +459,14 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
           <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.nextBusy}>
             {screen + 1 < SCREENS.length ? copy.next : copy.finish}
           </Button>
+          {/* Skip THIS screen and move on. On the last screen there is nothing
+              to skip TO, so it is hidden there and the exit below stands alone. */}
+          {screen + 1 < SCREENS.length && (
+          <Button type="button" variant="ghost" onClick={skipScreen} disabled={busy}>
+            {copy.skipScreen}
+          </Button>
+          )}
+
           {/* ⚠️ type="button" IS LOAD-BEARING on both of these. ui/Button sets no
               default type, so HTML's default of "submit" applies — inside this
               <form> that made Back and Skip run advance() and go FORWARD. Back
@@ -445,7 +479,10 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
               {copy.back}
             </Button>
           )}
-          <Button type="button" variant="ghost" onClick={skip} disabled={busy}>{copy.skip}</Button>
+          {/* The full exit, kept quieter than the per-screen skip above it. */}
+          <Button type="button" variant="ghost" onClick={finish} disabled={busy} className="zw-exit">
+            {copy.exit}
+          </Button>
         </div>
       </form>
     </div>

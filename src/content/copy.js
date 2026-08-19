@@ -513,7 +513,11 @@ export const step2 = {
   body: "Seven quick taps. It decides which flavor we produce first and what we charge — and it moves you up the list for the first run.",
   cta: "Save my answers",
   ctaBusy: "Saving…",
-  skip: "Skip — just the email is fine",
+  // Two exits, deliberately different weights. The per-screen skip advances;
+  // the full exit leaves. Previously one control did the second thing from the
+  // first one's position, so anyone who used it never saw screens 3 and 4.
+  skipScreen: "Skip this one",
+  exit: "Finish — just the email is fine",
   // The health-motivation opt-in is deliberately separate from the marketing
   // consent. It is never bundled and never pre-checked.
   motivationConsent: consentTexts.motivation.text,
