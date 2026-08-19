@@ -575,6 +575,11 @@ export const step2 = {
   smsDisclosure: "Want launch texts too?",
   mailDisclosure: "Want us to be able to send you something?",
   mailGate: "Answer anything above first and this opens up.",
+  // A disabled fieldset reads as LOCKED, and locked and broken look identical
+  // from the outside. UX can make it look deliberate; only copy can say what
+  // to do about it. Names the control and the direction, because "tick the
+  // consent" is useless if you cannot see which one.
+  mailLocked: "Tick the box above to fill this in.",
 };
 
 // ─── Confirmation ────────────────────────────────────────────────────────────

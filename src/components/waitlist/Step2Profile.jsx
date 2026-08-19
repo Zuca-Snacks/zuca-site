@@ -26,7 +26,7 @@ import { OtherInput, Progress } from "../ui/index.js";
 import {
   ADDRESS, CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, FLAVOR, INTENT,
   IS_CLINICIAN, MOTIVATION, OFFICE_INTEREST, otherMaxFor, PHONE, PRICE_BAND,
-  QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN, ZIP,
+  QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist, toE164 } from "./api.js";
@@ -35,7 +35,6 @@ import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "
 import { detectPostalRegion } from "./region.js";
 import { COUNTRY_OPTIONS } from "./countries.js";
 
-const ZIP_RE = /^[0-9]{5}$/;
 const SCREENS = copy.screens;
 
 // Matches the server's rule exactly. Being laxer here does not help anyone: it
@@ -48,7 +47,6 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const [screen, setScreen] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [zipError, setZipError] = useState("");
   const [phoneError, setPhoneError] = useState("");
 
   const [consentCopy] = useState(marketingConsent);
@@ -56,7 +54,6 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const [smsCopy] = useState(smsConsent);
   const [postalCopy] = useState(postalConsent);
   const [postalRegion] = useState(detectPostalRegion);
-  const showZip = postalRegion !== "non_us";
 
   // One flat bag. Screens read and write slices of it; the payload builder is
   // the only place that knows the wire shape.
@@ -66,7 +63,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     referral_source: null, referral_source_other: "",
     price_band_other: "",
     channel: [], channel_other: "",
-    zip: "", is_clinician: null,
+    is_clinician: null,
     motivation: [], motivation_other: "",
     dietary: [], dietary_other: "",
     office_interest: null, company: "", headcount: null,
@@ -111,7 +108,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   const answered = useMemo(
     () =>
       [v.flavor, v.quantity_band, v.intent, v.price_band, v.referral_source,
-       v.zip || null, v.is_clinician, v.office_interest, v.research_optin]
+       v.is_clinician, v.office_interest, v.research_optin]
         .filter((x) => x !== null && x !== "").length + (v.channel.length ? 1 : 0),
     [v]
   );
@@ -128,7 +125,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
       smsConsentTextVersion: smsCopy.version,
       postalConsentTextVersion: postalCopy.version,
       formRenderTs,
-      profile: { ...v, zip: showZip ? v.zip || null : null },
+      profile: { ...v, zip: null },
     });
   }
 
@@ -158,10 +155,6 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   }
 
   function validateScreen() {
-    if (SCREENS[screen].id === "reach" && showZip && v.zip && !ZIP_RE.test(v.zip)) {
-      setZipError("A US ZIP is five digits — or leave it blank.");
-      return false;
-    }
     if (SCREENS[screen].id === "extras" && consentSms && v.phone && !isE164(v.phone)) {
       setPhoneError("Include the country code, like +1 555 000 0000.");
       return false;
@@ -276,25 +269,6 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                 if (x) note(REFERRAL_SOURCE.key, x);
               }}
             />
-            {showZip && (
-              <Field
-                id={`zip-${uid}`} label={ZIP.label} optional error={zipError}
-                hint={postalRegion === "unknown" ? ZIP.hint : undefined}
-              >
-                {(props) => (
-                <Input
-                  {...props}
-                  type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5}
-                  placeholder={ZIP.placeholder} value={v.zip}
-                  onChange={(e) => {
-                    const d = e.target.value.replace(/\D/g, "").slice(0, 5);
-                    set({ zip: d }); if (zipError) setZipError("");
-                    if (d.length === 5) note(ZIP.key, "set");
-                  }}
-                />
-                )}
-              </Field>
-            )}
             <ChipRadioGroup
               legend={IS_CLINICIAN.label} name="is_clinician" options={IS_CLINICIAN.options}
               value={v.is_clinician}
@@ -423,6 +397,11 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
                   />
                   <fieldset className="zw-field" disabled={!consentPostal}>
                     <legend className="zw-sr">Postal address</legend>
+                    {/* aria-live so a screen-reader user learns the fields went
+                        live, rather than discovering it by tabbing into them. */}
+                    {!consentPostal ? (
+                      <p className="zw-note" aria-live="polite">{copy.mailLocked}</p>
+                    ) : null}
                     {ADDRESS.fields.map((f) => (
                       <Field key={f.key} id={`${f.key}-${uid}`} label={f.label} optional>
                         {(props) =>
