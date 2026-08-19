@@ -100,3 +100,57 @@ Now a Workspace alias on Emil's account, test message sent and received.
 address are both still `[TO BE INSERTED BEFORE LAUNCH]` placeholders in `public/privacy.html` and
 `public/terms.html`. Naming a representative that does not exist has the same shape as naming a
 mailbox that does not — see SECURITY.md owner actions.
+
+---
+
+## D3 — Lazy Dog is licensed with a **usage cap**, and nothing watches it
+
+**Licensed by Emil, 2026-08-19.** Creative Market Webfont License, order `148142438`.
+
+Recorded here rather than ticked off a checklist, because the licence is not a one-time act. It is
+a **standing condition with a number in it**:
+
+> **10,000 pageviews per month.**
+
+### Why that belongs in this file
+
+A licence you can exceed by succeeding is a compliance obligation whose breach is triggered by good
+news, arrives silently, and is discovered by the other party. It is the same shape as everything
+else recorded on this branch — an unwatched threshold that reads as fine right up until it is not:
+
+- nothing in the codebase knows the cap exists
+- nothing in Vercel Analytics is set to alarm on it
+- the month it is exceeded looks, from inside, exactly like the month before
+
+10,000 pageviews is **not a lot** for a launch. A single well-performing post, one newsletter
+mention, or the pre-order email to the ~138-person list plus any onward sharing can clear it in a
+day. This is likelier to bite than most items on the security list.
+
+### Revisit trigger — this one is NOT mechanical, and that is the point
+
+Everything else in this file fires by itself. **This cannot**, because the threshold lives in
+Vercel Analytics and the licence lives in an email. So it needs an owner and a date rather than a
+test:
+
+- **Before launch:** set a Vercel Analytics alert at **8,000 pageviews/month** — 80%, so the
+  warning arrives with time to buy the next tier rather than after the breach.
+- **At the alert:** Creative Market sells higher tiers; upgrading is cheap and retroactive
+  purchase is not the same thing as having been licensed.
+- **Owner:** Emil. Nobody else can see the account or the invoice.
+
+Writing "monitor pageviews" without a number and an owner would be a control that cannot fire —
+which this branch has spent a week removing. The 8,000 figure and the named owner are what make
+this an obligation rather than a note.
+
+### What it unblocks
+
+The licence permits self-hosting, which is what [HANDOFF-sec.md §2a](HANDOFF-sec.md) needs. Until
+the fonts are local the site still `@import`s four families from `fonts.googleapis.com`, sending
+every visitor's IP and User-Agent to Google — a transfer the privacy policy currently has to
+disclose. When UX lands local fonts, three things change together and should ship in one commit:
+
+1. CSP tightens from `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src
+   'self' https://fonts.gstatic.com` to `style-src 'self' 'unsafe-inline'; font-src 'self'`.
+2. The **Fonts** section of `public/privacy.html` comes out — it currently promises exactly this
+   move, so leaving it in after the fact makes the policy inaccurate in the other direction.
+3. `src/zuca-gate-v4.jsx:111` loses the `@import`.
