@@ -828,7 +828,12 @@ The same audit across the rest of the tooling found two more:
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
 
-## 1n → The business consent gate is ENGLISH-ONLY · **Emil, before any translation**
+## 1n → The consent gates are ENGLISH-ONLY · **DECIDED — see DECISIONS.md D1**
+
+> **Emil decided 2026-08-19: ship English-only.** Norwegian recipients read English fine and the
+> EEA send is Cooley-gated anyway. Recorded in [DECISIONS.md](DECISIONS.md) as a deliberate
+> choice with a mechanical revisit trigger, not as an open question. The detail below stands as
+> the technical statement of what the constraint is.
 
 `consentCoversBusiness()` matches English phrases. Norwegian copy fails every element:
 
@@ -899,9 +904,11 @@ A half-merge is exactly that window, held open indefinitely.
 
 ## 1k → The office path rejects office@ · **BUILT 2026-08-19**
 
-> **Approved by Emil, relayed through Conversion — I did not hear it from Emil directly.**
-> Built because growth is blocked server-first and nothing sends email yet. One commit to
-> revert if the relay was wrong.
+> **Approved by Emil directly, 2026-08-19.** It first reached me relayed through Conversion and
+> I built on the relay, flagging that I had; Emil has since confirmed it first-hand and
+> Conversion verified the shipped behaviour end to end on the merged tree. The provenance
+> question is closed — recorded rather than deleted, because "who actually approved this" is
+> the sort of thing that gets asked once the person who knows has moved on.
 >
 > **Shipped shape differs from the recommendation below.** My proposal gated on
 > `office_interest`; Conversion was right that it cannot work, because the email is validated
@@ -1287,7 +1294,7 @@ Full detail in [SECURITY.md §8](SECURITY.md). Ranked; 1–4 are pre-campaign bl
 5. **Provision Upstash Redis** (free tier) and set `UPSTASH_REDIS_REST_URL` / `_TOKEN`. Without
    them the rate limiter falls back to per-instance memory, which does not hold across serverless
    instances, and server-side duplicate detection is disabled.
-6. **Create `privacy@zucasnacks.com`.** Both legal pages name it as the rights address.
+6. ~~**Create `privacy@zucasnacks.com`.**~~ **DONE 2026-08-19** — Workspace alias, test message received. Was blocking publication of the legal pages.
 7. **Insert the real postal address** into `public/privacy.html` and `public/terms.html` — search
    for `[POSTAL ADDRESS TO BE INSERTED BEFORE LAUNCH]`. CAN-SPAM requires a valid physical address
    in every marketing email and the policy should match it. I left a placeholder rather than

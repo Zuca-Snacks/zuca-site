@@ -1238,7 +1238,20 @@ await check('Error response never echoes submitted input', 'no email in body', a
       // Against the REGISTRY, not against the literal above — otherwise this
       // tests a copy of the string rather than the one actually in use.
       const registered = CONSENT_TEXTS['2026-08-19.business.a']?.text ?? '';
-      return { pass: consentCoversBusiness(registered) && registered === APPROVED, actual: registered ? 'registered text passes and matches Emil\'s wording' : 'NOT REGISTERED' };
+      const ok = consentCoversBusiness(registered) && registered === APPROVED;
+      // If this fails because the wording was TRANSLATED, the fix is not a wider
+      // regex — it is DECISIONS.md D1, which chose English-only deliberately and
+      // lists the two options for changing that. This is the only warning the
+      // system gives before a translation takes the office and health paths
+      // down, so it has to say where to look.
+      return {
+        pass: ok,
+        actual: !registered
+          ? 'NOT REGISTERED'
+          : ok
+            ? "registered text passes and matches Emil's wording"
+            : 'wording changed — if this is a TRANSLATION, read DECISIONS.md D1 before widening any gate',
+      };
     });
 
     for (const [label, mutate, missing] of [
