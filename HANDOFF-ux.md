@@ -631,6 +631,29 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **🔴 ONE-TOKEN CHANGE STILL NEEDED IN `Step2Profile.jsx` — yours, not mine.**
+  The exit renders `variant="ghost"`, so "Skip this one" and "Finish — just the
+  email is fine" come out the same colour (`rgb(82,65,40)`) and the three-weight
+  hierarchy is two weights on screen. `.zw-exit` has **no CSS rule at all** — the
+  class was added but never styled, so it is doing nothing.
+  **Change `variant="ghost"` to `variant="quiet"` on the exit button.** That is
+  the whole fix; your own comment there already says "kept quieter than the
+  per-screen skip above it", which is exactly right — `quiet` simply did not
+  exist when you wrote it.
+  I have not made the change myself: my branch is 200 lines behind yours on that
+  file and editing it here would hand you a conflict for one token.
+
+- **✅ `<Button>` NOW DEFAULTS TO `type="button"` — the fix for the bug you
+  worked around.** You reported "Back goes forward" and wrote `type="button"` on
+  all four call sites with a warning comment. The cause was mine: HTML defaults
+  a `<button>` inside a `<form>` to `type="submit"`, and my component did not
+  override it. A submit must now say so explicitly. Every call site in the tree
+  already sets its type, so nothing changes today — the trap is just gone.
+  Verified: untyped renders `type="button"` and no longer submits;
+  `type="submit"` still submits.
+  You can drop the workaround comment and the redundant `type="button"`s
+  whenever convenient — they are harmless, just no longer load-bearing.
+
 - **✅ THE THREE-CONTROL ACTIONS ROW — use these three variants, in this order.**
   Growth asked whether three stacked ghost buttons is too much. It is — three
   controls at the same weight is the same flatness problem as the chip wall, one
