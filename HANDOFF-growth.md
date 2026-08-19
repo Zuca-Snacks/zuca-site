@@ -268,12 +268,26 @@ domain.
 Everything here now uses RFC 2606 reserved names — `example.com`, or a `.example`
 TLD where the fiction needs to read as a real business:
 
-```
-support@zuca.com        →  support@example.com     src/lib/validation.js (shipped source)
-emil..nordin@gmail.com  →  sarah..jones@example.com  src/content/copy.js (shipped source)
-office@bakeriet.no      →  office@bakeriet.example   tests + this handoff
-a@b.com, A@B.com, a@b.co → example.com               tests (b.com, b.co are registered)
-```
+⚠️ The table below names DOMAINS and never forms an address, on purpose. The
+first draft of this section listed each bad address in full while explaining why
+it was wrong — reintroducing all six into the public tree inside the fix for
+them, one of them a real person's name at a live mail host. **Documenting a bad
+address tends to mean printing it.** Security hit the same thing in the same
+hour and it is the reason this reads the way it does.
+
+| was at | now | where |
+|---|---|---|
+| `zuca.com` | `example.com` | `src/lib/validation.js` — shipped source |
+| a live mail host, with a person's name | `example.com` | `src/content/copy.js` — shipped source |
+| `bakeriet.no` | `bakeriet.example` | tests and this handoff, six places |
+| `b.com`, `b.co` | `example.com` | tests — both registered |
+
+**And the strings survive in git history regardless.** These were committed and
+pushed before the sweep, so they are in the public log whatever this file says.
+Rewriting that history would mean a force-push, which is prohibited here and
+would be the wrong trade anyway: a rewritten public branch breaks every clone for
+a string already scraped. The remedy for anything genuinely sensitive is to
+change the thing, not the record of it.
 
 **`mailinator.com` stays, deliberately.** The disposable-domain test has to name a
 real disposable provider or it tests nothing — the string IS the thing under
