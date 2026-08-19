@@ -311,19 +311,20 @@ await check('Servings quantity bands accepted', '200', async () => {
     .map((v) => post(goodPayload({ quantity_band: v }))));
   return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
 });
-await check('Legacy bite bands still accepted — REMOVE is client-first', '200', async () => {
+await check('Legacy bite bands now REJECTED — client stopped sending them', '400', async () => {
   const codes = await Promise.all(['lt_4', '4_8', '9_16', '17_30', 'gt_30']
     .map((v) => post(goodPayload({ quantity_band: v }))));
-  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+  return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
 });
-await check('srv_ prefix present on every current band', 'unit is visible in the value', async () => {
-  // The prefix is what stops a query pooling bites and servings silently.
+await check('srv_ prefix kept after the legacy values went', 'unit stays visible', async () => {
+  // The prefix outlives the migration on purpose: the SHEET still holds
+  // bite-counting rows, so a query pooling both generations is still wrong.
+  // Dropping it because "everything is servings now" would be true of the enum
+  // and false of the data.
   const { QUANTITY_BANDS } = await import('../src/lib/validation.js');
-  const current = QUANTITY_BANDS.filter((v) => v.startsWith('srv_'));
-  const legacy = QUANTITY_BANDS.filter((v) => !v.startsWith('srv_'));
   return {
-    pass: current.length === 5 && legacy.length === 5 && !legacy.some((v) => v.startsWith('srv_')),
-    actual: `${current.length} servings, ${legacy.length} bites, no overlap in prefix`,
+    pass: QUANTITY_BANDS.length === 5 && QUANTITY_BANDS.every((v) => v.startsWith('srv_')),
+    actual: QUANTITY_BANDS.join(', '),
   };
 });
 await check('price_band_other cap holds a real answer but not an essay', '40', async () => {
@@ -332,14 +333,15 @@ await check('price_band_other cap holds a real answer but not an essay', '40', a
   return { pass: ok.status === 200 && no.status === 400, actual: `22ch->${ok.status}, 41ch->${no.status}` };
 });
 
-// price_band: new bands live, legacy still accepted until the client switches.
+// price_band: current bands live; the legacy set was removed once the client
+// stopped sending it.
 await check('New price bands accepted', '200', async () => {
   const codes = await Promise.all(['25_34', '35_44', 'gt_45'].map((v) => post(goodPayload({ price_band: v }))));
   return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
 });
-await check('Legacy price bands still accepted — REMOVE is client-first', '200', async () => {
+await check('Legacy price bands now REJECTED — client stopped sending them', '400', async () => {
   const codes = await Promise.all(['lt_24', '24_29', '30_35', '36_42', 'gt_42'].map((v) => post(goodPayload({ price_band: v }))));
-  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+  return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
 });
 await check('price_band_other stored verbatim, never parsed', 'as typed', async () => {
   const { validateWaitlist } = await import('../src/lib/validation.js');
@@ -880,7 +882,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     zip: null,
     motivation: ['gut_health'],
     intent: 'very_interested',
-    price_band: '24_29',
+    price_band: '25_34',
     flavor: 'both',
     is_clinician: false,
     referral_source: 'other',
@@ -895,7 +897,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     dietary: ['nut_allergy'],
     dietary_other: null,
     referral_source_other: 'Podcast',
-    quantity_band: '4_8',
+    quantity_band: 'srv_3_5',
     channel: ['grocery'],
     channel_other: null,
     office_interest: 'maybe',
@@ -978,7 +980,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
 
   // Enum values, growth's set
   for (const [f, good, bad] of [
-    ['quantity_band', '9_16', 'qty_4_6'],
+    ['quantity_band', 'srv_6_10', '9_16'], // good = servings; bad = the retired bite value
     ['headcount', '50_199', 'hc_51_200'],
     ['office_interest', 'maybe', true],
     ['channel', ['office'], ['pharmacy']],

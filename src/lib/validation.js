@@ -507,49 +507,30 @@ export function consentCoversMedication(resolvedText) {
  * what flag we set.
  */export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_browsing'];
 /**
- * Two generations at once, on purpose.
+ * Price per 12-pack. The five predecessors were removed 2026-08-19 once the
+ * client stopped sending them; their boundaries differed, so rows written
+ * before the switch are a separate series and cannot be mapped onto these.
  *
- * The 2026-08-19 bands are `25_34`, `35_44`, `gt_45`, `other`. The five older
- * values stay accepted until the client stops sending them — my own ordering
- * rule in AGENTS_BRIEF.md: ADD server-first, REMOVE client-first. Dropping the
- * old set in the same commit would 400 every submission from a client that has
- * not shipped yet, and a value error is one the downgrade ladder cannot
- * recover.
- *
- * REMOVE the five legacy values once growth confirms the new chips are live.
- * They are marked rather than mixed so that clean-up is a deletion, not an
- * archaeology exercise — and the 137 existing rows keep meaning what they meant.
+ * `gt_45` rather than `45_plus` — it matches the `gt_42` / `gt_30` convention,
+ * and the $44–45 gap the rename was meant to close is a label problem, fixed by
+ * labelling it "$45 or more".
  */
-export const PRICE_BANDS = [
-  // Current
-  '25_34', '35_44', 'gt_45', 'other',
-  // Legacy — remove after the client switches
-  'lt_24', '24_29', '30_35', '36_42', 'gt_42',
-];
+export const PRICE_BANDS = ['25_34', '35_44', 'gt_45', 'other'];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
 /**
- * Monthly consumption. Two generations, and the units differ — which is the
- * whole reason for the `srv_` prefix.
+ * Servings per month. The bite-counting predecessors were removed 2026-08-19
+ * once the client stopped sending them.
  *
- * The legacy values count BITES. The new ones count SERVINGS, and one serving
- * is five bites, so the scales differ fivefold. Unprefixed, `9_16` and `6_10`
- * overlap as ranges while meaning entirely different quantities, and nothing in
- * either value says which unit it is. The prefix makes a query that pools them
- * obviously wrong instead of quietly wrong — the Conversion agent's argument,
- * and a good one: a mistake you can see beats a mistake you cannot.
+ * The `srv_` prefix stays even though nothing unprefixed is accepted any more,
+ * because THE SHEET STILL HOLDS THE OLD VALUES. Rows written before the switch
+ * carry `9_16` and friends, counting bites, and a serving is five bites — so
+ * pooling the two generations produces a number that means nothing. The prefix
+ * is what makes that obvious in a query rather than quiet.
  *
- * They are NOT one series. A row answering `9_16` and a row answering
- * `srv_6_10` cannot be compared, averaged or bucketed together. Same class of
- * discontinuity as the legacy `social` -> instagram/tiktok split.
- *
- * REMOVE the legacy five once the client stops sending them — client-first.
+ * Dropping it later because "everything is servings now" would be true of the
+ * enum and false of the data.
  */
-export const QUANTITY_BANDS = [
-  // Current — servings per month
-  'srv_1_2', 'srv_3_5', 'srv_6_10', 'srv_11_20', 'srv_gt_20',
-  // Legacy — BITES per month. Different unit, not comparable.
-  'lt_4', '4_8', '9_16', '17_30', 'gt_30',
-];
+export const QUANTITY_BANDS = ['srv_1_2', 'srv_3_5', 'srv_6_10', 'srv_11_20', 'srv_gt_20'];
 
 /** Company size, for the office-snack path. Bands, not a number — a headcount
  *  typed as free text is unusable for segmentation and more identifying. */

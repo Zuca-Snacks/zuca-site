@@ -280,6 +280,14 @@ The two directions are not symmetric, and getting the order wrong loses signups.
 | **Adding** a value | **Server, then client** | The client sending a value the server does not know is a *value* error. It 400s the whole submission, and the downgrade ladder cannot recover it — the ladder strips unknown **keys**, and this is a known key with an unknown value. Land the enum first and the window never exists. |
 | **Removing** a value, or a field | **Client, then server** | The mirror image: stop sending it before the server stops accepting it. This is what made `motivation_other` a coupled change. |
 
+**One caveat on REMOVE, now that the client keeps a persistent offline queue.**
+Failed submissions are parked in `localStorage` and replayed on a later visit,
+so "the client stopped sending it" is not the same as "nothing will send it
+again". A payload queued before a switch still carries the old value, and on
+replay it 400s and is discarded rather than retried. Zero risk for the 19 Aug
+removal — that queue has never run in production — but for any future removal,
+wait out the queue as well as the deploy.
+
 Neither is caught by the downgrade path. It is an emergency valve for schema
 lag on keys, and value errors are outside what it can see — the endpoint
 deliberately does not say *which* field failed, because that turns a 400 into an
