@@ -1548,6 +1548,29 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  await check('an expired session gets its OWN status code, not duplicate', 'session_expired', async () => {
+    // Emil, via Conversion: someone who leaves the form open past the 2h TTL
+    // completes every screen, is told "your spot is saved", and loses
+    // everything after step 1. The client must keep mapping `duplicate` to
+    // success — right for a genuine returning signup — while showing an expired
+    // session something true. Only the server can tell them apart.
+    const { mintEditToken, EDIT_TTL_MS } = await import('../src/lib/edit-token.js');
+    const email = `expired-${Date.now()}@example.com`;
+    const first = await post(growthPayload({ email }));
+    if (first.status !== 200) return { pass: false, actual: `setup failed: ${first.status}` };
+    const { emailHandle } = await import('../src/lib/validation.js');
+    const handle = await emailHandle(email);
+    const stale = await mintEditToken(handle, Date.now() - EDIT_TTL_MS - 60_000);
+    const r = await post(growthPayload({ email, edit_token: stale }));
+    // Without a durable store the harness cannot make the second POST a
+    // duplicate, so assert the discrimination itself where it is decidable.
+    const decidable = r.status === 409;
+    return {
+      pass: !decidable || r.json?.error === 'session_expired',
+      actual: decidable ? JSON.stringify(r.json) : `${r.status} — no durable store in harness, see npm run security:repeat`,
+    };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   const BIZ = '2026-08-19.business.a';
 

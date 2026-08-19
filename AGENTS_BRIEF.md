@@ -245,6 +245,7 @@ in writing and Conversion caught by reading the code.
 | `403` | `forbidden` | `Origin` header present and not ours | Not reachable from our own pages |
 | `405` | `method_not_allowed` | Not a POST | Bug if you see it |
 | `409` | `duplicate` | Address already on the list | **Treat as success** |
+| `409` | `session_expired` | Valid token for this row, but past the 2h TTL | **Do NOT treat as success.** Everything after step 1 was discarded. Tell them, and offer to start again — their spot IS saved, only these answers were lost |
 | `413` | `payload_too_large` | Body over the cap | Do not retry unchanged |
 | `415` | `unsupported_media_type` | Content-Type is not JSON | ⚠️ `navigator.sendBeacon` sends `text/plain` — an offline queue flushed with it gets 415, not 400, and the downgrade ladder will not save it |
 | `429` | `rate_limited` | Rate limit hit | Back off; `Retry-After` is set |

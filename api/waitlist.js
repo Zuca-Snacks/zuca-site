@@ -191,7 +191,25 @@ export default async function handler(req, res) {
   // 7. Validate against the frozen contract.
   const result = validateWaitlist(parsed);
   if (!result.ok) {
-    audit('reject.validation', { issues: result.issues.map((i) => `${i.path}:${i.rule}`) });
+    /**
+     * The handle is normally derived after validation, so a rejection logged
+     * nothing identifying and COULD NOT BE TIED TO A PERSON. That is precisely
+     * why S24 took a sheet comparison to find: the one line naming the failing
+     * field existed, and there was no way to ask "what happened to THIS
+     * signup".
+     *
+     * Derived opportunistically here instead. The email may itself be the thing
+     * that failed, so this is best-effort — and it is the keyed HMAC, never the
+     * address, so a log full of rejections is still not a copy of the list.
+     */
+    let rejectedHandle = null;
+    if (typeof parsed.email === 'string' && parsed.email.length <= 254) {
+      try { rejectedHandle = await emailHandle(parsed.email.trim().toLowerCase()); } catch { /* not usable */ }
+    }
+    audit('reject.validation', {
+      handle: rejectedHandle,
+      issues: result.issues.map((i) => `${i.path}:${i.rule}`),
+    });
     /**
      * ─── THE RULE: this endpoint does not discard input silently. ───────────
      *
@@ -282,7 +300,27 @@ export default async function handler(req, res) {
       tokenState = (await verifyEditToken(data.edit_token, handle, 0)) ? 'expired' : 'rejected';
     }
     audit('duplicate', { handle, token: tokenState });
-    return send(res, 409, { ok: false, error: 'duplicate' });
+    /**
+     * A DISTINCT CODE, not a flag on `duplicate`.
+     *
+     * Conversion's reasoning and it is right: a flag on a path the client maps
+     * to success is exactly the kind of thing that gets read as decoration. A
+     * different code cannot be ignored by a `switch` that does not know it.
+     *
+     * Safe to disclose. `expired` is only reachable by presenting a token whose
+     * SIGNATURE is valid FOR THIS HANDLE — so the holder already completed step
+     * 1 for this address and learns nothing they did not already know. A
+     * stranger probing an address gets `duplicate`, exactly as before, and the
+     * enumeration surface is unchanged.
+     *
+     * This is the difference between telling someone "you're already on the
+     * list" — true, reassuring, and correct to swallow — and telling them
+     * "everything you just typed was thrown away", which is neither.
+     */
+    return send(res, 409, {
+      ok: false,
+      error: tokenState === 'expired' ? 'session_expired' : 'duplicate',
+    });
   }
 
   // 10. Derive the consent evidence, server-side.
