@@ -79,17 +79,23 @@ export const MOTIVATION = {
     { value: "regularity", label: "Regularity" },
     { value: "gut_health", label: "Gut health" },
     { value: "energy", label: "Steady energy" },
+    { value: "fullness", label: "Feeling full longer" },
+    { value: "whole_foods", label: "Eating more whole foods" },
     { value: "family_health", label: "Feeding my family better" },
     { value: "doctor_suggested", label: "A doctor suggested it" },
     { value: "sustainability", label: "Less food waste" },
     { value: "other", label: "Something else" },
-    // ── PROPOSED, NOT YET SHIPPABLE ─────────────────────────────────────────
-    // `fullness` ("Feeling full longer") and `whole_foods` ("Eating more whole
-    // foods") are approved in direction but are NOT in the server's MOTIVATIONS
-    // enum yet. `motivation` is a CORE field, so an unknown value 400s the
-    // whole submission and no rung of the downgrade ladder can recover it —
-    // adding them early would lose signups, not degrade gracefully.
-    // Add here the moment security's enum lands. See HANDOFF-growth.md.
+    // ── NO MEDICATION VALUE, DELIBERATELY ───────────────────────────────────
+    // Not "not yet" — considered and declined. `glp1` and friends reveal
+    // treatment and therefore, by inference, diagnosis: the hard end of Art 9,
+    // not the arguable end. And the brief forbids GLP-1 and weight-loss claims
+    // outright, so the segment would be data we are barred from acting on —
+    // a data-minimisation failure, which no amount of consent cures.
+    // If the intent is "a clinician told me to eat more fiber",
+    // `doctor_suggested` above already captures it and touches no medication.
+    // Security's schema asserts glp1 / medication / on_medication / weight_loss
+    // all 400. Reopening this needs Emil AND consent wording that names
+    // medication specifically.
   ],
   // ⚠️ NO FREE TEXT HERE, DELIBERATELY (Emil, 18 Aug 2026).
   // The `other` chip stays — it is a contract enum value — but it opens no

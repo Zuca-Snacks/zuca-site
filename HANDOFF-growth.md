@@ -118,6 +118,33 @@ Two things that live in your files, not mine:
 
 ---
 
+## 🔁 ENUM CHANGE ORDERING (now in AGENTS_BRIEF.md)
+
+  ADDING a value:            server first, then client
+  REMOVING a value or field: client first, then server
+
+**The asymmetry is the whole rule.** Adding is safe server-first because a
+server tolerates a value nobody sends yet. Removing is safe client-first for the
+mirror reason: a server still accepts a value nobody sends any more.
+
+Get either backwards and you get a 400 that **the downgrade ladder cannot
+recover**. The ladder strips unknown *keys*; this is a known key carrying an
+unknown *value*, and `motivation` is a CORE field, so there is no rung left to
+fall to. The whole submission is lost, not the field.
+
+Security added the half I had not thought of, and it is the half that makes the
+rule load-bearing rather than tidy: **the endpoint deliberately refuses to name
+the failing field**, because a 400 saying "bad motivation value" is an
+enumeration oracle. So the opacity that protects the schema is exactly why the
+ordering has to be written down instead of discovered while debugging. It will
+not become chattier. The rule is the compensation.
+
+Practical version when changing an enum: land the server side, confirm it is
+deployed, add the value client-side, then re-verify against the named commit —
+never against a description of it.
+
+---
+
 ## 📉 WATCH THE AVERAGE SELECTION COUNT
 
 The max-3 / max-2 caps are gone from every multi-select (motivation, dietary,
