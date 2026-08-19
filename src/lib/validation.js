@@ -58,36 +58,23 @@ const BUILTIN_CONSENT_TEXTS = {
   // courtesy: a mailbox nobody personally consented from can only support a
   // purpose genuinely about the organisation. Mailing it about a consumer
   // launch does not weaken this basis, it removes it.
-  /**
-   * ⚠️ PRE-MERGE FIXTURE. NOT the production id.
+  /*
+   * The pre-merge fixture '2026-08-19.business.a' lived here and was DELETED
+   * on merge, as its own comment promised. Production is the generated
+   * `biz-eea-2026-08-19-fc6ba471`, fingerprinted from src/content/copy.js by
+   * scripts/build-consent-registry.mjs.
    *
-   * Production is Conversion's fingerprinted `biz-eea-2026-08-19-fc6ba471`,
-   * generated from their copy.js by scripts/build-consent-registry.mjs. This
-   * entry exists only so the S22 gate is testable on a branch where
-   * src/content/copy.js does not exist yet.
+   * The two texts were byte-identical when it went, so nothing about what the
+   * server accepts changed. What went away is a hand-maintained entry inside a
+   * generated registry — the exact thing the generator exists to prevent. Left
+   * in place it would have kept accepting the superseded sentence forever the
+   * first time that copy was edited, and no test would have noticed, because
+   * the wording it accepts was still a wording someone had once approved.
    *
-   * It is deleted at merge, and the suite FAILS if it is not — see
-   * "the pre-merge business fixture is retired at merge" in the attack suite.
-   * A hand-maintained entry in a generated registry is precisely what the
-   * generator was written to prevent, so it does not get to survive on trust.
-   *
-   * TEXT IS EMIL'S APPROVED WORDING VERBATIM. The first version of this entry
-   * silently rewrote it into the third person — "Zuca will email" for "We'll
-   * email", "it will not be added to Zuca's" for "we won't add it to our".
-   * Conversion caught it. If they render his sentence and the registry stores
-   * mine, the consent evidence is not what the person read, which is the exact
-   * defect the fingerprint exists to make impossible.
+   * Do not reintroduce a literal business id here or in the attack suite. The
+   * suite resolves it by the `biz-` prefix, and "the pre-merge business fixture
+   * is retired" now stands as a permanent guard against it coming back.
    */
-  '2026-08-19.business.a': {
-    purpose: 'business',
-    regime: 'global',
-    text:
-      "I'm asking on behalf of my workplace. This is a business enquiry, not a " +
-      "personal signup. We'll email this address about stocking Zuca at work — " +
-      'nothing else — and anyone reading this inbox can stop it by replying to ' +
-      "that email. Because it's a shared address, we won't add it to our " +
-      'personal mailing list.',
-  },
   '2026-08-19.health-medication.a': {
     purpose: 'health',
     regime: 'global',

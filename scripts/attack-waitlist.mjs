@@ -1237,7 +1237,11 @@ await check('Error response never echoes submitted input', 'no email in body', a
       const { consentCoversBusiness, CONSENT_TEXTS } = await import('../src/lib/validation.js');
       // Against the REGISTRY, not against the literal above — otherwise this
       // tests a copy of the string rather than the one actually in use.
-      const registered = CONSENT_TEXTS['2026-08-19.business.a']?.text ?? '';
+      // Resolved by shape, not by name. The id is a content fingerprint minted
+      // by the registry generator, so hard-coding it would re-create the
+      // hand-maintained entry this check exists to keep retired.
+      const registeredId = Object.keys(CONSENT_TEXTS).find((k) => k.startsWith('biz-'));
+      const registered = CONSENT_TEXTS[registeredId]?.text ?? '';
       const ok = consentCoversBusiness(registered) && registered === APPROVED;
       // If this fails because the wording was TRANSLATED, the fix is not a wider
       // regex — it is DECISIONS.md D1, which chose English-only deliberately and
@@ -1394,7 +1398,17 @@ await check('Error response never echoes submitted input', 'no email in body', a
   });
 
   // ── S22: role addresses behind the business basis ───────────────────────
-  const BIZ = '2026-08-19.business.a';
+  // Was the hand-written fixture '2026-08-19.business.a', deleted from the
+  // registry once the generator minted the real id. Resolved by prefix rather
+  // than pinned: the id is a fingerprint of the wording, so it changes whenever
+  // src/content/copy.js changes, and a literal here would go stale silently the
+  // next time the sentence is edited.
+  const BIZ = await (async () => {
+    const { CONSENT_TEXTS } = await import('../src/lib/validation.js');
+    const id = Object.keys(CONSENT_TEXTS).find((k) => k.startsWith('biz-'));
+    if (!id) throw new Error('no generated biz- consent id in the registry — run npm run build:consent');
+    return id;
+  })();
 
   await check('office@ still rejected without the business basis', 'role_address', async () => {
     const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.example' }));
