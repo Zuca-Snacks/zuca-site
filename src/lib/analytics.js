@@ -25,6 +25,43 @@ const UTM_MAX_LEN = 64;
 // Keys that must never reach a third party, at any nesting depth.
 const FORBIDDEN_KEYS = new Set(["email", "motivation", "zip", "hp_field"]);
 
+/**
+ * Plausible's custom-event queue, defined here rather than inlined in the HTML.
+ *
+ * Their documented snippet is an inline <script>, which needs 'unsafe-inline'
+ * in script-src. This site does not grant that and should not start. Bundled,
+ * it is same-origin and needs nothing.
+ *
+ * It closes the first-pageview race: `script.js` is deferred, so PAGE_VIEW can
+ * fire before it exists. The stub queues; the real script drains `q` on load.
+ *
+ * ⚠️ AND IT CREATES ONE FAILURE MODE, STATED SO IT IS NOT DISCOVERED LATER.
+ * With the stub present, `sinks()` always finds a function, so `deliver()`
+ * always reports success and nothing is ever buffered or retried. If the real
+ * script never arrives — no account yet, CSP block, blocker — events queue into
+ * `q` forever and are silently discarded on unload. That is the same
+ * looks-installed-collects-nothing shape the CSP note above is about, so the
+ * dev warning below exists to make it audible where anyone can hear it.
+ */
+const PLAUSIBLE_QUEUE_WARN_AT = 25;
+if (typeof window !== "undefined") {
+  window.plausible =
+    window.plausible ||
+    function stub() {
+      (window.plausible.q = window.plausible.q || []).push(arguments);
+      if (
+        import.meta.env?.DEV &&
+        window.plausible.q.length === PLAUSIBLE_QUEUE_WARN_AT &&
+        window.plausible.name === "stub"
+      ) {
+        console.warn(
+          `[zuca:analytics] ${PLAUSIBLE_QUEUE_WARN_AT} events queued and plausible.io has not loaded. ` +
+            "Check the script tag, the CSP (script-src/connect-src), and the account.",
+        );
+      }
+    };
+}
+
 const buffer = [];
 let flushScheduled = false;
 
