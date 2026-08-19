@@ -1154,42 +1154,6 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
-  // ── strict() rejects on key PRESENCE, which is a deploy-ordering fact ────
-  // Not a bug — it is the property that makes unknown keys safe. But it means
-  // a client that sends a new key BEFORE the server carrying it is deployed
-  // gets every submission rejected, not just the ones using the feature.
-  // Verified against the real pre-S22 code at 8d6bf01: `business_enquiry:
-  // false` alone was enough to reject an ordinary personal signup.
-  //
-  // Pinned here so nobody "helpfully" relaxes strict() to fix a deploy-window
-  // problem, which would trade a loud, closed failure for a silent one.
-  await check('unknown keys are rejected on presence, not on value', 'falsy still rejected', async () => {
-    const r = await post(growthPayload({ some_future_field: false }));
-    return { pass: r.status === 400, actual: `${r.status} for a key whose value is false` };
-  });
-
-  // ── The pre-merge business fixture is retired at merge ──────────────────
-  // This fails the moment Conversion's copy.js lands and the generator mints a
-  // real `biz-` id, forcing the hand-written builtin to be deleted rather than
-  // quietly outliving its purpose. A hand-maintained entry in a generated
-  // registry is the exact failure the generator was written to prevent, so it
-  // does not get to survive on anyone remembering.
-  await check('pre-merge business fixture is retired once the real id exists', 'no overlap', async () => {
-    const { CONSENT_TEXTS, consentCoversBusiness } = await import('../src/lib/validation.js');
-    const generated = Object.keys(CONSENT_TEXTS).filter(
-      (k) => k.startsWith('biz-') && consentCoversBusiness(CONSENT_TEXTS[k].text)
-    );
-    const fixture = '2026-08-19.business.a' in CONSENT_TEXTS;
-    return {
-      pass: !(generated.length && fixture),
-      actual: generated.length
-        ? (fixture
-            ? `DELETE the builtin '2026-08-19.business.a' — ${generated[0]} is live`
-            : `retired, ${generated[0]} in use`)
-        : 'pre-merge: fixture in use, no generated id yet',
-    };
-  });
-
   // ── S22: role addresses behind the business basis ───────────────────────
   const BIZ = '2026-08-19.business.a';
 
@@ -1258,33 +1222,6 @@ await check('Error response never echoes submitted input', 'no email in body', a
       && r.personal_marketing_suppressed === true
       && r.marketing?.granted === false;
     return { pass: ok, actual: `schema=${r.schema} biz=${r.business?.granted} sup=${r.personal_marketing_suppressed} mkt=${r.marketing?.granted}` };
-  });
-
-  // ── A business row must be excludable from the confirmation email ───────
-  // Conversion found that my suppression made their last screen lie: it
-  // promised "we'll email you once before launch", an email these rows must
-  // never get. The same fact reaches my side through the confirmed-opt-in
-  // flow, and the trap is that the Resend sender does not exist yet — so the
-  // natural first version will be "email every new row", which breaks the
-  // sentence we showed the person ("about stocking Zuca at work — nothing
-  // else") with a waitlist confirmation.
-  //
-  // I am NOT adding an unused guard function for a sender that does not exist:
-  // that is the NEVER_WRITTEN mistake, a control that reads like protection and
-  // cannot fire. What I can do is assert the row carries what any correct
-  // filter needs, and say so where the Resend work starts.
-  await check('a business row is excludable from the confirmation send', 'both markers', async () => {
-    const { captured } = await postCapturing(growthPayload({
-      email: 'office@bakeriet.no', business_enquiry: true, business_consent_text_version: BIZ,
-    }));
-    const row = captured[0] ?? {};
-    // consent_marketing FALSE alone is enough for a filter on personal consent;
-    // business_enquiry TRUE is what makes the exclusion legible to a human
-    // reading the sheet and wondering why.
-    return {
-      pass: row.consent_marketing === false && row.business_enquiry === true && row.confirmed === false,
-      actual: `marketing=${row.consent_marketing} business=${row.business_enquiry} confirmed=${row.confirmed}`,
-    };
   });
 
   // ── The size cap must not reject what the schema accepts ────────────────

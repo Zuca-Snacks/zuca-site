@@ -730,55 +730,6 @@ The same audit across the rest of the tooling found two more:
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
 
-## 1m → ⚠️ MERGE ORDERING: a half-merged S22 is an OUTAGE, not a dead end
-
-**For the merge session. This is the one thing about S22 that is not code.**
-
-Conversion raised the merge-ordering hazard and characterised it as degraded-but-safe: a
-client carrying the business checkbox against a server without `6efe051` offers the box, takes
-the tick, and refuses the submission anyway. Fails closed, no shared mailbox stored without a
-basis, but a visible dead end.
-
-**I verified it against the real pre-S22 code (`8d6bf01`) rather than reasoning about it, and
-the blast radius is larger than that.**
-
-```
-Against the PRE-S22 server:
-  no business key at all (old client)                 ACCEPTED
-  business_enquiry: false — key present, value false  REJECTED  Unrecognized key
-  both keys present, both false/null                  REJECTED  Unrecognized keys
-```
-
-`waitlistSchema` is `.strict()`, and **strict rejects on key PRESENCE, not on value.** So the
-question is not whether someone ticks the box. It is whether the new client puts the key in
-the payload at all.
-
-| New client sends | Old server | Effect of a half-merge |
-|---|---|---|
-| keys omitted unless ticked | ordinary signups accepted | office path dead-ends. Degraded, as Conversion described |
-| `business_enquiry: false` always | **every signup rejected** | **total form outage** |
-
-And Conversion has just moved both keys into `CORE_KEYS` and `MINIMAL_KEYS` — correctly, for
-the ladder reason — which means they are in the floor and the ladder cannot strip its way out.
-Against an old server the retry fails identically at every rung.
-
-### Recommendation, cheap and on the client side
-
-**Omit both keys entirely unless `business_enquiry` is true.** Their key-set fix still holds —
-the keys survive the ladder when present — and an ordinary signup then sends a payload
-byte-identical to today's, which an old server accepts. That converts total outage back to the
-degraded mode Conversion described, where only the rare office path suffers.
-
-### The general form, which is not about S22
-
-This is a property of `.strict()` and applies to **every field ever added server-first**,
-including `name`. The ordering rule says ADD goes server-first, and that is right. Its unstated
-second half is that **the client must not send the key until the server carrying it is
-deployed** — otherwise the window between the two deploys is not "the new field is ignored", it
-is "every submission is rejected".
-
-A half-merge is exactly that window, held open indefinitely.
-
 ## 1k → The office path rejects office@ · **BUILT 2026-08-19**
 
 > **Approved by Emil, relayed through Conversion — I did not hear it from Emil directly.**
