@@ -346,9 +346,22 @@ test('the business wording still contains the phrases the server gates on', asyn
   // back on — so an edit that drops these phrases must fail here rather than
   // silently start refusing every office signup in production.
   assert.match(text, /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i);
-  // And the narrowing that makes the basis lawful at all.
-  assert.match(text, /replying/i, 'the inbox must be told how to stop it');
-  assert.match(text, /not|won't/i, 'and told it is excluded from the personal list');
+
+  // ⚠️ THE LINE ABOVE IS NOT ENOUGH, AND A MUTATION PROVED IT.
+  // It is an alternation, so the wording can lose the first-person assertion of
+  // the basis and still match on a phrase further down. Replacing "I'm asking on
+  // behalf of my workplace" with "I'd like to hear from you" passed both this
+  // test AND security's server gate — leaving a shared mailbox signed up on a
+  // sentence that asserts nothing about the organisation, which is the one thing
+  // that made it lawful.
+  //
+  // So each load-bearing element is asserted separately. This wording is not
+  // ordinary copy: it was approved by Emil, it is flagged for Cooley review, and
+  // an edit that trips these should be a deliberate act with sign-off behind it.
+  assert.match(text, /\bon behalf of\b/i, 'the person must assert they act for the organisation');
+  assert.match(text, /\bbusiness enquiry\b/i, 'and that it is named as one, not a personal signup');
+  assert.match(text, /stop it by replying/i, 'whoever reads the inbox must be able to end it');
+  assert.match(text, /personal mailing list/i, 'and the exclusion must be stated to them, not merely enforced');
 });
 
 test('the business keys survive every rung of the downgrade ladder', async () => {

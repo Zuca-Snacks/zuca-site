@@ -464,6 +464,33 @@ payload for it.
 
 **A guard cannot be reviewed into correctness. Break it deliberately and watch
 whether it notices.** Four mutations were run against this suite; one passed.
+
+### `npm run mutate` — nine plausible defects, ~45s, non-zero on survival
+
+I proposed doing that by hand whenever a field is added. Security's answer was
+better and it is now a script on both sides: forty seconds is cheap enough to do
+and **exactly expensive enough to skip**, and a ritual that depends on
+remembering is not a control — it is the NEVER_WRITTEN mistake in process
+clothes.
+
+Two rules in the harness that are not decoration, both verified by breaking them:
+
+- **The negative control runs first.** A suite that failed on everything would
+  "catch" every mutation and be worthless. Observed firing for real on the first
+  run, when the harness was invoking a different command than `npm test` — which
+  would have reported nine green mutations about tests nobody executes.
+- **A mutation that does not APPLY counts as a failure.** If a pattern stops
+  matching, the code moved and that mutation silently tests nothing. That is the
+  precise failure this file exists to catch, so it does not get to happen inside
+  it.
+
+**The ninth mutation found a live blindness in a legally load-bearing test.**
+The wording assertion was an alternation, so replacing *"I'm asking on behalf of
+my workplace"* with *"I'd like to hear from you"* still matched a phrase further
+down — and passed security's server gate too. That would leave a shared mailbox
+signed up on a sentence asserting nothing about the organisation, which is the
+only thing making it lawful. Each load-bearing element is now asserted
+separately: the basis, the naming, the stop mechanism, the exclusion.
 A new always-present key fails that test, which is the moment to ask whether
 its server is deployed yet.
 
