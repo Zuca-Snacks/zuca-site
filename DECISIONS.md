@@ -36,6 +36,97 @@ for the whole engagement and should not be moved or deleted.
 
 ---
 
+## ⚠️ MEASURING A BRANCH: use three dots, never two (19 Aug 2026)
+
+**This has now cost three sessions in one week.** It is not a subtle bug; it is
+the obvious command giving a confidently wrong answer.
+
+### The trap
+
+To ask "what would merging this branch do?", the reflex is:
+
+```
+git diff --stat HEAD origin/sec/hardening        # ← WRONG
+```
+
+Two dots diffs the two *heads*. Everything `main` has that the branch has not
+yet merged reads as a **deletion**. Measured on the same two refs at the same
+moment:
+
+```
+two dots:    228 files changed,  1879 insertions(+), 17105 deletions(-)
+three dots:    2 files changed,    93 insertions(+),    12 deletions(-)
+```
+
+The real merge deleted nothing and added nothing. The 17,105 deletions included
+`base.css`, `tokens.css`, `fonts.css`, `analytics.js`, the hooks, and the entire
+`failure-paths.test.mjs` — plus an *added* `src/zuca-gate-v4.jsx`, a gate file,
+against a standing rule that the gate is removed. All of it phantom.
+
+### The correct commands
+
+```
+git diff --stat HEAD...origin/sec/hardening      # three dots: from the merge base
+```
+
+Three dots diffs from the **merge base** — what the branch actually changed
+since it diverged, which is what a merge will apply.
+
+To see exactly what a merge does to *your* tree, stage it without committing:
+
+```
+git merge --no-commit --no-ff origin/sec/hardening
+git diff --cached --diff-filter=D --name-only     # what it DELETES
+git diff --cached --diff-filter=A --name-only     # what it ADDS
+git diff --cached --stat                          # everything it changes
+git merge --abort                                 # if you were only looking
+```
+
+⚠️ **One `--no-commit` merge at a time.** Git refuses a second while the first
+is unconcluded. Security lost twenty minutes to this: they scripted two in
+sequence, suppressed the output, then `git add -A`'d — it looked like eleven
+merge failures and in fact the second merge had simply never run.
+
+### Why it keeps happening
+
+The wrong command is shorter, it is what autocomplete offers, and its output is
+*plausible* — a big scary diff looks like a big scary branch. Nothing about the
+result says "you measured divergence, not change". Treat any diff against a
+long-lived branch that reports mass deletions of files nobody touched as this
+bug until proven otherwise.
+
+---
+
+## ⚠️ A stale generated artifact silently changes what the server accepts (19 Aug 2026)
+
+`src/lib/consent-registry.generated.js` is **gitignored** and rebuilt by
+`npm run build:consent`. That is correct — a generated registry should not be
+hand-maintained. But it means the file on disk can disagree with `copy.js`
+while every commit looks clean.
+
+It happened during the S24 integration. The local artifact held a **truncated**
+business wording, missing its final sentence — *"Because it's a shared address,
+we won't add it to our personal mailing list."* That sentence is the
+`exclusion` element the S22 gate requires, so:
+
+```
+ids passing consentCoversBusiness: NONE
+```
+
+Six checks went red, and the first reading was that the merge had broken the
+business consent path. It had not. `copy.js` was correct the whole time; one
+`npm run build:consent` restored `biz-eea-2026-08-19-fc6ba471` with `gaps: []`.
+
+**Production was never affected** — Vercel builds from a clean checkout, so it
+regenerates every time. The exposure is local only, and it is entirely a
+false-alarm risk rather than a shipping risk.
+
+**The rule: before believing a consent-gate failure, rebuild the registry.** A
+red suite that blames the wording is more likely a stale artifact than a real
+regression, because the artifact is invisible to `git status`.
+
+---
+
 ## S23 — every step 2–4 answer was discarded in production (19 Aug 2026)
 
 Found by Emil, walking a live signup on the production site within an hour of
