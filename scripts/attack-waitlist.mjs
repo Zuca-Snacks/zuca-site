@@ -1168,6 +1168,49 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: r.status === 400, actual: `${r.status} for a key whose value is false` };
   });
 
+  // ── The business gate is a CONJUNCTION, not a keyword search ────────────
+  // It was an alternation until 2026-08-19, which meant one incidental phrase
+  // satisfied it. Conversion found that by mutation; checking their finding
+  // against this gate showed "Tell us about your workplace." passed — a
+  // sentence asserting nothing, promising nothing, not a consent statement.
+  //
+  // Everything downstream would have behaved perfectly: flag set, version
+  // resolved, marketing suppressed, receipt self-consistent. Only the thing
+  // that made it lawful would have been missing, with every mechanism built to
+  // protect it reporting success.
+  {
+    const APPROVED = "I'm asking on behalf of my workplace. This is a business enquiry, not a "
+      + "personal signup. We'll email this address about stocking Zuca at work — nothing else — "
+      + 'and anyone reading this inbox can stop it by replying to that email. '
+      + "Because it's a shared address, we won't add it to our personal mailing list.";
+
+    await check('the registered wording passes its own gate', 'passes', async () => {
+      const { consentCoversBusiness, CONSENT_TEXTS } = await import('../src/lib/validation.js');
+      // Against the REGISTRY, not against the literal above — otherwise this
+      // tests a copy of the string rather than the one actually in use.
+      const registered = CONSENT_TEXTS['2026-08-19.business.a']?.text ?? '';
+      return { pass: consentCoversBusiness(registered) && registered === APPROVED, actual: registered ? 'registered text passes and matches Emil\'s wording' : 'NOT REGISTERED' };
+    });
+
+    for (const [label, mutate, missing] of [
+      ['both basis phrases removed', (t) => t.replace("I'm asking on behalf of my workplace.", 'Hello.').replace('This is a business enquiry, not a personal signup.', 'Sign me up.'), 'basis'],
+      ['exclusion promise removed', (t) => t.replace("Because it's a shared address, we won't add it to our personal mailing list.", ''), 'exclusion'],
+      ['stop mechanism removed', (t) => t.replace('and anyone reading this inbox can stop it by replying to that email', 'and we may contact you'), 'stop_mechanism'],
+    ]) {
+      await check(`gate refuses wording with the ${missing} gone`, missing, async () => {
+        const { consentCoversBusiness, businessConsentGaps } = await import('../src/lib/validation.js');
+        const text = mutate(APPROVED);
+        const gaps = businessConsentGaps(text);
+        return { pass: !consentCoversBusiness(text) && gaps.includes(missing), actual: `missing: ${gaps.join(', ') || 'nothing — SURVIVED'}` };
+      });
+    }
+
+    await check('an incidental mention is not consent', 'refused', async () => {
+      const { consentCoversBusiness } = await import('../src/lib/validation.js');
+      return { pass: !consentCoversBusiness('Tell us about your workplace.'), actual: consentCoversBusiness('Tell us about your workplace.') ? 'PASSED — gate is a keyword search' : 'refused' };
+    });
+  }
+
   // ── The pre-merge business fixture is retired at merge ──────────────────
   // This fails the moment Conversion's copy.js lands and the generator mints a
   // real `biz-` id, forcing the hand-written builtin to be deleted rather than
@@ -1204,7 +1247,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     // somebody sent a boolean.
     const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.no', business_enquiry: true }));
     const i = v.ok ? null : v.issues.find((x) => x.path === 'business_consent_text_version');
-    return { pass: !v.ok && i?.rule === 'consent_wording_omits_business', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+    return { pass: !v.ok && i?.rule?.startsWith('consent_wording_omits_business'), actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
   });
 
   await check('business_enquiry with the WRONG wording is refused', 'omits_business', async () => {

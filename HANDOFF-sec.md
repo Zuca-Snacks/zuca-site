@@ -771,6 +771,26 @@ The same audit across the rest of the tooling found two more:
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
 
+## 1n → The business consent gate is ENGLISH-ONLY · **Emil, before any translation**
+
+`consentCoversBusiness()` matches English phrases. Norwegian copy fails every element:
+
+```
+"Jeg spør på vegne av arbeidsplassen min. Dette er en bedriftshenvendelse."
+    refused — missing: basis, exclusion, stop_mechanism
+```
+
+It **fails closed**, so nothing unlawful is stored. But from a translator's point of view the
+office path simply stops working, with a rejection that names English element ids.
+
+Not fixable by a better regex — the gate exists to check that a sentence says specific things,
+and that is language-bound by construction. When the site is localised the options are a
+per-language element list, or moving the check to a structured claim the copy declares
+alongside its text. Worth deciding then, not now; recorded so it is a decision rather than a
+discovery.
+
+The same applies to `consentCoversMedication()`, which has the same shape.
+
 ## 1m → ⚠️ MERGE ORDERING: a half-merged S22 is an OUTAGE, not a dead end
 
 **For the merge session. This is the one thing about S22 that is not code.**
