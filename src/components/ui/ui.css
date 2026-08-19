@@ -97,10 +97,18 @@
 /* The quietest weight: an exit or opt-out. Text-only and muted so it reads as
    available rather than offered — visibly below `ghost`, which is a utility the
    user may actually want.
-   ⚠️ Quiet is VISUAL, not physical. It keeps the full 44px target height and
-   --z-ink-muted clears 4.5:1 on every surface it sits on (5.65:1 on --z-surface,
-   5.24:1 on --z-surface-alt). Making an exit hard to see is a dark pattern;
-   making it hard to HIT is the same dark pattern with extra steps. */
+   ⚠️⚠️ QUIET IS VISUALLY QUIET, NEVER PHYSICALLY. It keeps the full 44px target
+   height and --z-ink-muted clears 4.5:1 on every surface it sits on (5.65:1 on
+   --z-surface, 5.24:1 on --z-surface-alt). Making an exit hard to SEE is a dark
+   pattern; making it hard to HIT is the same dark pattern with extra steps.
+
+   ⚠️ THE PRESSURE THIS RULE EXISTS TO RESIST, named in advance by Emil on
+   18 Aug: someone will eventually look at this and say the finish/exit button
+   looks too prominent. That is the correct amount of prominent. Do not answer
+   it by shrinking the target, dropping the font below --z-step--1, lightening
+   the ink past --z-ink-muted, or removing the underline. If it genuinely must
+   recede further, move it or change its wording — never make it harder to
+   reach. This is a standing instruction, not a preference. */
 .z-btn--quiet {
   --btn-bg: transparent;
   --btn-ink: var(--z-ink-muted);
