@@ -400,6 +400,31 @@ console.log('\n  Scenario B5 — downgrade visibility\n');
     JSON.stringify(cellFor(sheet, 'downgraded_fields').value));
 }
 
+console.log('\n  Scenario N — columns the script must never write\n');
+{
+  const sheet = makeSheet(OLD_HEADERS);
+  post(sheet, {
+    email: 'ola@example.no', consent_health: true, motivation: ['gut_health'],
+    reason: 'gut', utm: { source: 'newsletter' },
+    referral_source: 'doctor', hearAbout: 'physician',
+  });
+
+  // A comment explains the decision; this keeps it true. The instinct on seeing
+  // an unmapped column is to map it, and for both of these that is wrong.
+  for (const [col, why] of [
+    ['Reason', 'Art 9 data captured with no consent'],
+    ['Source', 'constant "landing-page", carries zero bits'],
+  ]) {
+    check(`"${col}" never written — ${why}`, cellFor(sheet, col).value === '', JSON.stringify(cellFor(sheet, col).value));
+  }
+
+  check(
+    'utm_source went to its own column, NOT aliased onto Source',
+    cellFor(sheet, 'utm_source').value === 'newsletter' && cellFor(sheet, 'Source').value === '',
+    `utm_source=${JSON.stringify(cellFor(sheet, 'utm_source').value)}, Source=${JSON.stringify(cellFor(sheet, 'Source').value)}`
+  );
+}
+
 console.log('\n  Scenario T — wrong-tab and empty-tab guards\n');
 {
   const H = OLD_HEADERS;

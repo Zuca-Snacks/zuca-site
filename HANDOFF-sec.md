@@ -618,6 +618,23 @@ unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "wh
 accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
 the alarm catch the drift.
 
+## 1j → Two sheet columns are deliberately never written
+
+Recorded because the natural instinct on seeing an unmapped column is to map it,
+and for both of these that instinct is wrong. Enforced by a test, not only a
+comment.
+
+| Column | Why it is left alone |
+|---|---|
+| `Reason` (E) | The old health answer, captured with **no consent of any kind**. Reading or writing it would be processing Art 9 data with no lawful basis. New health answers go to `motivation` behind an explicit opt-in; the historical values stay untouched where they are |
+| `Source` (F) | Holds the literal string **"landing-page" on all 137 rows** — a constant from the old modal, not attribution. It carries zero bits. **Do not alias `utm_source` to it.** Real attribution goes to the `utm_*` columns, which are separate and populated |
+
+⚠️ **Expect `Source` to read "landing-page" on old rows and blank on every new
+one**, since nothing writes it. That gap will look like a meaningful signal —
+attribution that stopped working, or a convenient old/new discriminator. It is
+neither. It is one dead column and a date, and anything built on it will hold
+until the first person backfills the blanks.
+
 ## 1i → `motivation_other` REINSTATED — this reverses a deliberate removal
 
 **Read this before re-deriving the original argument.** It was removed on 18 Aug

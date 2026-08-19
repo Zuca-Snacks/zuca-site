@@ -99,6 +99,29 @@ var COLUMN_ALIASES = {
 };
 
 /**
+ * Existing columns this script deliberately NEVER touches.
+ *
+ * Not an oversight. This list exists because the natural instinct on seeing an
+ * unmapped column is to map it, and for both of these that instinct is wrong.
+ *
+ *   Reason  — the old health answer, captured with no consent of any kind.
+ *             Reading or writing it would be processing Art 9 data without a
+ *             lawful basis. New health answers go to `motivation`, behind an
+ *             explicit opt-in. The historical values stay where they are.
+ *
+ *   Source  — holds the literal string "landing-page" on all 137 rows. A
+ *             constant from the old modal, not attribution: it carries exactly
+ *             zero bits. DO NOT alias utm_source to it. Real attribution goes
+ *             to the utm_* columns, which are separate and populated.
+ *
+ * ⚠️ Expect `Source` to read "landing-page" on old rows and BLANK on every new
+ * one, since nothing writes it. That gap will look like a meaningful signal —
+ * attribution that stopped working, or a handy old/new discriminator. It is
+ * neither. It is one dead column and a date.
+ */
+var NEVER_WRITTEN = ['Reason', 'Source'];
+
+/**
  * Columns written, in order. Missing ones are appended to row 1 on first use.
  *
  * Header matching is CASE-INSENSITIVE and whitespace-tolerant (see
