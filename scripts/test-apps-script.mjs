@@ -440,6 +440,23 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
       check(`seam: ${col} sanitised exactly once`, !v.startsWith("''"), JSON.stringify(v || '(empty)'));
     }
 
+    // DERIVED, not hand-listed. Every non-null value the endpoint forwards must
+    // land in some column. A hand-written list of columns to check is the same
+    // failure as a hand-written list of keys — price_band_other was added to
+    // the schema, reached the endpoint, and had no column, and the previous
+    // fixed list could not have noticed.
+    {
+      const skip = new Set(['token', 'action', 'utm', 'consents']);
+      const dropped = Object.entries(forwarded)
+        .filter(([k, v]) => !skip.has(k) && v !== null && v !== '' && v !== false)
+        .filter(([k]) => cellFor(sheet, k).missing);
+      check(
+        'seam: every forwarded field has a column (derived, not listed)',
+        dropped.length === 0,
+        dropped.length ? `NO COLUMN FOR: ${dropped.map(([k]) => k).join(', ')}` : `${Object.keys(forwarded).length} fields, all placed`
+      );
+    }
+
     for (const [col, why] of [
       ['sms_phone', 'consent-gated phone'],
       ['address_line1', 'consent-gated address'],
