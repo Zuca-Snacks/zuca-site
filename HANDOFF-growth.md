@@ -282,6 +282,18 @@ hour and it is the reason this reads the way it does.
 | `bakeriet.no` | `bakeriet.example` | tests and this handoff, six places |
 | `b.com`, `b.co` | `example.com` | tests — both registered |
 
+**One correction on the record, because the commit message carries the wrong
+version.** `5747c89` claims I verified that security's `scripts/` fixtures are
+untouched on this branch, using `git log main..HEAD -- <paths>`. That base is
+wrong: my branch sits on top of security's work, so `main..HEAD` lists their
+commits too, and the command printed seventeen `fix(sec)` lines that I read as
+"not mine" only because I already believed the answer. The claim happens to be
+true — `git log polish/round-2..HEAD` on those paths is genuinely empty, and
+`src/lib/validation.js` shows only my one-line `4abd8b4` — but it was true by
+luck, and the check I cited did not test it. A green result that refers to
+something other than what you think it refers to, one more time, in the commit
+asserting there were no more of those.
+
 **And the strings survive in git history regardless.** These were committed and
 pushed before the sweep, so they are in the public log whatever this file says.
 Rewriting that history would mean a force-push, which is prohibited here and
