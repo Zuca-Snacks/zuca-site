@@ -23,7 +23,7 @@
 // difference is that we now know it hasn't landed yet.
 
 import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
-import { CHANNEL, DIETARY, MOTIVATION, OTHER_MAX, otherMaxFor } from "./fields.js";
+import { CHANNEL, DIETARY, MOTIVATION, OTHER_MAX, PRICE_BAND, otherMaxFor } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 const COUNT_ENDPOINT = "/api/count";
@@ -163,6 +163,11 @@ export function buildPayload({
     referral_source_other:
       p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
     quantity_band: p.quantity_band ?? null,
+    // Stored VERBATIM and never parsed. "£30ish", "$25-30" and "depends on the
+    // size" are all real answers; a number extracted from any of them is a
+    // guess wearing data's clothes.
+    price_band_other:
+      p.price_band === "other" ? str(p.price_band_other, otherMaxFor(PRICE_BAND)) : null,
     channel: arr(p.channel, CHANNEL.options.length),
     channel_other: hasOther(p.channel) ? str(p.channel_other, OTHER_MAX) : null,
     office_interest: p.office_interest ?? null,
@@ -207,7 +212,7 @@ export function buildPayload({
 // ladder costs nothing.
 export const SERVER_KNOWN_KEYS = new Set([
   ...CORE_KEYS,
-  "quantity_band", "office_interest", "company", "headcount",
+  "quantity_band", "office_interest", "company", "headcount", "price_band_other",
   // motivation_other is deliberately ABSENT: security removes it at 10a562a,
   // so listing it would make this set wrong in the optimistic direction —
   // claiming the server accepts something it rejects. The ladder cannot

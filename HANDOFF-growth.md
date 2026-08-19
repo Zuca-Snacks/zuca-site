@@ -145,6 +145,35 @@ never against a description of it.
 
 ---
 
+## 📊 WATCH: DOES `price_band_other` COME IN BELOW THE FLOOR?
+
+"Under $24" was dropped on instruction, and dropping the bottom band **raises
+the anchor**. Someone who would pay $20 can no longer say so with a chip — they
+have to reach for "Something else" and type it.
+
+**So the free-text field is now a test of the band set, not just an escape
+hatch.** Watch how often `price_band_other` resolves to a figure below the
+lowest band:
+
+| Pattern | Reading |
+|---|---|
+| Rare, and mostly ranges/qualifiers ("$25-30 depends on size") | Bands are right; Other is doing its normal job. |
+| **Frequently below $25** | **The band set is wrong, not the respondents.** The floor was cut too high and every one of those people was pushed into free text to say a thing a chip should have captured. |
+
+If the second pattern shows, the fix is to restore a bottom band — not to
+reinterpret the answers upward.
+
+**Do not parse `price_band_other` into a number.** It is stored verbatim on
+purpose: "£30ish", "$25-30" and "depends on the size" are all real answers, and
+a figure extracted from any of them is a guess wearing data's clothes. Read it
+by eye, in bulk, and let it tell you whether the chips were wrong.
+
+Capped at 40 to match the server exactly. Not 16 — "$25-30 depends on size" is
+22 characters and is a real answer — and not 120, which invites prose into a
+field that should hold a figure.
+
+---
+
 ## 📉 WATCH THE AVERAGE SELECTION COUNT
 
 The max-3 / max-2 caps are gone from every multi-select (motivation, dietary,

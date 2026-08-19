@@ -45,15 +45,30 @@ export const INTENT = {
 /** The 12-pack price. Direct pricing input. */
 export const PRICE_BAND = {
   key: "price_band",
+  // The unit is stated on the screen itself — a 12-pack is 12 servings, 60
+  // bites — because nobody can price a quantity they are guessing at. No
+  // per-serving figure anywhere: that would be an anchor, and prices were
+  // removed from the site deliberately.
   label: "What feels fair for a 12-pack?",
   why: "Sets launch pricing.",
   options: [
-    { value: "lt_24", label: "Under $24" },
-    { value: "24_29", label: "$24–29" },
-    { value: "30_35", label: "$30–35" },
-    { value: "36_42", label: "$36–42" },
-    { value: "gt_42", label: "Over $42" },
+    { value: "25_34", label: "$25–34" },
+    { value: "35_44", label: "$35–44" },
+    { value: "gt_45", label: "$45 or more" },
+    { value: "other", label: "Something else" },
   ],
+  // ⚠️ "Under $24" was dropped on instruction, which RAISES THE ANCHOR: someone
+  // who would pay $20 now has to reach for Other. Watch how often
+  // price_band_other comes in below the lowest band — if it is frequent, the
+  // band set is wrong rather than the respondents. See HANDOFF-growth.md.
+  otherKey: "price_band_other",
+  otherLabel: "What would you pay?",
+  // 40 — matching the server EXACTLY, which matters more than the number.
+  // A client cap ABOVE the server's is not a laxer client, it is a 400 on the
+  // whole submission for any answer between the two. 16 was too tight in the
+  // other direction: "$25-30 depends on size" is 22 characters and is a real
+  // answer, and rejecting it trades a signup for a tidier column.
+  otherMax: 40,
 };
 
 /**
@@ -84,18 +99,22 @@ export const MOTIVATION = {
     { value: "family_health", label: "Feeding my family better" },
     { value: "doctor_suggested", label: "A doctor suggested it" },
     { value: "sustainability", label: "Less food waste" },
+    // ⚠️ A FACT ABOUT THE PERSON. Never "GLP-1 support", never a benefit.
+    // The guardrails still forbid GLP-1 and weight-loss claims — collecting
+    // this is not permission to market on it, and the segment must never
+    // become copy. It is accepted by the server ONLY when the health consent
+    // wording names medication; see consentTexts.motivation in copy.js.
+    { value: "glp1_medication", label: "I'm on a GLP-1 medication" },
     { value: "other", label: "Something else" },
-    // ── NO MEDICATION VALUE, DELIBERATELY ───────────────────────────────────
-    // Not "not yet" — considered and declined. `glp1` and friends reveal
-    // treatment and therefore, by inference, diagnosis: the hard end of Art 9,
-    // not the arguable end. And the brief forbids GLP-1 and weight-loss claims
-    // outright, so the segment would be data we are barred from acting on —
-    // a data-minimisation failure, which no amount of consent cures.
-    // If the intent is "a clinician told me to eat more fiber",
-    // `doctor_suggested` above already captures it and touches no medication.
-    // Security's schema asserts glp1 / medication / on_medication / weight_loss
-    // all 400. Reopening this needs Emil AND consent wording that names
-    // medication specifically.
+    // ── THE MEDICATION DECISION, KEPT BECAUSE IT IS REVERSIBLE ───────────────────────────────────
+    // Declined once, then approved by Emil on 19 Aug under the standing
+    // instruction to treat Cooley items as signed off. The objection is kept
+    // rather than deleted, because the decision is meant to stay reversible:
+    // medication reveals treatment and therefore, by inference, diagnosis —
+    // the hard end of Art 9 — and the brief forbids GLP-1 and weight-loss
+    // claims, so it is data we may hold and may not market on. If that trade
+    // ever stops being worth it, removing the chip is client-first and the
+    // server's gate closes behind it.
   ],
   // ⚠️ NO FREE TEXT HERE, DELIBERATELY (Emil, 18 Aug 2026).
   // The `other` chip stays — it is a contract enum value — but it opens no
@@ -167,15 +186,25 @@ export const IS_CLINICIAN = {
 /** How much they would actually eat. Sizes the first run in units, not vibes. */
 export const QUANTITY_BAND = {
   key: "quantity_band",
-  label: "Realistically, how many would you eat a month?",
+  // In SERVINGS, not bites. "How many would you eat a month" was being read
+  // both ways, so the unit is now stated on the screen itself rather than
+  // assumed — a band means nothing if two people read it differently.
+  label: "Realistically, how many servings a month?",
+  hint: "One serving is 5 bites.",
   why: "Turns a headcount into a production quantity.",
   options: [
-    { value: "lt_4", label: "Fewer than 4" },
-    { value: "4_8", label: "4–8" },
-    { value: "9_16", label: "9–16" },
-    { value: "17_30", label: "17–30" },
-    { value: "gt_30", label: "More than 30" },
+    { value: "srv_1_2", label: "1–2 servings" },
+    { value: "srv_3_5", label: "3–5" },
+    { value: "srv_6_10", label: "6–10" },
+    { value: "srv_11_20", label: "11–20" },
+    { value: "srv_gt_20", label: "More than 20" },
   ],
+  // ⚠️ SERIES BREAK. The legacy values (lt_4, 4_8, 9_16, 17_30, gt_30) counted
+  // BITES — five times smaller. The srv_ prefix exists so a query pooling both
+  // generations is obviously wrong rather than quietly wrong: unprefixed,
+  // `9_16` and `6_10` overlap as ranges while meaning quantities five times
+  // apart, and nothing in either value says which unit it is. Do not average
+  // across the two.
 };
 
 /**
