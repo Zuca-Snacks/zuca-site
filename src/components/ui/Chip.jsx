@@ -13,7 +13,26 @@
  * ChipGroup props
  *   legend    string    required — a real <legend>, visually hidden by default
  *   showLegend boolean  render the legend visibly instead
+ *   tone      'berry' | 'warm'  optional — the accent rule down the left edge.
+ *             OMIT IT: consecutive groups alternate automatically, which is the
+ *             point. Only pass it to force a specific one.
  *   children  node      the chips
+ *
+ * ⚠️ THE GROUP IS A PANEL, NOT A BARE FIELDSET (Emil, 18 Aug). Growth's step 2
+ * read as a wall of identical outlined pills because question and answers
+ * carried the same visual weight and were separated by one 8px flex gap. Three
+ * things fix that and all three live here, so no consumer restyles anything:
+ *   - the legend is a real question — a type step larger than the chips;
+ *   - the group is a tinted panel with its own padding and a generous margin
+ *     below, so one question visibly ends before the next begins;
+ *   - an accent rule down the left edge, ALTERNATING red/amber between
+ *     consecutive groups, so the column is not uniform.
+ * The tint also makes the chips work harder: an unfilled chip is --z-surface,
+ * which now contrasts with its container instead of floating on the page.
+ *
+ * ⚠️ The accent never uses --z-cta. Green means "advance" — a question is not
+ * an action, and colouring one green would blunt the only signal the submit
+ * button has.
  *
  * Notes
  *   - Each chip is a real <button type="button"> with aria-pressed, so it is
@@ -45,15 +64,27 @@ export function Chip({
 export function ChipGroup({
   legend,
   showLegend = false,
+  tone,
   children,
   className = '',
 }) {
   return (
-    <fieldset className={`z-chip-group ${className}`.trim()}>
-      <legend className={showLegend ? 'z-field__label' : 'z-visually-hidden'}>
+    <fieldset
+      className={`z-chip-group ${className}`.trim()}
+      data-tone={tone}
+      data-panel={showLegend ? 'true' : undefined}
+    >
+      <legend
+        className={showLegend ? 'z-chip-group__legend' : 'z-visually-hidden'}
+      >
         {legend}
       </legend>
-      {children}
+      {/* ⚠️ A wrapper INSIDE the fieldset, deliberately. A <legend> is rendered
+          specially by the browser and does not behave as a normal flex or grid
+          item, so the group's own layout cannot be trusted to space it. Putting
+          everything except the legend in a normal <div> makes the spacing
+          ordinary block layout, which behaves the same everywhere. */}
+      <div className="z-chip-group__body">{children}</div>
     </fieldset>
   );
 }

@@ -162,7 +162,16 @@ const ART = [
      left one is the LCP element. */
   /* ONE combined artwork. Replaced the two separate stacks on 17 Aug: they are
      aligned to each other inside the file now, so they cannot drift apart. */
-  { name: 'hero-flavours', src: 'art-src/hero-flavours.png', widths: [420, 780, 1218] },
+  /* ⚠️ 1560 IS INTENTIONAL AND CURRENTLY SKIPPED. The berry tile inside this
+     artwork is 22.3% of its width, and a 430px phone at 3x needs that tile at
+     289px — which needs the whole artwork at 1295px. Today's export is 1218px,
+     giving the tile 272px: 94% of what is needed, already marginally soft.
+     Emil is re-exporting at 1560px (tile lands at 348px, 20% headroom). The
+     width is listed now so the variant appears the moment that file drops in;
+     until then the upscale guard skips it and says so.
+     ⚠️ When it does appear, add `/images/hero-flavours-1560.{avif,webp} 1560w`
+     to BOTH source elements in Hero.jsx — the generator does not write srcsets. */
+  { name: 'hero-flavours', src: 'art-src/hero-flavours.png', widths: [420, 780, 1218, 1560] },
   { name: 'hero-art-left', src: 'art-src/hero-art-left.png', widths: [340] },
   { name: 'hero-art-right', src: 'art-src/hero-art-right.png', widths: [340] },
   { name: 'hero-fruit-left', src: 'art-src/hero-fruit-left.png', widths: [340] },
@@ -202,7 +211,20 @@ for (const job of JOBS) {
 }
 
 for (const job of ART) {
+  /* ⚠️ NEVER UPSCALE. A width larger than the source produces a bigger file
+     with no more detail, and it lands in the srcset where a high-DPR device
+     will dutifully download it. Widths above the source are SKIPPED and
+     announced, so a variant that was expected but is missing is visible here
+     rather than as a 404 in the browser. */
+  const srcMeta = await sharp(job.src).metadata();
   for (const w of job.widths) {
+    if (w > srcMeta.width) {
+      console.log(
+        `  skip ${job.name}-${w}: source is only ${srcMeta.width}px wide. ` +
+          `Re-export at >= ${w}px, then re-run and add the ${w}w entry to the srcset.`
+      );
+      continue;
+    }
     for (const { ext, fn } of FORMATS) {
       if (ext === 'jpg') continue; // artwork ships AVIF/WebP only (needs alpha)
       const file = join(OUT, `${job.name}-${w}.${ext}`);

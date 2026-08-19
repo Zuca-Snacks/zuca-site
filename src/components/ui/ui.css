@@ -94,6 +94,26 @@
 }
 .z-btn--ghost:hover:not(:disabled) { --btn-bg: color-mix(in srgb, var(--z-ink) 8%, transparent); }
 
+/* The quietest weight: an exit or opt-out. Text-only and muted so it reads as
+   available rather than offered — visibly below `ghost`, which is a utility the
+   user may actually want.
+   ⚠️ Quiet is VISUAL, not physical. It keeps the full 44px target height and
+   --z-ink-muted clears 4.5:1 on every surface it sits on (5.65:1 on --z-surface,
+   5.24:1 on --z-surface-alt). Making an exit hard to see is a dark pattern;
+   making it hard to HIT is the same dark pattern with extra steps. */
+.z-btn--quiet {
+  --btn-bg: transparent;
+  --btn-ink: var(--z-ink-muted);
+  --btn-border: transparent;
+  font-weight: 500;
+  font-size: var(--z-step--1);
+  padding-inline: var(--z-space-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.z-btn--quiet:hover:not(:disabled) { --btn-ink: var(--z-ink); }
+
 /* Sizes */
 .z-btn--lg { min-height: 56px; font-size: var(--z-step-1); padding-inline: var(--z-space-6); }
 .z-btn--block { display: flex; width: 100%; }
@@ -230,15 +250,59 @@
 
 /* ─── Chip / toggle-pill (multi-select) ──────────────────────────────────── */
 
+/* A question and its answers, as one panel. See Chip.jsx for why. */
 .z-chip-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--z-space-2);
-  /* Reset the fieldset the group is rendered in. */
   border: 0;
   padding: 0;
   margin: 0;
   min-width: 0;
+}
+
+/* ⚠️ THE PANEL IS ON THE BODY, NOT ON THE FIELDSET, and that is deliberate.
+   A <legend> is painted into the fieldset's BORDER box and the fieldset's own
+   box starts at the legend's vertical middle, so a tinted fieldset leaves the
+   question hanging half outside the tint — measured: a two-line question put
+   its whole first line on the page background.
+   Floating the legend to force it into flow was tried and is worse: the body is
+   a grid container, so it shrank to the space beside a 100%-wide float and the
+   chips overflowed the panel in a one-per-row column.
+   Styling the BODY instead sidesteps the legend's box entirely. Native
+   fieldset/legend semantics are kept — no ARIA substitute needed — and the
+   question reads as a heading above its tinted answer panel. */
+.z-chip-group[data-panel='true'] {
+  --chip-tone: var(--z-accent);
+  margin-block-end: var(--z-space-7);
+}
+
+/* ⚠️ ALTERNATING BY POSITION, so growth passes nothing and consecutive
+   questions cannot come out the same colour by accident. `tone` overrides it
+   only when a specific one is wanted. Red and amber only — never --z-cta,
+   because green means "advance" and a question is not an action. */
+.z-chip-group[data-panel='true']:nth-of-type(even) { --chip-tone: var(--z-warm); }
+.z-chip-group[data-tone='berry'] { --chip-tone: var(--z-accent); }
+.z-chip-group[data-tone='warm'] { --chip-tone: var(--z-warm); }
+
+/* The question. A type step larger than the chips it introduces — that gap in
+   size is what lets the eye separate question from answer. */
+.z-chip-group__legend {
+  padding: 0;
+  font-size: var(--z-step-1);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--z-ink);
+}
+
+.z-chip-group__body {
+  display: grid;
+  gap: var(--z-space-3);
+}
+
+.z-chip-group[data-panel='true'] .z-chip-group__body {
+  margin-block-start: var(--z-space-3);
+  padding: var(--z-space-4) var(--z-space-4) var(--z-space-4) var(--z-space-5);
+  background: var(--z-surface-alt);
+  border-radius: var(--z-radius-md);
+  border-inline-start: 5px solid var(--chip-tone);
 }
 
 .z-chip {
