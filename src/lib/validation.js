@@ -584,6 +584,13 @@ export function businessConsentGaps(resolvedText) {
 
   // 1. Asserts an ORGANISATIONAL context. Without this the row is a personal
   //    signup from a shared mailbox, which is the thing we refuse.
+  // `\bmy workplace\b`, not `\bworkplace\b`. Narrowed from the old alternation
+  // on 2026-08-19 and NOT flagged at the time — Conversion found it because
+  // their transcribed copy still had the wide form. Retained deliberately now
+  // that it is a decision rather than an accident: the possessive is what makes
+  // it a claim about the sender's own employer rather than a passing mention of
+  // workplaces. `on behalf of` still catches "on behalf of the workplace", so a
+  // reasonable rephrasing is not stranded by it.
   if (!/\bon behalf of\b|\bmy workplace\b|\bbusiness (?:enquiry|inquiry)\b/i.test(resolvedText)) {
     gaps.push('basis');
   }

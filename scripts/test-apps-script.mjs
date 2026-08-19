@@ -518,7 +518,12 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
       postal_consent_text_version: '2026-08-17.postal.a',
       consent_health: true, motivation: ['gut_health'], dietary: ['nut_allergy'],
       motivation_consent_text_version: '2026-08-15.health.a',
-      utm: { source: 'newsletter' }, form_render_ts: Date.now() - 9000,
+      // All five, not just `source`. The seam is meant to exercise the full
+      // surface; a fixture sending one key made the utm decomposition
+      // effectively untested for the other four, and any assertion about them
+      // was really an assertion about the fixture.
+      utm: { source: 'newsletter', medium: 'email', campaign: 'launch', content: 'hero', term: 'fiber' },
+      form_render_ts: Date.now() - 9000,
     }),
   });
   api.close(); up.close();
@@ -544,6 +549,54 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
     // failure as a hand-written list of keys — price_band_other was added to
     // the schema, reached the endpoint, and had no column, and the previous
     // fixed list could not have noticed.
+    // FLOOR FIRST. The check below asks whether every forwarded field found a
+    // column, and it passes happily on three fields as on fifty — "3 fields,
+    // all placed" reads exactly like success. `endpoint forwarded a payload`
+    // above only catches the empty case; partial forwarding sails through both.
+    //
+    // Conversion's observation, after this same bug appeared in a third
+    // costume: watch for a fourth. This is it. So the floor is DERIVED — every
+    // column Code.gs knows about must be present in what the endpoint sent,
+    // except the three that legitimately are not.
+    {
+      // timestamp  Code.gs stamps it; the endpoint never sends one.
+      // phone      legacy, old modal only. The consent-gated number is sms_phone.
+      // hearAbout  legacy, old modal only.
+      // My first version of this list had three entries and the check failed on
+      // the five utm_* columns. They are legitimately absent as TOP-LEVEL keys
+      // — the endpoint sends `utm: {source, …}` and Code.gs decomposes it — but
+      // I derived the list by reasoning about the payload instead of running it
+      // against one. Excusing them by name would have hidden a real hole: they
+      // would then be unchecked at BOTH levels. So they are asserted below via
+      // the nested object instead of being written off here.
+      const EXPECTED_ABSENT = ['timestamp', 'phone', 'hearAbout'];
+      const UTM_COLUMNS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+      const utmSent = Object.keys(forwarded.utm ?? {});
+      check(
+        'seam: utm arrives nested and covers every utm_ column',
+        UTM_COLUMNS.every((c) => utmSent.includes(c.replace('utm_', ''))),
+        `utm: {${utmSent.join(', ')}} vs ${UTM_COLUMNS.length} columns`
+      );
+      EXPECTED_ABSENT.push(...UTM_COLUMNS);
+      // Read COLUMNS out of the sandbox, not a copy in this file. A test
+      // holding its own list of the thing it checks has stopped checking it —
+      // demonstrated twice this week, once on each branch.
+      const { sandbox: probe } = loadScript(makeSheet(OLD_HEADERS));
+      const columns = probe.COLUMNS;
+      if (!Array.isArray(columns) || columns.length < 40) {
+        check('seam: COLUMNS readable from Code.gs', false, `got ${columns?.length ?? 'nothing'} — cannot derive the floor`);
+      }
+      const absent = (columns ?? []).filter((c) => !(c in forwarded));
+      const unexpected = absent.filter((c) => !EXPECTED_ABSENT.includes(c));
+      check(
+        'seam: the endpoint sends every column except the three it should not',
+        unexpected.length === 0,
+        unexpected.length
+          ? `NOT SENT: ${unexpected.join(', ')}`
+          : `${Object.keys(forwarded).length} keys sent, ${absent.length} legitimately absent`
+      );
+    }
+
     {
       const skip = new Set(['token', 'action', 'utm', 'consents']);
       const dropped = Object.entries(forwarded)
