@@ -105,6 +105,7 @@ Exploitability = skill and access required. "Proof" = how I verified it, without
 | **S20** | **Medium** | **I reproduced S7 in my own code.** `/api/waitlist` returned `200 {"ok":true}` when `SHEETS_WEBHOOK_URL` was unset — no row stored, visitor told otherwise | N/A — reliability | Silent signup loss during the deploy window, and a test suite that asserted the false 200 and so pinned it | Fixed 2026-08-18; caught in review by the merge session |
 | **S21** | **Low** | `FORBIDDEN_CHARS` blocked CR/LF/NUL and bidi overrides but not C0/C1 controls generally, so invisible junk (BEL, DEL) was accepted into every free-text field and written to the sheet | Terminal-escape and display-spoofing surface on export; no injection path — the dangerous characters were already covered | Cosmetic corruption of stored values; a sheet export piped to a terminal can emit escape sequences | Fixed 2026-08-19, client-first |
 | **S22** | **Low** | `ROLE_LOCALPARTS` rejects `office@`, `team@`, `info@`, `contact@`, `sales@`, `admin@` — while the 2026-08-17 office-snack path actively solicits workplace signups | N/A — conflicting requirements, not a vulnerability | Silent loss of exactly the B2B segment that path was built for; consent evidence from a shared mailbox is separately weak under Art 7(1) | Fixed 2026-08-19 — **approved by Emil directly** (initially relayed via Conversion; confirmed first-hand 2026-08-19). Role addresses accepted behind `business_enquiry` + verbatim business wording; row stored with `consent_marketing` FALSE so it cannot reach the personal send list |
+| **S23** | **🔴 CRITICAL — LIVE** | Multi-step form: steps 2–4 POST the accumulated profile, hit the duplicate gate, receive `409`, and the client treats 409 as success. Every answer after the email address is discarded | N/A — data loss, not a breach | **Every signup since the multi-step form deployed has lost steps 2–4.** The row looks like a person who skipped the questions; nothing distinguishes it from one who did | **OPEN — fix designed, not yet built.** See below |
 | **S7** | **Medium** | `mode:"no-cors"` ⇒ opaque response ⇒ **every submission reports success even when it fails** | N/A — reliability | Silent, unrecoverable loss of real signups; makes the contract's 409/429/500 responses impossible to implement | Fixed on branch |
 | **S8** | **Medium** | Duplicate detection is `localStorage`-only; also persists the user's full PII in their browser indefinitely | Trivial — incognito window | Duplicate rows inflate the counter; unnecessary PII at rest on user devices | Fixed on branch |
 | **S9** | **Medium** | **No security headers at all** — no CSP, HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors` | Low — clickjacking needs a lure | Pre-order modal can be framed and overlaid; no XSS containment | Fixed on branch |
@@ -129,6 +130,54 @@ Exploitability = skill and access required. "Proof" = how I verified it, without
   third-party network request the site makes is Google Fonts (S10). No PII leaves for analytics.
 - **No `dangerouslySetInnerHTML`, no `eval`, no `innerHTML`** anywhere — the React tree escapes all
   user input, so there is no reflected/stored XSS in the site itself.
+
+
+### S23 — the 409-is-success rule outlived the form it was written for
+
+**Traced 2026-08-19 from a live production signup, `email_handle 642afa8df1a1`.**
+
+```
+Step 1   POST /api/waitlist   →  200, row appended, isDuplicate SET NX marks the handle
+Step 2   POST /api/waitlist   →  409 duplicate   ← client maps to success, advances
+Step 3   POST /api/waitlist   →  409 duplicate   ← same
+Step 4   POST /api/waitlist   →  409 duplicate   ← same
+```
+
+The payload never reaches Apps Script. Even if it did, `Code.gs` appends — only
+`action === 'confirm'` takes an update path — so the alternative failure would have been four
+rows rather than one.
+
+**The 409-is-success instruction is mine.** I wrote it for a single-shot form, where telling
+someone "you are already on the list" is both poor UX and an enumeration oracle. It was correct
+then. The form became multi-step around it and the instruction went on reading as correct, because
+nothing anywhere stated the assumption it depended on.
+
+Conversion's `Step2Profile.jsx` comment says **"Upsert what we have."** There is no upsert. Both
+halves individually right; the contract between them never revisited.
+
+### ⚠️ The obvious fix is a vulnerability — do not ship it
+
+"On duplicate, update instead of 409" turns `/api/waitlist` into an **unauthenticated write keyed
+on an email address**. Anyone who knows or guesses a signup's address could overwrite that row,
+including its Art 9 health answers. That is worse than the data loss it fixes.
+
+### The fix being built
+
+1. Step 1's `200` returns a short-lived **HMAC edit token** bound to `email_handle` — stateless,
+   same construction as `CONFIRM_TOKEN_SECRET`, nothing stored.
+2. Steps 2–4 present it; the server verifies before forwarding `action: 'update'`.
+3. `Code.gs` gains an update branch: locate by `email_handle`, **fill profile fields only**.
+4. `consent_*`, `consent_timestamp` and `consent_receipt` are **immutable after creation.** An
+   update may add profile answers; it may never rewrite the evidence of what a person agreed to.
+5. No token or a bad one behaves exactly as today. Additive, so the server ships first.
+
+### Recovery
+
+Rows written since the multi-step deploy carry `consent_marketing = TRUE` with every step-2 column
+blank. **They are indistinguishable from people who genuinely skipped the questions** — which is
+the honest statement of the damage, and the reason it went unnoticed. The data was never
+transmitted anywhere it could be recovered from; it exists only in the browser sessions that sent
+it, and is gone.
 
 ## 4. The three findings that matter most, in detail
 
