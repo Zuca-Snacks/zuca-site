@@ -400,6 +400,27 @@ console.log('\n  Scenario B5 — downgrade visibility\n');
     JSON.stringify(cellFor(sheet, 'downgraded_fields').value));
 }
 
+console.log('\n  Scenario G — doGet must not report a trustworthy zero\n');
+{
+  // A wrong tab used to yield {count: 0}: a working counter announcing nobody
+  // had signed up. Zero is a number and numbers render.
+  const empty = makeSheet(OLD_HEADERS, []);
+  const { sandbox } = loadScript(empty);
+  const responses = [];
+  sandbox.ContentService.createTextOutput = (t) => { responses.push(JSON.parse(t)); return { setMimeType: () => t }; };
+  sandbox.doGet();
+  const r = responses[responses.length - 1];
+  check('doGet on a bad tab returns count:null, not 0', r?.count === null, JSON.stringify(r));
+  check('and says which kind of failure', r?.error === 'misconfigured', JSON.stringify(r?.error));
+
+  const good = makeSheet(OLD_HEADERS);
+  const { sandbox: s2 } = loadScript(good);
+  const ok = [];
+  s2.ContentService.createTextOutput = (t) => { ok.push(JSON.parse(t)); return { setMimeType: () => t }; };
+  s2.doGet();
+  check('doGet on the right tab returns a real number', ok[ok.length - 1]?.count === 137, JSON.stringify(ok[ok.length - 1]));
+}
+
 console.log('\n  Scenario N — columns the script must never write\n');
 {
   const sheet = makeSheet(OLD_HEADERS);

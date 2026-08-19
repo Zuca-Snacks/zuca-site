@@ -22,11 +22,19 @@ const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
 const CACHE = 'public, max-age=30, s-maxage=60, stale-while-revalidate=600';
 
 /**
- * Floor shown if the upstream is unreachable. The counter is social proof, and
- * a hero section that renders "0 pre-orders" during a transient blip is worse
- * than one that renders a slightly stale number.
+ * There is no fallback count, deliberately.
+ *
+ * This used to serve a hardcoded 136 whenever the sheet was unreachable — a
+ * fabricated number presented as a measurement, and by now wrong regardless.
+ * The reasoning was that a stale number beats "0 signups" in a hero section.
+ * That was right about 0 and wrong about the remedy: the fix for a bad number
+ * is no number, not a better-looking bad number.
+ *
+ * `count: null` means "we do not know". It cannot be formatted, summed or
+ * compared by accident, and it forces the client to decide — which for a
+ * social-proof counter means rendering nothing at all. A counter that might be
+ * fiction is worth less than the space it occupies.
  */
-const FALLBACK_COUNT = 136;
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -54,7 +62,8 @@ export default async function handler(req, res) {
   if (fresh) res.setHeader('CDN-Cache-Control', 'no-store');
 
   if (!SHEETS_WEBHOOK_URL) {
-    return res.end(JSON.stringify({ count: FALLBACK_COUNT }));
+    console.log(JSON.stringify({ evt: 'count.unconfigured' }));
+    return res.end(JSON.stringify({ count: null, error: 'unconfigured' }));
   }
 
   try {
@@ -63,12 +72,22 @@ export default async function handler(req, res) {
       redirect: 'follow',
     });
     const data = await upstream.json();
-    const count = Number.isFinite(data?.count) ? Math.max(0, Math.trunc(data.count)) : FALLBACK_COUNT;
-    return res.end(JSON.stringify({ count }));
+
+    // The sheet now answers {count: null, error} when it cannot trust its own
+    // reading — a wrong tab, a missing header row. Passing that through matters
+    // more than passing a number through: upstream has already decided it does
+    // not know, and inventing one here would discard the only honest signal in
+    // the chain.
+    if (!Number.isFinite(data?.count)) {
+      console.log(JSON.stringify({ evt: 'count.untrusted', upstream: data?.error ?? 'malformed' }));
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end(JSON.stringify({ count: null, error: data?.error ?? 'unavailable' }));
+    }
+    return res.end(JSON.stringify({ count: Math.max(0, Math.trunc(data.count)) }));
   } catch (err) {
     console.log(JSON.stringify({ evt: 'count.upstream_error', reason: err.name }));
-    // Serve the fallback but do not let it be cached for long.
-    res.setHeader('Cache-Control', 'public, max-age=10, s-maxage=10');
-    return res.end(JSON.stringify({ count: FALLBACK_COUNT }));
+    // Never cache a non-answer — the next request should try again.
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end(JSON.stringify({ count: null, error: 'unavailable' }));
   }
 }

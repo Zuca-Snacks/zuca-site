@@ -122,6 +122,40 @@ var COLUMN_ALIASES = {
 var NEVER_WRITTEN = ['Reason', 'Source'];
 
 /**
+ * Enforce NEVER_WRITTEN rather than merely stating it.
+ *
+ * As declared it was a comment wearing a variable's name — worse than a plain
+ * comment, because a named constant implies a control that was not there. The
+ * failure it guards against is somebody later adding 'Source' to COLUMNS to
+ * "fix" the unmapped column, which is exactly the instinct the comment warns
+ * about and exactly the thing a comment cannot stop.
+ */
+function assertNeverWritten_() {
+  for (var i = 0; i < NEVER_WRITTEN.length; i++) {
+    var forbidden = normalizeHeader_(NEVER_WRITTEN[i]);
+    for (var j = 0; j < COLUMNS.length; j++) {
+      if (normalizeHeader_(COLUMNS[j]) === forbidden) {
+        throw new Error(
+          'CONFIG: COLUMNS contains "' + COLUMNS[j] + '", which resolves to the ' +
+          'never-written column "' + NEVER_WRITTEN[i] + '". See NEVER_WRITTEN for why. ' +
+          'Remove it from COLUMNS.'
+        );
+      }
+    }
+    if (COLUMN_ALIASES) {
+      for (var k in COLUMN_ALIASES) {
+        if (normalizeHeader_(COLUMN_ALIASES[k]) === forbidden) {
+          throw new Error(
+            'CONFIG: COLUMN_ALIASES maps "' + k + '" onto the never-written column "' +
+            NEVER_WRITTEN[i] + '". See NEVER_WRITTEN for why.'
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
  * Columns written, in order. Missing ones are appended to row 1 on first use.
  *
  * Header matching is CASE-INSENSITIVE and whitespace-tolerant (see
@@ -336,6 +370,8 @@ function getSheet_() {
     );
   }
 
+  assertNeverWritten_();
+
   var sheet = ss.getSheetByName(SHEET_NAME);
   assertTargetSheet_(ss, sheet);
   return sheet;
@@ -460,7 +496,17 @@ function doGet() {
     var count = Math.max(0, sheet.getLastRow() - 1); // minus the header row
     return json_({ count: count });
   } catch (err) {
-    return json_({ count: 0 });
+    // NOT {count: 0}.
+    //
+    // Zero is a number, and a number renders. Pointed at the wrong tab this
+    // showed a working counter reading zero — no error anywhere, just a site
+    // quietly announcing that nobody had signed up. The one shape this whole
+    // review has been removing: a failure that looks like data.
+    //
+    // null is not a count. It cannot be formatted, summed or compared by
+    // accident, and every consumer has to decide what to do about it.
+    console.error('doGet failed: ' + err.message);
+    return json_({ count: null, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   }
 }
 
@@ -508,7 +554,7 @@ function confirmRow_(handle, confirmedAt) {
     // moment" — and only one of those is fixed by waiting. The message goes to
     // the Executions log where an operator actually looks, and the code tells
     // the caller which kind it was.
-    console.error('doPost failed: ' + err.message);
+    console.error('confirmRow_ failed: ' + err.message);
     return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   } finally {
     lock.releaseLock();
@@ -689,7 +735,7 @@ function doPost(e) {
     // cached value from before it.
     return json_({ ok: true, count: Math.max(0, sheet.getLastRow() - 1) });
   } catch (err) {
-    console.error('confirm failed: ' + err.message);
+    console.error('doPost failed: ' + err.message);
     return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   } finally {
     lock.releaseLock();
@@ -699,32 +745,64 @@ function doPost(e) {
 /**
  * ─── Deployment ──────────────────────────────────────────────────────────────
  *
- *  1. Apps Script editor → paste this over the entire existing file → Save.
+ * ORDER MATTERS. An earlier version of these steps had you archive the old
+ * deployment FIRST, which kills the live form from that moment until the new
+ * site ships — a self-inflicted outage sitting inside the instructions for
+ * avoiding one. Archiving is LAST, and only after a real signup has landed.
  *
- *  2. Project Settings (gear icon) → Script Properties → Add script property
+ * The old URL stays live and working throughout steps 1-6. Nothing you do
+ * before step 7 can take the form down.
+ *
+ *  1. Apps Script editor -> paste this over the entire existing file -> Save.
+ *     SPREADSHEET_ID and SHEET_NAME are already set. Nothing else to edit.
+ *
+ *  2. Project Settings (gear) -> Script Properties -> Add script property
  *       name:  ZUCA_TOKEN
- *       value: output of `openssl rand -hex 32`
+ *       value: the 64-character secret, same value as Vercel's
+ *              SHEETS_WEBHOOK_TOKEN
+ *     The secret is NOT in this file on purpose: this file lives in a public
+ *     GitHub repository.
  *
- *  3. Deploy → Manage deployments → ARCHIVE the existing deployment.
- *     This is the step that kills the currently-public URL. Creating a new
- *     deployment without archiving the old one leaves the old URL live and
- *     writable, which fixes nothing.
- *
- *  4. Deploy → New deployment → type: Web app
+ *  3. Deploy -> New deployment -> type: Web app
  *       Execute as:      Me
  *       Who has access:  Anyone
  *     "Anyone" is still required — Vercel calls this without a Google account.
- *     The token is what provides authentication now, not the URL's obscurity.
+ *     The token is what authenticates now, not the URL's obscurity.
+ *     DO NOT touch the existing deployment. It stays live and serving.
  *
- *  5. Copy the new /exec URL. In Vercel → Settings → Environment Variables:
+ *  4. Copy the NEW /exec URL. In Vercel -> Settings -> Environment Variables:
  *       SHEETS_WEBHOOK_URL    = the new /exec URL
  *       SHEETS_WEBHOOK_TOKEN  = the same value as ZUCA_TOKEN
- *     Set both for Production, Preview and Development. Redeploy.
+ *     Set both for Production, Preview and Development.
  *
- *  6. Verify the old URL is dead:
- *       curl -s "<OLD_URL>"      → should no longer return {"count":N}
- *     and that the new one rejects unauthenticated writes:
+ *  5. Deploy the new site. Until this lands, the old client is still posting to
+ *     the OLD deployment, which is still live. That is the point of the order.
+ *
+ *  6. VERIFY WITH A REAL SIGNUP before going further:
+ *       - private window, fill the form properly, take more than 2 seconds
+ *       - a new row appears on the "Pre-orders" tab (NOT Sheet1)
+ *       - column C has your email, and the consent columns are populated
+ *       - delete the test row
+ *     If nothing appears, check Apps Script -> Executions. `misconfigured`
+ *     means a settings problem — wrong tab, wrong token. `server` means
+ *     something transient; retry before changing anything.
+ *
+ *  7. ⚠️ ONLY NOW: Deploy -> Manage deployments -> archive the OLD deployment.
+ *
+ *     IRREVERSIBLE UNTIL REDEPLOYED. Archiving permanently kills that URL —
+ *     un-archiving does not bring it back, and a new deployment gets a new
+ *     address. Any client still pointing at the old URL breaks instantly and
+ *     silently, because the old modal used mode:"no-cors" and cannot read a
+ *     rejection.
+ *
+ *     Do this only once step 6 has actually passed. Skipping it leaves the
+ *     public, write-capable URL alive, which is the finding this whole exercise
+ *     exists to close.
+ *
+ *  8. Confirm the old URL is dead:
+ *       curl -s "<OLD_URL>"              -> no longer returns {"count":N}
+ *     and that the new one refuses unauthenticated writes:
  *       curl -s -X POST "<NEW_URL>" -H 'Content-Type: application/json' \
- *            -d '{"email":"x@y.com"}'
- *                                  → {"ok":false,"error":"forbidden"}
+ *            -d '{"email":"x@y.com"}'    -> {"ok":false,"error":"forbidden"}
  */
+
