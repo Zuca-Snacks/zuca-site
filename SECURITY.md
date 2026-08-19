@@ -930,7 +930,7 @@ section is built yet.
 ### 10.1 Apps Script is the wrong tool, and your instinct on why is right
 
 Apps Script's `MailApp`/`GmailApp` sends **as the account that owns the script** — today
-`chefemilnordin@gmail.com`, the account you are migrating away from. There is no way to make it send
+the personal Gmail account you are migrating away from. There is no way to make it send
 as `emil@zucasnacks.com` short of transferring script ownership to that account, which just moves
 the problem.
 

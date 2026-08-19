@@ -1211,6 +1211,44 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
+  // ── No shipped source may print an address at a domain we do not own ────
+  // Conversion swept every address in the codebase at Emil's request and found
+  // `support@zuca.com` in a docblock of mine. zuca.com is NOT ours — an
+  // illustrative address in shipped source pointing at a third party's domain.
+  //
+  // Sweeping for the CLASS rather than fixing the instance found two more, both
+  // mine: `x@y.com` in the Code.gs verification command (y.com is somebody's,
+  // and that one is in a line people actually run), and Emil's personal Gmail
+  // in five places — in a repository confirmed PUBLIC, which is a scraping
+  // target rather than a broken link.
+  //
+  // RFC 2606 reserves example.com/.net/.org precisely so illustrations cannot
+  // land on a real party. Fixtures are exempt: they never leave the test files.
+  await check('shipped source prints no address at a domain we do not own', 'ours or reserved', async () => {
+    const { readFileSync, readdirSync, statSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const root = new URL('..', import.meta.url).pathname;
+    const walk = (d) => readdirSync(d).flatMap((f) => {
+      const p = join(d, f);
+      return statSync(p).isDirectory() ? walk(p) : [p];
+    });
+    const files = ['public', 'api', 'src/lib', 'server'].flatMap((d) => walk(join(root, d)))
+      .filter((f) => /\.(js|jsx|mjs|gs|html|md)$/.test(f))
+      .concat([join(root, '.env.example')]);
+    // Floor: if the walk finds nothing, this passes while looking nowhere —
+    // the scan-that-looked-nowhere grammar Conversion hit with analytics.js.
+    if (files.length < 8) return { pass: false, actual: `walked ${files.length} files — scan is broken` };
+
+    const OK = /@(?:[a-z0-9-]+\.)*zucasnacks\.com$|@example\.(?:com|net|org)$|@(?:example|test|invalid|localhost)$/i;
+    const bad = [];
+    for (const f of files) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)) {
+        if (!OK.test(m[0])) bad.push(`${f.replace(root, '')}: ${m[0]}`);
+      }
+    }
+    return { pass: bad.length === 0, actual: bad.length ? bad.join(' · ') : `${files.length} files scanned, all addresses ours or reserved` };
+  });
+
   // ── Gate patterns are PINNED, because Conversion transcribed them ───────
   // Their suite asserts against copies of these regexes, read off my source
   // rather than imported — a deliberate trade on their side, so their tests do
