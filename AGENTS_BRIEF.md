@@ -190,7 +190,26 @@ ignoring the extra key behaves exactly as before. Use it to update the live coun
 issuing a follow-up `GET /api/count`, which an edge cache can answer with a number from *before*
 this very write. If you genuinely need a separate read, `GET /api/count?fresh=1` bypasses the cache.
 
-Response: `200 {"ok":true}` · `400 {"ok":false,"error":"validation"}` · `409 {"ok":false,"error":"duplicate"}` (treat as success in the UI) · `429 {"ok":false,"error":"rate_limited"}` · `500 {"ok":false,"error":"server"}`.
+**Response contract — ALL NINE statuses.** Every body is exactly `{"ok":false,"error":"<slug>"}`
+and carries **nothing else**. There is no field naming which input failed: the validator's
+per-field `rule` goes to the server audit log only, and assuming otherwise is a mistake I made
+in writing and Conversion caught by reading the code.
+
+| Status | `error` | When | Client should |
+|---|---|---|---|
+| `200` | — | Accepted. Body is `{"ok":true,"count":N,"position":N}` | Success |
+| `400` | `validation` | Any field failed any rule | Show a general message; **you cannot tell which field** |
+| `403` | `forbidden` | `Origin` header present and not ours | Not reachable from our own pages |
+| `405` | `method_not_allowed` | Not a POST | Bug if you see it |
+| `409` | `duplicate` | Address already on the list | **Treat as success** |
+| `413` | `payload_too_large` | Body over the cap | Do not retry unchanged |
+| `415` | `unsupported_media_type` | Content-Type is not JSON | ⚠️ `navigator.sendBeacon` sends `text/plain` — an offline queue flushed with it gets 415, not 400, and the downgrade ladder will not save it |
+| `429` | `rate_limited` | Rate limit hit | Back off; `Retry-After` is set |
+| `500` | `server` | Our fault, including an unconfigured webhook | Retry later |
+
+The four in the middle were previously undocumented. They are emitted by the running code, so
+a client written against the old five-status list had no defined behaviour for a third of what
+it can receive.
 
 **Only `email` + `consent_marketing` are required.** Everything else is optional and collected
 *after* the email is already captured. The email must be persisted even if the user abandons step 2.

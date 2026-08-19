@@ -1140,6 +1140,24 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: v.ok && stored === null, actual: JSON.stringify(stored) };
   });
 
+  // ── The response contract: nine statuses, and NO field names ────────────
+  // I told Conversion the per-field `rule` was in the 400 body. It is not — it
+  // goes to the audit log. They found that by reading api/waitlist.js instead of
+  // believing me. These pin both halves so the next person gets it from a test.
+
+  await check('400 body carries no field names or rule strings', 'error only', async () => {
+    const r = await post(growthPayload({ name: 'x'.repeat(41) }));
+    const keys = Object.keys(r.json ?? {}).sort().join(',');
+    return { pass: r.status === 400 && keys === 'error,ok', actual: `${r.status} ${JSON.stringify(r.json)}` };
+  });
+
+  await check('415 is a DISTINCT status, not a 400', 'not validation', async () => {
+    // navigator.sendBeacon posts text/plain. An offline queue flushed with it
+    // lands here, and a client that only handles 400 sees an unhandled status.
+    const r = await post(growthPayload(), { headers: { 'Content-Type': 'text/plain' } });
+    return { pass: r.status === 415, actual: `${r.status} ${JSON.stringify(r.json)}` };
+  });
+
   // ── C0/C1 control characters: STRIPPED, not rejected (S21) ──────────────
   // Conversion shipped the same strip client-side FIRST, because this is a
   // REMOVE-class change. These assertions exist in two halves and the second

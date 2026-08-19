@@ -45,7 +45,16 @@ const ALLOWED_ORIGINS = new Set(
   [
     'https://zucasnacks.com',
     'https://www.zucasnacks.com',
+    // VERCEL_URL is the DEPLOYMENT-specific host (zuca-site-a1b2c3.vercel.app).
+    // Preview links are normally opened through the BRANCH alias instead
+    // (zuca-site-git-sec-hardening-team.vercel.app), which is a different host,
+    // so origin-matching on VERCEL_URL alone 403s every preview reached the
+    // normal way. Both are ours; both belong here.
+    //
+    // The failure mode is nasty: the form looks broken on preview and fine in
+    // production, so it reads as a deploy problem rather than an allowlist one.
     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : null,
     process.env.NODE_ENV !== 'production' ? 'http://localhost:3003' : null,
     process.env.NODE_ENV !== 'production' ? 'http://localhost:5173' : null,
   ].filter(Boolean)
