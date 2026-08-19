@@ -618,6 +618,23 @@ unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "wh
 accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
 the alarm catch the drift.
 
+## 1j → Two sheet columns are deliberately never written
+
+Recorded because the natural instinct on seeing an unmapped column is to map it,
+and for both of these that instinct is wrong. Enforced by a test, not only a
+comment.
+
+| Column | Why it is left alone |
+|---|---|
+| `Reason` (E) | The old health answer, captured with **no consent of any kind**. Reading or writing it would be processing Art 9 data with no lawful basis. New health answers go to `motivation` behind an explicit opt-in; the historical values stay untouched where they are |
+| `Source` (F) | Holds the literal string **"landing-page" on all 137 rows** — a constant from the old modal, not attribution. It carries zero bits. **Do not alias `utm_source` to it.** Real attribution goes to the `utm_*` columns, which are separate and populated |
+
+⚠️ **Expect `Source` to read "landing-page" on old rows and blank on every new
+one**, since nothing writes it. That gap will look like a meaningful signal —
+attribution that stopped working, or a convenient old/new discriminator. It is
+neither. It is one dead column and a date, and anything built on it will hold
+until the first person backfills the blanks.
+
 ## 1i → `motivation_other` REINSTATED — this reverses a deliberate removal
 
 **Read this before re-deriving the original argument.** It was removed on 18 Aug
@@ -870,37 +887,51 @@ every signup would be lost, with nothing in the browser or the sheet to tell you
 Strictly optional: `ensureColumns_` creates any missing column automatically on the first write.
 Doing it by hand just means you choose the layout and can see it is right before real data arrives.
 
-Open the sheet. **Row 1 only.** Leave `A`–`F` exactly as they are — those are your existing columns
-and the script now recognises all of them.
+Open the sheet. **Row 1 only.** Leave `A`–`G` exactly as they are — those are your seven existing
+columns (`Timestamp`, `Email`, `Phone`, `How They Heard`, `Reason`, `Source`, `Name`) and the script
+now recognises all of them.
 
-Type these into row 1, left to right, starting in **cell G1**. Spelling must match exactly;
+Type these into row 1, left to right, starting in **cell H1**. Spelling must match exactly;
 capitalisation and spaces do not matter, underscores do.
+
+> **These letters are generated, not typed.** `node scripts/sheet-columns.mjs --table` derives them
+> from `COLUMNS` in `Code.gs`; `--check` fails the build if this table drifts from it. The previous
+> hand-maintained version was wrong three ways at once — off by one against a six-column legacy row
+> that actually has seven, missing eleven columns added after it was written, and naming `email` as
+> `C` when `C` is `Phone`. Nothing failed loudly, because the script matches on header text and does
+> not read position at all.
 
 | Cell | Header | Cell | Header |
 |---|---|---|---|
-| **G1** | `zip` | **AB1** | `address_region` |
-| **H1** | `intent` | **AC1** | `address_postal_code` |
-| **I1** | `price_band` | **AD1** | `address_country` |
-| **J1** | `flavor` | **AE1** | `consent_postal` |
-| **K1** | `is_clinician` | **AF1** | `postal_consent_text_version` |
-| **L1** | `referral_source` | **AG1** | `utm_source` |
-| **M1** | `referral_source_other` | **AH1** | `utm_medium` |
-| **N1** | `consent_marketing` | **AI1** | `utm_campaign` |
-| **O1** | `consent_health` | **AJ1** | `utm_content` |
-| **P1** | `motivation` | **AK1** | `utm_term` |
-| **Q1** | `motivation_other` | **AL1** | `page_path` |
-| **R1** | `quantity_band` | **AM1** | `consent_text_version` |
-| **S1** | `office_interest` | **AN1** | `motivation_consent_text_version` |
-| **T1** | `company` | **AO1** | `consent_timestamp` |
-| **U1** | `headcount` | **AP1** | `country` |
-| **V1** | `sms_phone` | **AQ1** | `needs_reconsent` |
-| **W1** | `consent_sms` | **AR1** | `consent_regime_status` |
-| **X1** | `sms_consent_text_version` | **AS1** | `reconsent_reason` |
-| **Y1** | `address_line1` | **AT1** | `consent_receipt` |
-| **Z1** | `address_line2` | **AU1** | `consent_ip_prefix` |
-| **AA1** | `address_city` | **AV1** | `user_agent` |
+| **H1** | `zip` | **AI1** | `address_region` |
+| **I1** | `intent` | **AJ1** | `address_postal_code` |
+| **J1** | `price_band` | **AK1** | `address_country` |
+| **K1** | `price_band_other` | **AL1** | `consent_postal` |
+| **L1** | `flavor` | **AM1** | `postal_consent_text_version` |
+| **M1** | `is_clinician` | **AN1** | `is_downgraded` |
+| **N1** | `referral_source` | **AO1** | `downgraded_fields` |
+| **O1** | `referral_source_other` | **AP1** | `email_handle` |
+| **P1** | `consent_marketing` | **AQ1** | `confirmed` |
+| **Q1** | `consent_health` | **AR1** | `confirmed_at` |
+| **R1** | `motivation` | **AS1** | `utm_source` |
+| **S1** | `motivation_other` | **AT1** | `utm_medium` |
+| **T1** | `quantity_band` | **AU1** | `utm_campaign` |
+| **U1** | `office_interest` | **AV1** | `utm_content` |
+| **V1** | `company` | **AW1** | `utm_term` |
+| **W1** | `headcount` | **AX1** | `page_path` |
+| **X1** | `channel` | **AY1** | `consent_text_version` |
+| **Y1** | `channel_other` | **AZ1** | `motivation_consent_text_version` |
+| **Z1** | `dietary` | **BA1** | `consent_timestamp` |
+| **AA1** | `dietary_other` | **BB1** | `country` |
+| **AB1** | `research_optin` | **BC1** | `needs_reconsent` |
+| **AC1** | `sms_phone` | **BD1** | `consent_regime_status` |
+| **AD1** | `consent_sms` | **BE1** | `reconsent_reason` |
+| **AE1** | `sms_consent_text_version` | **BF1** | `consent_receipt` |
+| **AF1** | `address_line1` | **BG1** | `consent_ip_prefix` |
+| **AG1** | `address_line2` | **BH1** | `user_agent` |
+| **AH1** | `address_city` | | |
 
-42 new columns, `G` through `AV`. 48 columns total when you are done.
+53 new columns, `H` through `BH`. 60 columns total when you are done.
 
 > **If you already added an earlier version of this list**, the 2026-08-17 extension appends 17 more
 > (`referral_source_other`, `motivation_other`, `quantity_band`, `office_interest`, `company`,
@@ -911,9 +942,9 @@ capitalisation and spaces do not matter, underscores do.
 > text, not position — and it creates anything missing on first write, so this step is a convenience,
 > not a prerequisite.
 
-> ⚠️ **Do not rename the existing `phone` column (D), and do not point the new phone data at it.**
-> Column `D` holds 137 legacy numbers captured by the old modal with **no consent of any kind**. The
-> new consent-gated number goes to **`sms_phone` (V)**. Mixing them would leave the two
+> ⚠️ **Do not rename the existing `Phone` column, and do not point the new phone data at it.**
+> It holds 137 legacy numbers captured by the old modal with **no consent of any kind**. The
+> new consent-gated number goes to the separate **`sms_phone`** column. Mixing them would leave the two
 > distinguishable only by reading whether `consent_sms` is blank or `FALSE` — and the cost of
 > getting that wrong is texting somebody who never agreed to be texted.
 
@@ -954,21 +985,31 @@ After the client is live and the Apps Script is rotated:
 3. Watch the sheet. A new row should appear within a couple of seconds.
 
 **Check these cells on the new row.** This is the actual test — a row appearing is not proof, since
-the failure mode is a row appearing with empty cells:
+the failure mode is a row appearing with empty cells.
 
-| Cell | Should contain | If it is empty |
+⚠️ **Find each one by reading its header in row 1. Do not count columns.** The previous version of
+this table gave letters and every one of them was wrong: it named `email` as `C`, and `C` is
+`Phone`. You would have looked at an empty cell and concluded the pipeline was broken while it was
+working. `Code.gs` matches on header text and never reads position, so the header is the only thing
+that is load-bearing. If you want letters, generate them — `node scripts/sheet-columns.mjs --table`.
+
+| Header | Should contain | If it is empty |
 |---|---|---|
-| `C` (`email`) | your test address, lowercased | Nothing is working — check the Vercel env vars |
-| `M` (`consent_marketing`) | `TRUE` | The consent checkbox is not being sent |
-| `V` (`consent_text_version`) | `2026-08-15.marketing.a` | The client is not sending the marketing wording id — see §1e-bis |
-| `W` (`motivation_consent_text_version`) | the health wording id, *only if* you ticked the health box | Empty with the box ticked means the client is not sending it |
-| `X` (`consent_timestamp`) | an ISO timestamp | You are on an old build of the endpoint |
-| `Y` (`country`) | your 2-letter country, e.g. `NO` | Expected as `XX` on localhost; empty in production means the geo header is missing |
-| `Z` (`needs_reconsent`) | `TRUE` or `FALSE` | Should never be blank. `TRUE` on your own test signup means the copy variant and your location disagree — see §1e-ter |
-| `AB` (`consent_receipt`) | a JSON blob starting `{"schema":"zuca.consent.v2"` | The consent evidence record — this is what you would hand a regulator. Check it contains BOTH a `marketing` and a `health` block |
-| `L` (`referral_source`) | your dropdown answer | **The exact bug this runbook is about** — the client is still sending `hearAbout` |
-| `O` (`motivation`) | your answer, *only if* you ticked the health box | Empty with the box **unticked** is correct. Empty with it **ticked** is a bug |
-| `B`, `D`, `E` (`name`, `phone`, `hearAbout`) | empty | These should be blank on the new path. Values here mean the old modal is still live |
+| `email` | your test address, lowercased | Nothing is working — check the Vercel env vars |
+| `consent_marketing` | `TRUE` | The consent checkbox is not being sent |
+| `consent_text_version` | the marketing wording id, e.g. `mkt-eea-2026-08-15-a1b2c3d4` | The client is not sending the marketing wording id — see §1e-bis |
+| `motivation_consent_text_version` | the health wording id, *only if* you ticked the health box | Empty with the box ticked means the client is not sending it |
+| `consent_timestamp` | an ISO timestamp | You are on an old build of the endpoint |
+| `country` | your 2-letter country, e.g. `NO` | Expected as `XX` on localhost; empty in production means the geo header is missing |
+| `needs_reconsent` | `TRUE` or `FALSE` | Should never be blank. `TRUE` on your own test signup means the copy variant and your location disagree — see §1e-ter |
+| `consent_regime_status` | `ok` | `unverifiable` means the wording id carries no region token — see §1e-ter |
+| `consent_receipt` | a JSON blob starting `{"schema":"zuca.consent.v3"` | The consent evidence record — this is what you would hand a regulator. Check it contains a block for **every** consent you actually gave |
+| `referral_source` | your dropdown answer | **The exact bug this runbook is about** — the client is still sending `hearAbout` |
+| `motivation` | your answer, *only if* you ticked the health box | Empty with the box **unticked** is correct. Empty with it **ticked** is a bug |
+| `is_downgraded` | `FALSE` | `TRUE` means the client stripped fields to get the request accepted. `downgraded_fields` names them — see §1g-ter |
+| `email_handle` | 12 hex characters | Empty means `EMAIL_HASH_PEPPER` is unset in Vercel |
+| `confirmed` | `FALSE` | Correct until the confirmation link is clicked. It is never blank |
+| `Name`, `Phone`, `How They Heard` | empty | The legacy columns. Values here mean the old modal is still live |
 
 4. Delete the test row when you are done.
 

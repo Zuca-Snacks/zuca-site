@@ -1,8 +1,10 @@
 /**
  * Zuca waitlist — hardened Google Apps Script backend.
  *
- * REPLACES the entire contents of your current Apps Script file. Deployment
- * instructions are at the bottom of this file and in SECURITY.md §8 item 3.
+ * This is the ENTIRE contents of a NEW, standalone Apps Script project. It is
+ * not a patch and not an edit to the script you are running today — that one
+ * stays untouched and serving until step 7. Deployment instructions are at the
+ * bottom of this file and in SECURITY.md §8 item 3.
  *
  * What changed and why:
  *
@@ -41,8 +43,119 @@ function getToken_() {
   return PropertiesService.getScriptProperties().getProperty('ZUCA_TOKEN');
 }
 
-/** Sheet tab that holds signups. Change if yours is named differently. */
-var SHEET_NAME = 'Sheet1';
+// ─────────────────────────────────────────────────────────────────────────────
+//  THE ONLY LINE YOU EDIT IN THIS FILE
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * The spreadsheet this writes to.
+ *
+ * Take it from the sheet's URL — the long string between /d/ and /edit:
+ *   https://docs.google.com/spreadsheets/d/THIS_PART_HERE/edit
+ *
+ * Leave it as '' ONLY if you created this script from inside the sheet itself
+ * (Extensions → Apps Script). A standalone project has no active spreadsheet,
+ * and getActiveSpreadsheet() returns null there — which fails with an error
+ * that does not mention the real cause.
+ */
+var SPREADSHEET_ID = '1tJ9pzTYG31u1nmPF-CUnVzFiXtVUZOGjp4o4mF-gaKA';
+
+/**
+ * The TAB that holds signups. Not 'Sheet1'.
+ *
+ * This spreadsheet has both: 'Pre-orders' carries the 137 real signups and
+ * 'Sheet1' is empty. With SHEET_NAME = 'Sheet1' the lookup SUCCEEDS — it finds
+ * a real tab, matches it, and writes every new signup into the empty one. No
+ * error, no warning, and the 137 rows sit untouched next door while the list
+ * silently accumulates in the wrong place.
+ *
+ * The `|| getSheets()[0]` fallback that used to follow this lookup made it
+ * worse: a typo here would have written into whatever tab happened to be first.
+ * Both are gone. See assertTargetSheet_ below.
+ */
+var SHEET_NAME = 'Pre-orders';
+
+/**
+ * Refuse to write to the target tab if it holds fewer than this many rows.
+ *
+ * A brand-new empty tab and the right tab must not look the same to this
+ * script. The sheet has 137 signups; a target showing 3 means we are pointed
+ * somewhere else, and the only safe move is to stop rather than to start a
+ * second list that looks plausible for weeks.
+ *
+ * Set to 0 ONLY when deliberately starting a genuinely fresh sheet.
+ */
+var MIN_EXPECTED_ROWS = 100;
+
+/**
+ * Existing headers this sheet already uses for a concept we also write.
+ *
+ * `normalizeHeader_` handles case and separators, so `Email` matches `email`.
+ * It cannot know that `How They Heard` and `hearAbout` are the same thing —
+ * different words, not different punctuation — so without this the script would
+ * create a second column beside the populated one and split the data.
+ *
+ * canonical name -> header text already in the sheet
+ */
+var COLUMN_ALIASES = {
+  hearAbout: 'How They Heard',
+};
+
+/**
+ * Existing columns this script deliberately NEVER touches.
+ *
+ * Not an oversight. This list exists because the natural instinct on seeing an
+ * unmapped column is to map it, and for both of these that instinct is wrong.
+ *
+ *   Reason  — the old health answer, captured with no consent of any kind.
+ *             Reading or writing it would be processing Art 9 data without a
+ *             lawful basis. New health answers go to `motivation`, behind an
+ *             explicit opt-in. The historical values stay where they are.
+ *
+ *   Source  — holds the literal string "landing-page" on all 137 rows. A
+ *             constant from the old modal, not attribution: it carries exactly
+ *             zero bits. DO NOT alias utm_source to it. Real attribution goes
+ *             to the utm_* columns, which are separate and populated.
+ *
+ * ⚠️ Expect `Source` to read "landing-page" on old rows and BLANK on every new
+ * one, since nothing writes it. That gap will look like a meaningful signal —
+ * attribution that stopped working, or a handy old/new discriminator. It is
+ * neither. It is one dead column and a date.
+ */
+var NEVER_WRITTEN = ['Reason', 'Source'];
+
+/**
+ * Enforce NEVER_WRITTEN rather than merely stating it.
+ *
+ * As declared it was a comment wearing a variable's name — worse than a plain
+ * comment, because a named constant implies a control that was not there. The
+ * failure it guards against is somebody later adding 'Source' to COLUMNS to
+ * "fix" the unmapped column, which is exactly the instinct the comment warns
+ * about and exactly the thing a comment cannot stop.
+ */
+function assertNeverWritten_() {
+  for (var i = 0; i < NEVER_WRITTEN.length; i++) {
+    var forbidden = normalizeHeader_(NEVER_WRITTEN[i]);
+    for (var j = 0; j < COLUMNS.length; j++) {
+      if (normalizeHeader_(COLUMNS[j]) === forbidden) {
+        throw new Error(
+          'CONFIG: COLUMNS contains "' + COLUMNS[j] + '", which resolves to the ' +
+          'never-written column "' + NEVER_WRITTEN[i] + '". See NEVER_WRITTEN for why. ' +
+          'Remove it from COLUMNS.'
+        );
+      }
+    }
+    if (COLUMN_ALIASES) {
+      for (var k in COLUMN_ALIASES) {
+        if (normalizeHeader_(COLUMN_ALIASES[k]) === forbidden) {
+          throw new Error(
+            'CONFIG: COLUMN_ALIASES maps "' + k + '" onto the never-written column "' +
+            NEVER_WRITTEN[i] + '". See NEVER_WRITTEN for why.'
+          );
+        }
+      }
+    }
+  }
+}
 
 /**
  * Columns written, in order. Missing ones are appended to row 1 on first use.
@@ -223,6 +336,19 @@ function secureEquals_(a, b) {
   return diff === 0;
 }
 
+/**
+ * A configuration fault, or a transient one?
+ *
+ * Both used to return {error:'server'}, so "pointed at the wrong tab" looked
+ * exactly like "Google had a moment" — and only one of those is fixed by
+ * waiting. The sentinel is set at the throw site rather than inferred from the
+ * wording, because classifying a fault by searching its prose breaks the first
+ * time somebody improves a sentence.
+ */
+function isConfigError_(err) {
+  return !!err && String(err.message).indexOf('CONFIG:') === 0;
+}
+
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
@@ -232,8 +358,79 @@ function json_(obj) {
 // ─── Sheet access ────────────────────────────────────────────────────────────
 
 function getSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
+  var ss = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+
+  // Say which of the two setups is wrong rather than letting a null propagate
+  // into "Cannot read properties of null", which sends you looking at the write
+  // path instead of at one blank string near the top of the file.
+  if (!ss) {
+    throw new Error(
+      'CONFIG: No spreadsheet. Either set SPREADSHEET_ID at the top of this file, or ' +
+      'create the script from inside the sheet via Extensions -> Apps Script.'
+    );
+  }
+
+  assertNeverWritten_();
+
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  assertTargetSheet_(ss, sheet);
+  return sheet;
+}
+
+/**
+ * Refuse to write into a tab that is not demonstrably the right one.
+ *
+ * Every check here exists because its absence fails QUIETLY. A wrong-tab write
+ * produces no error at any layer: the endpoint returns 200, the counter goes
+ * up, the row is real — it is simply in the wrong place, and nothing surfaces
+ * that for as long as nobody opens the other tab.
+ */
+function assertTargetSheet_(ss, sheet) {
+  if (!sheet) {
+    var names = ss.getSheets().map(function (s) { return s.getName(); });
+    throw new Error(
+      'CONFIG: ' + 'No tab named "' + SHEET_NAME + '". Tabs in this spreadsheet: ' + names.join(', ') +
+      '. Fix SHEET_NAME at the top of this file. NOT falling back to the first tab — ' +
+      'a typo must not silently redirect the list.'
+    );
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = Math.max(1, sheet.getLastColumn());
+
+  if (lastRow < 1) {
+    throw new Error(
+      'CONFIG: ' + 'Tab "' + SHEET_NAME + '" is completely empty — no header row. This does not ' +
+      'look like the signup tab. Check SHEET_NAME, or set MIN_EXPECTED_ROWS = 0 if ' +
+      'you really are starting a fresh sheet.'
+    );
+  }
+
+  // An anchor column proves it is a signup tab rather than a notes tab that
+  // happens to have something in row 1.
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var hasEmail = false;
+  for (var i = 0; i < headers.length; i++) {
+    if (normalizeHeader_(headers[i]) === 'email') hasEmail = true;
+  }
+  if (!hasEmail) {
+    throw new Error(
+      'CONFIG: ' + 'Tab "' + SHEET_NAME + '" has no "email" column in row 1. Refusing to write: ' +
+      'this is not the signup tab.'
+    );
+  }
+
+  var dataRows = lastRow - 1;
+  if (dataRows < MIN_EXPECTED_ROWS) {
+    throw new Error(
+      'CONFIG: ' + 'Tab "' + SHEET_NAME + '" holds ' + dataRows + ' rows but at least ' +
+      MIN_EXPECTED_ROWS + ' were expected. Refusing to write — an empty or nearly ' +
+      'empty tab is what a WRONG tab looks like. If this is deliberate, set ' +
+      'MIN_EXPECTED_ROWS = 0.'
+    );
+  }
 }
 
 /**
@@ -260,11 +457,13 @@ function ensureColumns_(sheet) {
     if (h) byNormalized[normalizeHeader_(h)] = i + 1;
   });
 
-  // Resolve each canonical column name against what is already in the sheet.
+  // Resolve each canonical column name against what is already in the sheet,
+  // including under a different WORD for the same thing (COLUMN_ALIASES).
   var index = {};
   var toAppend = [];
   COLUMNS.forEach(function (c) {
     var at = byNormalized[normalizeHeader_(c)];
+    if (!at && COLUMN_ALIASES[c]) at = byNormalized[normalizeHeader_(COLUMN_ALIASES[c])];
     if (at) {
       index[c] = at;
     } else {
@@ -299,7 +498,17 @@ function doGet() {
     var count = Math.max(0, sheet.getLastRow() - 1); // minus the header row
     return json_({ count: count });
   } catch (err) {
-    return json_({ count: 0 });
+    // NOT {count: 0}.
+    //
+    // Zero is a number, and a number renders. Pointed at the wrong tab this
+    // showed a working counter reading zero — no error anywhere, just a site
+    // quietly announcing that nobody had signed up. The one shape this whole
+    // review has been removing: a failure that looks like data.
+    //
+    // null is not a count. It cannot be formatted, summed or compared by
+    // accident, and every consumer has to decide what to do about it.
+    console.error('doGet failed: ' + err.message);
+    return json_({ count: null, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   }
 }
 
@@ -342,7 +551,13 @@ function confirmRow_(handle, confirmedAt) {
     }
     return json_({ ok: false, error: 'not_found' });
   } catch (err) {
-    return json_({ ok: false, error: 'server' });
+    // A misconfiguration and a transient failure both used to return
+    // {error:'server'}, so "wrong tab" was indistinguishable from "Google had a
+    // moment" — and only one of those is fixed by waiting. The message goes to
+    // the Executions log where an operator actually looks, and the code tells
+    // the caller which kind it was.
+    console.error('confirmRow_ failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   } finally {
     lock.releaseLock();
   }
@@ -522,7 +737,8 @@ function doPost(e) {
     // cached value from before it.
     return json_({ ok: true, count: Math.max(0, sheet.getLastRow() - 1) });
   } catch (err) {
-    return json_({ ok: false, error: 'server' });
+    console.error('doPost failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   } finally {
     lock.releaseLock();
   }
@@ -531,32 +747,122 @@ function doPost(e) {
 /**
  * ─── Deployment ──────────────────────────────────────────────────────────────
  *
- *  1. Apps Script editor → paste this over the entire existing file → Save.
+ * ORDER MATTERS. An earlier version of these steps had you archive the old
+ * deployment FIRST, which kills the live form from that moment until the new
+ * site ships — a self-inflicted outage sitting inside the instructions for
+ * avoiding one. Archiving is LAST, and only after a real signup has landed.
  *
- *  2. Project Settings (gear icon) → Script Properties → Add script property
+ * The old URL stays live and working throughout steps 1-6. Nothing you do
+ * before step 7 can take the form down.
+ *
+ * TWO ACCOUNTS AND TWO PROJECTS. Keep them straight:
+ *
+ *   OLD  chefemilnordin@gmail.com  the script running today.
+ *        DO NOT OPEN IT until step 7. Every step before that happens
+ *        somewhere else. If you find yourself editing code that already has
+ *        your data-handling in it, you are in the wrong project — stop.
+ *
+ *   NEW  emil@zucasnacks.com       a new STANDALONE project you create.
+ *        Standalone means script.google.com -> New project, NOT
+ *        Extensions -> Apps Script from inside the sheet.
+ *
+ *  0. FIRST, because step 1 cannot work without it: the new project runs as
+ *     emil@zucasnacks.com, and this script reaches the sheet with
+ *     SpreadsheetApp.openById(). openById can only open a spreadsheet the
+ *     executing account can already open.
+ *
+ *     The sheet is owned by chefemilnordin@gmail.com. Share it with
+ *     emil@zucasnacks.com as EDITOR (Share -> add the address -> Editor).
+ *     Viewer is not enough; the script writes.
+ *
+ *     Without this, step 6 fails with a permissions error that names the file
+ *     ID and not the cause, which reads like the ID is wrong when it is not.
+ *
+ *  1. In the NEW project: select everything in the starter file (it contains a
+ *     stub `myFunction()` and nothing else) and paste this over it -> Save.
+ *
+ *     "Paste over the existing file" means that starter stub. It does NOT mean
+ *     the script under chefemilnordin@gmail.com. Do not open that one.
+ *
+ *     SPREADSHEET_ID and SHEET_NAME are already set. Nothing else to edit.
+ *
+ *  2. Project Settings (gear) -> Script Properties -> Add script property
  *       name:  ZUCA_TOKEN
- *       value: output of `openssl rand -hex 32`
+ *       value: the 64-character secret, same value as Vercel's
+ *              SHEETS_WEBHOOK_TOKEN
+ *     The secret is NOT in this file on purpose: this file lives in a public
+ *     GitHub repository.
  *
- *  3. Deploy → Manage deployments → ARCHIVE the existing deployment.
- *     This is the step that kills the currently-public URL. Creating a new
- *     deployment without archiving the old one leaves the old URL live and
- *     writable, which fixes nothing.
- *
- *  4. Deploy → New deployment → type: Web app
+ *  3. Deploy -> New deployment -> type: Web app
  *       Execute as:      Me
  *       Who has access:  Anyone
  *     "Anyone" is still required — Vercel calls this without a Google account.
- *     The token is what provides authentication now, not the URL's obscurity.
+ *     The token is what authenticates now, not the URL's obscurity.
+ *     This is the NEW project's first deployment, so there is nothing here to
+ *     overwrite. The old project's deployment lives in the other account
+ *     entirely and is not visible from this screen. It stays live and serving.
  *
- *  5. Copy the new /exec URL. In Vercel → Settings → Environment Variables:
+ *  4. Copy the NEW /exec URL. In Vercel -> Settings -> Environment Variables:
  *       SHEETS_WEBHOOK_URL    = the new /exec URL
  *       SHEETS_WEBHOOK_TOKEN  = the same value as ZUCA_TOKEN
- *     Set both for Production, Preview and Development. Redeploy.
+ *     Set both for Production, Preview and Development.
  *
- *  6. Verify the old URL is dead:
- *       curl -s "<OLD_URL>"      → should no longer return {"count":N}
- *     and that the new one rejects unauthenticated writes:
- *       curl -s -X POST "<NEW_URL>" -H 'Content-Type: application/json' \
- *            -d '{"email":"x@y.com"}'
- *                                  → {"ok":false,"error":"forbidden"}
+ *  5. Deploy the new site. Until this lands, the old client is still posting to
+ *     the OLD deployment, which is still live. That is the point of the order.
+ *
+ *  6. VERIFY WITH A REAL SIGNUP before going further:
+ *       - private window, fill the form properly, take more than 2 seconds
+ *       - a new row appears on the "Pre-orders" tab (NOT Sheet1)
+ *       - CHECK BY HEADER NAME, NOT COLUMN LETTER. Read row 1, find the
+ *         column headed `Email`, and confirm your address is in it on the new
+ *         row. Then the same for `consent_marketing` and `consent_receipt`.
+ *
+ *         An earlier version of this step said "column C has your email".
+ *         Column C is `Phone`. Following it would have shown you an empty
+ *         cell and told you the pipeline was broken while it was working.
+ *         This script matches on header TEXT and ignores position entirely,
+ *         so the header is the only thing that is actually load-bearing —
+ *         and `node scripts/sheet-columns.mjs` prints the letters if you
+ *         want them, derived rather than remembered.
+ *       - delete the test row
+ *     If nothing appears, check Apps Script -> Executions. `misconfigured`
+ *     means a settings problem — wrong tab, wrong token. `server` means
+ *     something transient; retry before changing anything.
+ *
+ *  7. ⚠️ ONLY NOW, and this is the first and only step that touches the old
+ *     account: sign in as chefemilnordin@gmail.com, open the OLD project,
+ *     Deploy -> Manage deployments -> archive the deployment.
+ *
+ *     IRREVERSIBLE UNTIL REDEPLOYED. Archiving permanently kills that URL —
+ *     un-archiving does not bring it back, and a new deployment gets a new
+ *     address. Any client still pointing at the old URL breaks instantly and
+ *     silently, because the old modal used mode:"no-cors" and cannot read a
+ *     rejection.
+ *
+ *     Do this only once step 6 has actually passed. Skipping it leaves the
+ *     public, write-capable URL alive, which is the finding this whole exercise
+ *     exists to close.
+ *
+ *  8. Confirm the old URL is dead:
+ *       curl -sL "<OLD_URL>"             -> no longer returns {"count":N}
+ *     and that the new one refuses unauthenticated writes:
+ *       curl -sL "<NEW_URL>" -H 'Content-Type: application/json' \
+ *            -d '{"email":"x@y.com"}'    -> {"ok":false,"error":"forbidden"}
+ *
+ *     ⚠️ NOTE THE ABSENCE OF `-X POST`. It is not a style choice and the
+ *     earlier version of this command had it, which made the command wrong.
+ *
+ *     Apps Script ALWAYS answers /exec with a 302 to script.googleusercontent,
+ *     and the real response body is at the redirect. `-d` makes the first
+ *     request a POST and lets curl follow that 302 as a GET, which is what the
+ *     echo URL serves. `-X POST` pins the method to EVERY hop, so the follow-up
+ *     hits the echo URL as a POST, gets 405, and curl prints Google's
+ *     "Sorry, unable to open the file at this time" HTML page.
+ *
+ *     That page looks exactly like a broken deployment. Running the old command
+ *     against a perfectly good deployment would have told you it was broken,
+ *     and the natural next move — re-deploying, re-pasting, re-checking the
+ *     sheet ID — would all have been fixing something that was not wrong.
+ *     Verified against the live deployment on 2026-08-18.
  */
+
