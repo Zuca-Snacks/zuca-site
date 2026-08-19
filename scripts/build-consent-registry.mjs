@@ -124,6 +124,11 @@ addPurpose('mkt', consentTexts.marketing, 'us');
 addPurpose('mot', consentTexts.motivation, 'eea');
 addPurpose('sms', consentTexts.sms, 'us');
 addPurpose('mail', consentTexts.mail, 'eea');
+// S22. Region 'eea' matches Conversion's default; the id they mint is
+// biz-eea-2026-08-19-fc6ba471. Safe to add pre-merge: src/content/copy.js does
+// not exist on this branch yet, so the generator exits above with an empty
+// registry rather than reaching this line.
+addPurpose('biz', consentTexts.business, 'eea');
 
 const body = JSON.stringify(out, null, 2).replace(/"([a-z_]+)":/g, '$1:');
 fs.writeFileSync(OUT, header(`${Object.keys(out).length} wordings resolved.`) + body + ';\n');
