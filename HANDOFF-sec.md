@@ -676,6 +676,104 @@ words"* invites less than *"Tell us more"* does.
 **Ordering:** server first, per the rule below. The schema accepts it as of
 19 Aug, so the chip's text box is safe to ship whenever growth is ready.
 
+## 0b → ⚠️ `main..HEAD` IS THE WRONG BASE on every branch here
+
+Conversion ran `git log main..HEAD -- <paths>` to confirm they had not touched my files,
+captioned *"empty = untouched by me"*. It printed seventeen of MY commits, because their branch
+is built on mine. Their conclusion happened to be true; the command they cited did not test it.
+
+**I made the identical error ten minutes later**, measuring "who has touched validation.js" and
+getting *8 commits* for growth — which included mine, for the same reason. Caught only because
+the number was implausible against what they had told me.
+
+### The correct bases here, measured
+
+```
+merge-base  sec/hardening ↔ growth/waitlist-conversion   16230d1   (a sec commit)
+merge-base  sec/hardening ↔ polish/round-2               beec3b6   (a sec commit)
+merge-base  sec/hardening ↔ main                         32ee6c4   (a sec commit)
+```
+
+Every other branch is **downstream of this one**. So:
+
+| Question | Wrong | Right |
+|---|---|---|
+| What have I added? | `main..HEAD` | `polish/round-2..HEAD` |
+| What has growth added to my file? | `<merge-base>..growth` | `sec/hardening..growth` |
+| What does the diff actually contain? | `git diff a..b` | `git diff a...b` (three dots) |
+
+**The base that answers "what did I add" is the integration branch, not the trunk.**
+
+### Current merge state, computed with the right base
+
+`polish/round-2` is missing these nine, newest first:
+
+```
+a69bee9  ~15 addresses at registered domains
+1305628  illustrative addresses at domains we do not own
+2fa1d46  placement claim wrong; cap check was unexercised
+fd41ee2  floor the lists
+02c5f2b  the fourth costume, in the seam check
+114109d  pin the gate patterns
+d5a6909  the business consent gate was a keyword search   ← SECURITY-RELEVANT
+1711066  npm run security:mutate
+e4a5457  compat checker blind to conditional/camelCase keys
+```
+
+`d5a6909` is the one that matters if the merge stops early: **without it the business consent
+gate is still the alternation, and `"Tell us about your workplace."` is accepted as consent for a
+shared mailbox.**
+
+Growth's only change to `src/lib/validation.js` is the one-line comment `4abd8b4`, verified with
+`git diff sec/hardening...growth` — already mirrored here, so that file converges rather than
+conflicts.
+
+`polish/round-2` contains a **revert and reapply** of the commit that restored Emil's approved
+business wording (`46acf5e` then `789ffdb`). Checked rather than assumed, because a revert/reapply
+pair is exactly where a restored string gets lost: the wording there is byte-identical to this
+branch. No action needed — recorded so nobody re-checks it.
+
+## 0a → AND: `npm run security:mutate` · **run this BEFORE trusting item 0**
+
+`security:compat` has had **three separate blindness bugs**, each of which reported
+COMPATIBLE while not looking at the thing that had changed:
+
+| Bug | Found by |
+|---|---|
+| parsed zero enums, said COMPATIBLE | agent 4's calibration gate |
+| read 40 of 42 keys, said COMPATIBLE | Conversion's key count disagreeing with mine |
+| key charset excluded uppercase, so any camelCase key was invisible | mutating a key and watching it stay green |
+
+**Not one was found by reading the code.** Conversion then ran the same method against their
+own suite and found the mirror — a pinned key list that built a payload with no business
+enquiry, so the conditionally-spread pair's spelling was never checked.
+
+Their diagnosis is why this is a command and not a habit:
+
+> A guard encodes the shape of the code **at the moment it was written**, and the next field
+> added is the one most likely to fall outside that shape. So a guard is most trustworthy about
+> the code it was written against, and least trustworthy about exactly what it will next be
+> asked to catch.
+
+So re-mutating belongs at every **field addition**, not every checker rewrite. A forty-second
+ritual that depends on remembering is not a control — that is the `NEVER_WRITTEN` lesson in
+process form.
+
+```
+npm run security:mutate            # ~10s, exits non-zero if anything survives
+```
+
+Six plausible defects, each of which `security:compat` must catch. **The negative control runs
+first**: an unmutated tree must report COMPATIBLE, or a checker that failed on everything would
+pass all six and be useless.
+
+A mutation that fails to APPLY is counted as a failure, not a pass — a pattern that no longer
+matches means the code moved and that mutation now tests nothing, which is the same silent
+drift the file exists to prevent.
+
+Verified against itself: reintroducing the uppercase-blind charset makes exactly the two
+camelCase mutations survive, and the harness says so.
+
 ## 0 → BEFORE ANY MERGE: `npm run security:compat <client-ref>`
 
 ```
@@ -729,6 +827,26 @@ The same audit across the rest of the tooling found two more:
 
 The message was honest in both cases and the **count** was not, which is the
 half anybody actually reads.
+
+## 1n → The business consent gate is ENGLISH-ONLY · **Emil, before any translation**
+
+`consentCoversBusiness()` matches English phrases. Norwegian copy fails every element:
+
+```
+"Jeg spør på vegne av arbeidsplassen min. Dette er en bedriftshenvendelse."
+    refused — missing: basis, exclusion, stop_mechanism
+```
+
+It **fails closed**, so nothing unlawful is stored. But from a translator's point of view the
+office path simply stops working, with a rejection that names English element ids.
+
+Not fixable by a better regex — the gate exists to check that a sentence says specific things,
+and that is language-bound by construction. When the site is localised the options are a
+per-language element list, or moving the check to a structured claim the copy declares
+alongside its text. Worth deciding then, not now; recorded so it is a decision rather than a
+discovery.
+
+The same applies to `consentCoversMedication()`, which has the same shape.
 
 ## 1m → ⚠️ MERGE ORDERING: a half-merged S22 is an OUTAGE, not a dead end
 
@@ -796,14 +914,14 @@ Surfaced while answering Conversion's question about email-rejection copy. Two t
 built this week disagree, and the disagreement is demonstrated, not theoretical:
 
 ```
-office@bakeriet.no    REJECTED  role_address
-team@bakeriet.no      REJECTED  role_address
-contact@bakeriet.no   REJECTED  role_address
-info@bakeriet.no      REJECTED  role_address
-admin@bakeriet.no     REJECTED  role_address
-sales@bakeriet.no     REJECTED  role_address
-post@bakeriet.no      OK          ← the standard Norwegian business prefix, and it passes
-emil@bakeriet.no      OK
+office@bakeriet.example    REJECTED  role_address
+team@bakeriet.example      REJECTED  role_address
+contact@bakeriet.example   REJECTED  role_address
+info@bakeriet.example      REJECTED  role_address
+admin@bakeriet.example     REJECTED  role_address
+sales@bakeriet.example     REJECTED  role_address
+post@bakeriet.example      OK          ← the standard Norwegian business prefix, and it passes
+emil@bakeriet.example      OK
 ```
 
 Filling in `office_interest: yes`, `company` and `headcount` does not help — the email is

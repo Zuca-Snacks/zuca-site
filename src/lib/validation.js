@@ -366,7 +366,7 @@ export const MAX_FORM_AGE_MS = 12 * 60 * 60 * 1000; // Stale timestamp = replaye
  * a Sheets cell exported to CSV) let an attacker inject additional headers or
  * rows. NUL and the Unicode direction-override characters are here for a
  * different reason: they make a string render as something other than what is
- * stored, which is how "support@zuca.com" gets displayed for a value that is
+ * stored, which is how "support@example.com" gets displayed for a value that is
  * not that at all.
  */
 // Written as escape sequences, not literal characters. Every one of these is
@@ -578,9 +578,75 @@ export const MEDICATION_MOTIVATIONS = new Set(['glp1_medication']);
  * Matters more here than for medication. A shared mailbox gives no individual's
  * consent at all, so the wording is not decorating the basis — it IS the basis.
  */
+export function businessConsentGaps(resolvedText) {
+  if (typeof resolvedText !== 'string' || !resolvedText) return ['no_text'];
+  const gaps = [];
+
+  // 1. Asserts an ORGANISATIONAL context. Without this the row is a personal
+  //    signup from a shared mailbox, which is the thing we refuse.
+  // `\bmy workplace\b`, not `\bworkplace\b`. Narrowed from the old alternation
+  // on 2026-08-19 and NOT flagged at the time — Conversion found it because
+  // their transcribed copy still had the wide form. Retained deliberately now
+  // that it is a decision rather than an accident: the possessive is what makes
+  // it a claim about the sender's own employer rather than a passing mention of
+  // workplaces. `on behalf of` still catches "on behalf of the workplace", so a
+  // reasonable rephrasing is not stranded by it.
+  if (!/\bon behalf of\b|\bmy workplace\b|\bbusiness (?:enquiry|inquiry)\b/i.test(resolvedText)) {
+    gaps.push('basis');
+  }
+
+  // 2. The exclusion promise. THIS IS THE ONE MY CODE IMPLEMENTS — a business
+  //    row is stored with consent_marketing FALSE precisely because the wording
+  //    says so. If the sentence loses it, the code and the copy have diverged,
+  //    and checking for it is checking that they still agree.
+  if (!/\bmailing list\b/i.test(resolvedText) || !/\b(?:won'?t|will not|never|not)\b/i.test(resolvedText)) {
+    gaps.push('exclusion');
+  }
+
+  // 3. A stated route out. A shared mailbox is read by people who never signed
+  //    up, so "reply to stop" is the only opt-out any of them can use.
+  if (!/\brepl(?:y|ying)\b|\bunsubscribe\b|\bstop\b/i.test(resolvedText)) {
+    gaps.push('stop_mechanism');
+  }
+
+  return gaps;
+}
+
+/**
+ * Does this wording actually establish the BUSINESS basis?
+ *
+ * ⚠️ THIS WAS AN ALTERNATION UNTIL 2026-08-19 AND IT WAS NOT A GATE.
+ *
+ *   /on behalf of|workplace|business enquiry/i
+ *
+ * Any ONE of three phrases satisfied it, so a single incidental mention passed.
+ * Conversion found it by mutation — replacing the first-person assertion still
+ * matched on a phrase further down — and checking their finding against my own
+ * gate showed it was worse than their example:
+ *
+ *   "Tell us about your workplace."     PASSED
+ *
+ * A sentence that asserts nothing, promises nothing, and is not a consent
+ * statement at all. Everything downstream would still have behaved perfectly:
+ * flag set, version resolved, marketing suppressed, receipt self-consistent.
+ * The only missing thing would have been what made it lawful, and every
+ * mechanism built to protect it would have reported success.
+ *
+ * Now a CONJUNCTION of the three load-bearing elements. `businessConsentGaps`
+ * names which are missing so a rejected wording says why, rather than failing
+ * as an unexplained 400 on a copy edit.
+ *
+ * NOT CHECKED, and worth knowing: the purpose narrowing ("about stocking Zuca
+ * at work — nothing else"). It is the element doing the most legal work and the
+ * hardest to match without becoming brittle. Human review of copy changes is
+ * still load-bearing; this is a backstop, not a substitute.
+ *
+ * ⚠️ ENGLISH ONLY. Norwegian copy would fail every element and close the office
+ * path entirely. Fail-closed, so nothing unlawful is stored — but it dies
+ * silently from a translator's point of view. See HANDOFF §1n.
+ */
 export function consentCoversBusiness(resolvedText) {
-  if (typeof resolvedText !== 'string' || !resolvedText) return false;
-  return /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i.test(resolvedText);
+  return businessConsentGaps(resolvedText).length === 0;
 }
 
 export function consentCoversMedication(resolvedText) {
@@ -978,10 +1044,13 @@ export const waitlistSchema = z
       // Declaring the basis is not the same as having shown it. Without the
       // wording there is no consent to point at, and for a shared mailbox
       // there is no individual's consent underneath to fall back on.
+      // Name the MISSING elements. A bare `omits_business` on a copy edit sends
+      // whoever changed the sentence hunting through a regex; `missing basis,
+      // stop_mechanism` tells them what to put back.
       ctx.addIssue({
         code: 'custom',
         path: ['business_consent_text_version'],
-        message: 'consent_wording_omits_business',
+        message: `consent_wording_omits_business:${businessConsentGaps(businessText).join('+')}`,
       });
     } else if (isRole && !d.business_enquiry) {
       ctx.addIssue({ code: 'custom', path: ['email'], message: 'role_address' });

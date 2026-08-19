@@ -769,7 +769,8 @@ function doPost(e) {
  *
  * TWO ACCOUNTS AND TWO PROJECTS. Keep them straight:
  *
- *   OLD  chefemilnordin@gmail.com  the script running today.
+ *   OLD  the personal Gmail account that owns the spreadsheet — NOT
+ *        emil@zucasnacks.com. It runs the script serving the site today.
  *        DO NOT OPEN IT until step 7. Every step before that happens
  *        somewhere else. If you find yourself editing code that already has
  *        your data-handling in it, you are in the wrong project — stop.
@@ -783,8 +784,9 @@ function doPost(e) {
  *     SpreadsheetApp.openById(). openById can only open a spreadsheet the
  *     executing account can already open.
  *
- *     The sheet is owned by chefemilnordin@gmail.com. Share it with
- *     emil@zucasnacks.com as EDITOR (Share -> add the address -> Editor).
+ *     The sheet is owned by the personal Gmail account. Signed in as that
+ *     account, share it with emil@zucasnacks.com as EDITOR
+ *     (Share -> add the address -> Editor).
  *     Viewer is not enough; the script writes.
  *
  *     Without this, step 6 fails with a permissions error that names the file
@@ -794,7 +796,7 @@ function doPost(e) {
  *     stub `myFunction()` and nothing else) and paste this over it -> Save.
  *
  *     "Paste over the existing file" means that starter stub. It does NOT mean
- *     the script under chefemilnordin@gmail.com. Do not open that one.
+ *     the script under the personal Gmail account. Do not open that one.
  *
  *     SPREADSHEET_ID and SHEET_NAME are already set. Nothing else to edit.
  *
@@ -842,7 +844,7 @@ function doPost(e) {
  *     something transient; retry before changing anything.
  *
  *  7. ⚠️ ONLY NOW, and this is the first and only step that touches the old
- *     account: sign in as chefemilnordin@gmail.com, open the OLD project,
+ *     account: sign in as the personal Gmail account, open the OLD project,
  *     Deploy -> Manage deployments -> archive the deployment.
  *
  *     IRREVERSIBLE UNTIL REDEPLOYED. Archiving permanently kills that URL —
@@ -859,7 +861,7 @@ function doPost(e) {
  *       curl -sL "<OLD_URL>"             -> no longer returns {"count":N}
  *     and that the new one refuses unauthenticated writes:
  *       curl -sL "<NEW_URL>" -H 'Content-Type: application/json' \
- *            -d '{"email":"x@y.com"}'    -> {"ok":false,"error":"forbidden"}
+ *            -d '{"email":"x@example.com"}'    -> {"ok":false,"error":"forbidden"}
  *
  *     ⚠️ NOTE THE ABSENCE OF `-X POST`. It is not a style choice and the
  *     earlier version of this command had it, which made the command wrong.

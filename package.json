@@ -16,11 +16,11 @@
     "audit:hero": "node scripts/audit-hero-rows.mjs",
     "security:compat": "node scripts/check-merge-compat.mjs",
     "testdrive": "node scripts/testdrive.mjs",
-    "security:compat": "node scripts/check-merge-compat.mjs",
     "security:columns": "node scripts/sheet-columns.mjs",
     "security:columns:check": "node scripts/sheet-columns.mjs --check",
     "security:livewrite": "node scripts/live-write-test.mjs",
-    "mutate": "node scripts/mutate.mjs"
+    "mutate": "node scripts/mutate.mjs",
+    "security:mutate": "node scripts/mutate-compat.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
