@@ -32,3 +32,4 @@ src/lib/consent-registry.generated.js
 
 # Test-drive rig output — real submissions, never committed (see DECISIONS.md).
 testdrive-rows.jsonl
+testdrive-sheet.json
