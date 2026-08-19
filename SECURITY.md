@@ -457,6 +457,7 @@ retention policy, and an unjustified period is the same finding as no period at 
 |---|---|---|
 | Unconfirmed record (never clicked the confirmation link) | **12 months** | Kept as demand signal rather than deleted on day one — but an unconfirmed row is still personal data with a clock running, and "interesting" is not a retention basis. Past that, the aggregate count survives; the person does not |
 | Waitlist record | **24 months** from last interaction, or on request | A food product runs pre-order to shelf over one to two years. Past that, consent is stale and the record serves nobody |
+| Records carrying a **medication** motivation | **6 months** | Shorter than other health data, and on *accuracy* grounds rather than storage limitation. Art 5(1)(d) requires data be accurate and kept up to date; medication status is uniquely perishable — people start and stop — so an eleven-month-old answer is not merely stale, it may be false. Holding Art 9 data that is probably wrong is the worst case: full obligation, negative value |
 | `motivation` (Art 9 health data) | **12 months**, or on withdrawal of that specific consent | Deliberately shorter than everything else: most sensitive, least necessary |
 | Consent record | Lifetime of the waitlist record **+ 12 months** | It is the evidence the processing was lawful, so it has to outlive what it justifies |
 | Server logs | **30 days** | Enough to investigate a fault or an attack. No addresses — keyed handles only |
@@ -598,6 +599,35 @@ from EEA sends. `reconsent_reason` carries the detail, e.g.
 accepted, because rejecting would mean a copy change that forgets to register a wording breaks every
 signup on the site. It is logged as `consent.unregistered_text_version` so it gets fixed rather than
 accumulating quietly.
+
+### The medication value — what changed, and what did not
+
+Approved 2026-08-19 under the standing instruction to build Cooley items as
+signed off. Three questions were asked of it and the honest answers differ.
+
+**Consent wording — changed, and had to.** The prior health consent covered
+"why fiber matters to me and anything dietary it should know", which does not
+name medication. Art 9(2)(a) consent must be specific to the processing, so a
+new wording naming medication was written; it mints a new version. **The gate is
+on the wording, not a flag**: a signup selecting a medication value is rejected
+unless the consent text it cites actually mentions medication. A boolean can be
+true while the sentence beside it says nothing, and the sentence is what the
+person read.
+
+**Retention — changed. 6 months, not 12.** Not on sensitivity grounds, which is
+the obvious argument and the weaker one, but on **accuracy**. Art 5(1)(d)
+requires data be accurate and kept up to date, and medication status is uniquely
+perishable — people start and stop. An answer from eleven months ago is not just
+stale, it may be false, and holding special category data that is probably wrong
+carries the full obligation with negative value.
+
+**Necessity — unchanged, and still the open question.** Collection is approved;
+that is not approval to use. The health-claim guardrails forbid GLP-1 and
+weight-loss claims, so this segment cannot be marketed to on the basis that
+created it. The field is lawful to hold and largely unusable. That is a product
+decision taken with the reasoning in front of it, recorded here so it stays
+visible rather than becoming folklore — and so reversing it later is a deletion
+rather than a re-derivation.
 
 ### The other rights, and how each is actually served
 

@@ -47,6 +47,19 @@ const BUILTIN_CONSENT_TEXTS = {
     regime: 'global',
     text: 'Store my reason for interest so you can tailor what you send me.',
   },
+  // Names medication explicitly, which the wording above does not. A signup
+  // selecting a medication value against the OLDER wording is rejected: the
+  // sentence they read did not mention it, so their consent does not cover it.
+  '2026-08-19.health-medication.a': {
+    purpose: 'health',
+    regime: 'global',
+    text:
+      "I'm happy to tell Zuca why fiber matters to me, anything dietary it " +
+      "should know, and whether I'm taking a medication such as a GLP-1. This " +
+      'is health information and it is optional: it is stored with my signup, ' +
+      'never sold, never sent to an advertising or analytics tool, and I can ' +
+      'ask Zuca to delete it at any time.',
+  },
   '2026-08-17.sms.a': {
     purpose: 'sms',
     regime: 'global',
@@ -445,32 +458,74 @@ export const MOTIVATIONS = [
   // sensitivity of this field beyond what it already carries — they sit inside
   // the same `consent_health` gate as the rest.
   'fullness', 'whole_foods',
+  // Accepted ONLY alongside a health consent whose wording names medication.
+  'glp1_medication',
   'other',
 ];
 
+/** Motivation values that require the medication-naming consent. */
+export const MEDICATION_MOTIVATIONS = new Set(['glp1_medication']);
+
 /**
- * NOT here, deliberately: any value naming a medication.
+ * Does the wording this person actually saw cover medication?
  *
- * "I'm on a GLP-1" is a better phrasing than "GLP-1 support" — it states a fact
- * about the person rather than an effect of the product — but the phrasing was
- * never the problem. It reveals treatment, and by inference diagnosis, which is
- * Art 9 at the hard end rather than the arguable end where `gut_health` sits.
+ * Tested against the verbatim text rather than a flag on the registry entry,
+ * because the Conversion agent derives its version ids by fingerprinting the
+ * copy — a flag would have to be maintained alongside, and this week has been a
+ * catalogue of hand-maintained lists drifting from the thing they describe.
  *
- * What decides it is necessity, not consent. The health-claim guardrails forbid
- * GLP-1 and weight-loss claims outright, so such a segment would be special
- * category data we are barred from acting on: collected, stored, subject to
- * access requests, and useless. Art 5(1)(c) asks what decision the answer
- * changes; if the answer is none, no consent cures that.
+ * Reading the text has a property a flag cannot: edit the copy to drop the
+ * mention and the gate closes by itself, on the same deploy. It is also the
+ * literal legal question — Art 9(2)(a) consent must be specific to the
+ * processing, and the sentence either names it or does not.
  *
- * Where the intent is "a clinician told me to eat more fiber",
- * `doctor_suggested` already carries it and touches no medication.
- *
- * Adding one is Emil's call and needs the health consent wording to name
- * medication specifically — which mints a new consent version automatically,
- * but the sentence has to say it. Do not add on a peer's say-so.
+ * Fails closed. An unresolved version has no text, so it covers nothing.
  */
-export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_browsing'];
-export const PRICE_BANDS = ['lt_24', '24_29', '30_35', '36_42', 'gt_42'];
+export function consentCoversMedication(resolvedText) {
+  if (typeof resolvedText !== 'string' || !resolvedText) return false;
+  return /\bmedicat|\bGLP-?\s?1\b/i.test(resolvedText);
+}
+
+/**
+ * `glp1_medication` is Art 9 at the hard end.
+ *
+ * Approved 2026-08-19 under the standing instruction to build Cooley items as
+ * signed off. The reasoning against is kept rather than deleted, because the
+ * decision is meant to be reversible and a decision you cannot see the argument
+ * for is not reversible in practice.
+ *
+ * The argument against was never phrasing — "I'm on a GLP-1 medication" is
+ * correctly a fact about the person rather than a product effect. It was
+ * necessity: the health-claim guardrails forbid GLP-1 and weight-loss claims,
+ * so the segment is special category data we may not market to on that basis.
+ * That has not changed. **Approving collection is not approving use.**
+ *
+ * What makes collection defensible is that it is gated on a consent that names
+ * medication in the words the person actually read — see `consentCoversMedication`.
+ * Not a separate boolean: a boolean can be true while the sentence beside it
+ * says nothing about medication, and Art 9(2)(a) asks what they were told, not
+ * what flag we set.
+ */export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_browsing'];
+/**
+ * Two generations at once, on purpose.
+ *
+ * The 2026-08-19 bands are `25_34`, `35_44`, `gt_45`, `other`. The five older
+ * values stay accepted until the client stops sending them — my own ordering
+ * rule in AGENTS_BRIEF.md: ADD server-first, REMOVE client-first. Dropping the
+ * old set in the same commit would 400 every submission from a client that has
+ * not shipped yet, and a value error is one the downgrade ladder cannot
+ * recover.
+ *
+ * REMOVE the five legacy values once growth confirms the new chips are live.
+ * They are marked rather than mixed so that clean-up is a deletion, not an
+ * archaeology exercise — and the 137 existing rows keep meaning what they meant.
+ */
+export const PRICE_BANDS = [
+  // Current
+  '25_34', '35_44', 'gt_45', 'other',
+  // Legacy — remove after the client switches
+  'lt_24', '24_29', '30_35', '36_42', 'gt_42',
+];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
 /**
  * Monthly consumption, not units per order. Values are the Conversion agent's,
@@ -664,6 +719,15 @@ export const waitlistSchema = z
     // kind you gave nobody a way to type.
     referral_source_other: safeString(120).nullish().transform((v) => v || null),
 
+    // Freehand price. Stored verbatim, never parsed: "£30ish", "$25-30",
+    // "40 NOK a bar" and "depends on the size" are all legitimate answers, and
+    // a number extracted from any of them would be a guess presented as data.
+    // Same treatment as every other free-text box — normalised, control chars
+    // rejected, capped, and formula-sanitised before it reaches a cell. That
+    // last one matters more here than elsewhere: a price answer beginning "-"
+    // or "=" is a plausible thing for someone to type.
+    price_band_other: safeString(120).nullish().transform((v) => v || null),
+
     // SMS. Strict phone format — see phoneSchema for why this one does not
     // fail soft the way `zip` does.
     phone: z.union([phoneSchema, z.literal(''), z.null()]).optional().transform((v) => v || null),
@@ -719,12 +783,27 @@ export const waitlistSchema = z
     // without its pairing becomes the odd one out rather than the norm.
     const pairs = [
       ['referral_source_other', (x) => x.referral_source === 'other'],
+      ['price_band_other', (x) => x.price_band === 'other'],
       ['dietary_other', (x) => (x.dietary ?? []).includes('other')],
       ['channel_other', (x) => (x.channel ?? []).includes('other')],
     ];
     for (const [field, parentSelectedOther] of pairs) {
       if (d[field] && !parentSelectedOther(d)) {
         ctx.addIssue({ code: 'custom', path: [field], message: 'other_not_selected' });
+      }
+    }
+
+    // A medication value needs a consent whose WORDING names medication. The
+    // general health opt-in does not, so selecting it against the old sentence
+    // is rejected rather than quietly stored under a consent that never
+    // mentioned it — the failure mode Art 9(2)(a) exists to prevent.
+    const wantsMedication = (d.motivation ?? []).some((v) => MEDICATION_MOTIVATIONS.has(v));
+    if (wantsMedication) {
+      const shown = CONSENT_TEXTS[d.motivation_consent_text_version]?.text ?? null;
+      if (!d.consent_health) {
+        ctx.addIssue({ code: 'custom', path: ['motivation'], message: 'medication_without_health_consent' });
+      } else if (!consentCoversMedication(shown)) {
+        ctx.addIssue({ code: 'custom', path: ['motivation_consent_text_version'], message: 'consent_wording_omits_medication' });
       }
     }
 

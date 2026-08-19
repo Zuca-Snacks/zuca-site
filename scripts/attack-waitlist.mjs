@@ -260,18 +260,86 @@ await check('New motivation values accepted (fullness, whole_foods)', '200', asy
   const r = await post(goodPayload({ consent_health: true, motivation: ['fullness', 'whole_foods'] }));
   return { pass: r.status === 200, actual: String(r.status) };
 });
-await check('No medication value in the enum', '400 — not collected', async () => {
-  // Deliberately absent. Not a phrasing problem — it fails necessity, and the
-  // guardrails bar acting on it. See the note above MOTIVATIONS.
-  const codes = await Promise.all(
-    ['glp1', 'medication', 'on_medication', 'weight_loss'].map((v) =>
-      post(goodPayload({ consent_health: true, motivation: [v] })))
-  );
-  return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+// The medication value is accepted ONLY behind a consent whose wording names
+// medication. These four cases are the whole control: one accept, three
+// distinct ways to be refused.
+await check('Medication value accepted with medication-naming consent', '200', async () => {
+  const r = await post(goodPayload({
+    consent_health: true, motivation: ['glp1_medication'],
+    motivation_consent_text_version: '2026-08-19.health-medication.a',
+  }));
+  return { pass: r.status === 200, actual: String(r.status) };
+});
+await check('Refused under the OLD health wording, which omits medication', '400', async () => {
+  const r = await post(goodPayload({
+    consent_health: true, motivation: ['glp1_medication'],
+    motivation_consent_text_version: '2026-08-15.health.a',
+  }));
+  return { pass: r.status === 400, actual: `${r.status} (consent_wording_omits_medication)` };
+});
+await check('Refused with no health consent at all', '400', async () => {
+  const r = await post(goodPayload({
+    consent_health: false, motivation: ['glp1_medication'],
+    motivation_consent_text_version: '2026-08-19.health-medication.a',
+  }));
+  return { pass: r.status === 400, actual: String(r.status) };
+});
+await check('Refused when the wording cannot be resolved — fails closed', '400', async () => {
+  // An unregistered id has no text, so nothing can be shown to cover medication.
+  const r = await post(goodPayload({
+    consent_health: true, motivation: ['glp1_medication'],
+    motivation_consent_text_version: 'some-unregistered-id',
+  }));
+  return { pass: r.status === 400, actual: String(r.status) };
+});
+await check('The gate reads the wording, so editing copy closes it', 'text-driven', async () => {
+  const { consentCoversMedication } = await import('../src/lib/validation.js');
+  const withMed = consentCoversMedication('…and whether I am taking a medication such as a GLP-1.');
+  const without = consentCoversMedication('Store my reason for interest so you can tailor what you send me.');
+  return { pass: withMed && !without, actual: `names it: ${withMed}, silent: ${without}` };
+});
+await check('Non-medication motivations unaffected by the gate', '200', async () => {
+  const r = await post(goodPayload({
+    consent_health: true, motivation: ['gut_health', 'fullness'],
+    motivation_consent_text_version: '2026-08-15.health.a',
+  }));
+  return { pass: r.status === 200, actual: String(r.status) };
+});
+
+// price_band: new bands live, legacy still accepted until the client switches.
+await check('New price bands accepted', '200', async () => {
+  const codes = await Promise.all(['25_34', '35_44', 'gt_45'].map((v) => post(goodPayload({ price_band: v }))));
+  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+});
+await check('Legacy price bands still accepted — REMOVE is client-first', '200', async () => {
+  const codes = await Promise.all(['lt_24', '24_29', '30_35', '36_42', 'gt_42'].map((v) => post(goodPayload({ price_band: v }))));
+  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+});
+await check('price_band_other stored verbatim, never parsed', 'as typed', async () => {
+  const { validateWaitlist } = await import('../src/lib/validation.js');
+  const typed = '$25-30, depends on the size';
+  const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, price_band: 'other', price_band_other: typed });
+  return { pass: v.ok && v.data.price_band_other === typed, actual: JSON.stringify(v.data?.price_band_other) };
+});
+await check('price_band_other requires price_band === other', '400', async () => {
+  const r = await post(goodPayload({ price_band: '25_34', price_band_other: 'x' }));
+  return { pass: r.status === 400, actual: String(r.status) };
+});
+await check('Formula-shaped price answer neutralised', "prefixed with '", async () => {
+  const { sanitizeForSheet } = await import('../src/lib/validation.js');
+  const out = ['-5 less', '=30', '+40 maybe', '@30'].map(sanitizeForSheet);
+  return { pass: out.every((o) => o.startsWith("'")), actual: out.join(' | ') };
 });
 await check('motivation accepts every value at once — no product cap', '200', async () => {
+  // Needs the medication-naming consent, because the full set now includes
+  // glp1_medication. The first run of this test failed for exactly that reason,
+  // which is the gate doing its job on a payload that looked innocuous.
   const { MOTIVATIONS } = await import('../src/lib/validation.js');
-  const r = await post(goodPayload({ consent_health: true, motivation: [...MOTIVATIONS] }));
+  const r = await post(goodPayload({
+    consent_health: true,
+    motivation: [...MOTIVATIONS],
+    motivation_consent_text_version: '2026-08-19.health-medication.a',
+  }));
   return { pass: r.status === 200, actual: `${MOTIVATIONS.length} selected -> ${r.status}` };
 });
 await check('multi-select bound tracks the enum, so it cannot go stale', 'auto', async () => {
