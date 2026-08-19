@@ -18,14 +18,17 @@
  *   - Headings are <h3> so the FAQ sits correctly under the section's <h2>.
  */
 import { useState } from 'react';
+import { warnIgnoredChildren } from './devWarn.js';
 
 export default function Accordion({
+  children,
   items = [],
   allowMultiple = false,
   defaultOpenId = null,
   onOpen,
   className = '',
 }) {
+  warnIgnoredChildren('Accordion', children, 'Pass the panels as the `items` array instead.');
   const [open, setOpen] = useState(() =>
     defaultOpenId ? new Set([defaultOpenId]) : new Set()
   );

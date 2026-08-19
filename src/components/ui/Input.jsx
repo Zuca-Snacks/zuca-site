@@ -23,11 +23,13 @@
  *     waitlist email field.
  */
 import { forwardRef } from 'react';
+import { warnIgnoredChildren } from './devWarn.js';
 
 const Input = forwardRef(function Input(
-  { invalid = false, prefix, suffix, className = '', ...rest },
+  { invalid = false, prefix, suffix, children, className = '', ...rest },
   ref
 ) {
+  warnIgnoredChildren('Input', children, 'An <input> is a void element — use `prefix`/`suffix` for adornments.');
   const field = (
     <input
       ref={ref}

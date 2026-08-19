@@ -35,6 +35,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { forwardRef } from 'react';
+import { warnIgnoredChildren } from './devWarn.js';
 
 const Checkbox = forwardRef(function Checkbox(
   {
@@ -43,11 +44,13 @@ const Checkbox = forwardRef(function Checkbox(
     legal,
     error,
     consentVersion,
+    children,
     className = '',
     ...rest
   },
   ref
 ) {
+  warnIgnoredChildren('Checkbox', children, 'Pass the visible text as the `label` prop instead.');
   const legalId = legal ? `${id}-legal` : undefined;
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [legalId, errorId].filter(Boolean).join(' ') || undefined;

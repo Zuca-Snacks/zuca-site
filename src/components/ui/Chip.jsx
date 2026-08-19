@@ -41,6 +41,8 @@
  *   - Caller owns the selection state and any max-N enforcement; pass
  *     disabled on the unselected chips once the cap is reached.
  */
+import { warnIgnored } from './devWarn.js';
+
 export function Chip({
   selected = false,
   disabled = false,
@@ -68,6 +70,19 @@ export function ChipGroup({
   children,
   className = '',
 }) {
+  warnIgnored(
+    'ChipGroup',
+    tone != null && tone !== 'berry' && tone !== 'warm',
+    `was given tone="${tone}", which is not a tone it knows. The accent falls ` +
+      "back to the alternating default. Valid: 'berry', 'warm'."
+  );
+  warnIgnored(
+    'ChipGroup',
+    !legend,
+    'has no `legend`. A fieldset without one is an unnamed group, so a screen ' +
+      'reader announces the chips with no idea what question they answer.'
+  );
+
   return (
     <fieldset
       className={`z-chip-group ${className}`.trim()}

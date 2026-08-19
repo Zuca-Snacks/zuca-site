@@ -631,6 +631,27 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **🔴 THE COUNTRY DROPDOWN HAD A SECOND FAULT, and it is the one that made it
+  useless: `<Select>` never rendered `children`.** It took an `options` prop
+  only, so `<Select><option>…</option></Select>` — the obvious way to write it,
+  and what you wrote — produced an **empty dropdown**. Fixed: both forms now
+  work, children win if you pass both, and passing both or neither warns.
+  My previous note said the field was "correctly disabled and just illegible".
+  That was true and incomplete — there were two faults stacked, and this was the
+  worse one. Once consent is ticked it will now actually populate.
+
+- **✅ EVERY PRIMITIVE NOW WARNS IN DEV WHEN IT IGNORES WHAT YOU GAVE IT.**
+  Emil's instruction after three bug reports that were not bugs: a component
+  that silently discards its input is indistinguishable from a broken one.
+  11 warnings wired and verified firing — ignored `children` on Input,
+  Checkbox, Progress and Accordion; `Select` given both/neither; `Button` with
+  `as="a"` and no `href`, or `href` without `as="a"`; `OtherInput` without
+  `show`; `ChipGroup` with an unknown `tone` or no `legend`.
+  Each names what was discarded AND what to do instead. Warned once per
+  distinct message, so a render loop cannot bury the console.
+  **Costs nothing in production**: verified zero occurrences of any warning
+  string, and of the `warnIgnored` identifier, in the built bundle. +12 B gz.
+
 - **✅ THE COUNTRY DROPDOWN WAS NEVER BROKEN — it was correctly disabled and my
   primitive failed to say so.** It sits inside
   `<fieldset disabled={!consentPostal}>`, so until postal consent is ticked
