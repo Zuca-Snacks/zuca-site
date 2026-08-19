@@ -593,20 +593,36 @@ export const confirmation = {
   // responsible for our production run — pressure they did not ask for — and
   // promised something outside our control.
   title: "Welcome to Zuca.",
-  position: "You're the {position} person in the Zuca family.",
+  position: "You're the {position} member of our family.",
   titleFallback: "Welcome to Zuca.",
   duplicate: "You're already one of us.",
   duplicateBody: "Nothing to do — you're on the list, and you'll hear from us with everyone else who got in early.",
+  // ── TIMELINE: TWO VERSIONS, ONE SWITCH ──────────────────────────────────────
+  // Emil asked to see both before deciding. `timeline` below picks which ships.
+  //
+  //   "line" — one sentence, shipped. Keeps the only thing on this screen that
+  //            tells someone what they actually signed up for. A welcome with
+  //            nothing behind it is warmth without substance, and this is the
+  //            sentence that earns the address.
+  //   "none" — removes it entirely. Warmest and shortest, and the screen then
+  //            says what they joined but never what happens next.
+  //
+  // Flip `timeline` to "none" to see that version. Nothing else changes.
+  timeline: "line",
+  whatNextLine:
+    "We'll email you once before launch with the ship date and your ordering window — ahead of the public.",
   whatNext: [
     { when: "Right now", what: "Your spot is saved. No card, no charge, nothing to confirm." },
     { when: "Before launch", what: "One email with the ship date and your ordering window, ahead of the public." },
     { when: "Launch week", what: "Waitlist members order first, at launch pricing, while the first run lasts." },
   ],
+
   // An invitation, not a task. No count, no goal, no consequence for declining.
   shareTitle: "Know someone you'd like to share Zuca with?",
-  shareBody: "Send them the link — that's all, and there's nothing riding on it.",
+
   shareCta: "Share Zuca",
   shareCopied: "Link copied.",
-  shareManual: "Copy this link:",
+  shareCopyCta: "Copy link",
+  shareCopyFailed: "Couldn't copy — your browser blocked it. Try the address bar instead.",
   shareText: "Zuca: 10g of fiber, 150 calories, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
 };

@@ -25,10 +25,16 @@ function shareUrl() {
   return url.toString();
 }
 
-export default function Confirmation({ position: knownPosition, duplicate, profileSaved }) {
+// `profileSaved` is no longer read: the line it drove ("those answers go
+// straight into what we make first") was removed. The prop stays in
+// WaitlistForm's call so the distinction survives if the screen ever wants it
+// again — it is the difference between someone who answered and someone who
+// skipped, which is worth not throwing away at the call site.
+export default function Confirmation({ position: knownPosition, duplicate }) {
   const [position, setPosition] = useState(knownPosition ?? null);
   const [shared, setShared] = useState(false);
-  const [manualUrl, setManualUrl] = useState("");
+  // "copy" once the native sheet is unavailable; "failed" if even that breaks.
+  const [fallback, setFallback] = useState("");
 
   useEffect(() => {
     if (position !== null) return undefined;
@@ -98,9 +104,25 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
       /* No permission, or an insecure context. One route left. */
     }
 
-    // Last resort: show the link. Something selectable beats a dead button.
-    track(EVENTS.SHARE_CLICK, { method: "manual", ok: 1 });
-    setManualUrl(url);
+    // No native sheet and no silent copy. Offer an explicit Copy button rather
+    // than printing the URL — a raw link on screen is ugly, helps nobody, and
+    // asks the person to select it by hand on the device least able to.
+    track(EVENTS.SHARE_CLICK, { method: "fallback_offered", ok: 1 });
+    setFallback("copy");
+  }
+
+  /** The explicit second press, once the native sheet has proved unavailable. */
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(shareUrl());
+      track(EVENTS.SHARE_CLICK, { method: "copy_button", ok: 1 });
+      setShared(true);
+      window.setTimeout(() => setShared(false), 3000);
+    } catch {
+      // Still never a printed URL. Say plainly that it did not work.
+      track(EVENTS.SHARE_CLICK, { method: "copy_button", ok: 0 });
+      setFallback("failed");
+    }
   }
 
   const title = duplicate ? copy.duplicate : copy.title;
@@ -114,36 +136,33 @@ export default function Confirmation({ position: knownPosition, duplicate, profi
       <div aria-live="polite">
         <h2 className="zw-title">{title}</h2>
         {welcome ? <p className="zw-welcome">{welcome}</p> : null}
-        <p className="zw-body">
-          {duplicate
-            ? copy.duplicateBody
-            : profileSaved
-              ? "Thanks — those answers go straight into what we make first."
-              : "Here's what happens from here."}
-        </p>
+        {duplicate ? <p className="zw-body">{copy.duplicateBody}</p> : null}
       </div>
 
-      <ol className="zw-timeline">
-        {copy.whatNext.map((item) => (
-          <li key={item.when}>
-            <span className="zw-when">{item.when}</span>
-            <span className="zw-what">{item.what}</span>
-          </li>
-        ))}
-      </ol>
+      {copy.timeline === "line" ? (
+        <p className="zw-body zw-next">{copy.whatNextLine}</p>
+      ) : copy.timeline === "full" ? (
+        <ol className="zw-timeline">
+          {copy.whatNext.map((item) => (
+            <li key={item.when}>
+              <span className="zw-when">{item.when}</span>
+              <span className="zw-what">{item.what}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
 
       <div className="zw-share">
         <h3 className="zw-legend">{copy.shareTitle}</h3>
-        <p className="zw-body">{copy.shareBody}</p>
         <Button type="button" variant="secondary" onClick={handleShare}>
           {shared ? copy.shareCopied : copy.shareCta}
         </Button>
-        {manualUrl ? (
-          <p className="zw-note">
-            {copy.shareManual}{" "}
-            <a href={manualUrl}>{manualUrl}</a>
-          </p>
+        {fallback === "copy" ? (
+          <Button type="button" variant="secondary" onClick={handleCopy}>
+            {shared ? copy.shareCopied : copy.shareCopyCta}
+          </Button>
         ) : null}
+        {fallback === "failed" ? <p className="zw-note">{copy.shareCopyFailed}</p> : null}
       </div>
     </div>
   );
