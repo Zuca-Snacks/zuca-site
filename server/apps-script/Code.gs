@@ -194,7 +194,12 @@ function sanitizeCell_(value, column) {
   if (column && FORCE_TEXT.indexOf(column) !== -1) {
     var forced = String(value).replace(/[\r\n\t]/g, ' ').trim();
     if (forced === '') return '';
-    return /^['=+\-@]/.test(forced) ? "'" + forced : "'" + forced;
+    // Do NOT re-prefix something already prefixed. The Vercel function runs its
+    // own formula sanitiser first, so a phone arrives here as "'+47…" — adding
+    // a second apostrophe stored "''+47…", which Sheets renders as a visible
+    // leading quote inside the number. Two correct guards composing into a
+    // wrong result; the second one has to be idempotent.
+    return forced.charAt(0) === "'" ? forced : "'" + forced;
   }
   var s = String(value).replace(/[\r\n\t]/g, ' ').trim();
   if (s.length > limit) s = s.slice(0, limit);

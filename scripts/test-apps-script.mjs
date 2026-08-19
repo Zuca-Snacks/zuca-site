@@ -433,6 +433,13 @@ console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code
     post(sheet, forwarded, forwarded.token);
     // Anything the endpoint gated ON must survive the trip. A key renamed on
     // one side of the seam and not the other lands as an empty cell.
+    // Double-sanitising is the failure this catches: both layers guard formula
+    // injection correctly, and composing them stored "''+47…".
+    for (const col of ['sms_phone', 'address_postal_code', 'zip']) {
+      const v = String(cellFor(sheet, col).value);
+      check(`seam: ${col} sanitised exactly once`, !v.startsWith("''"), JSON.stringify(v || '(empty)'));
+    }
+
     for (const [col, why] of [
       ['sms_phone', 'consent-gated phone'],
       ['address_line1', 'consent-gated address'],
