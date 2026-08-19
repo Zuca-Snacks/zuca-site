@@ -65,6 +65,7 @@ var COLUMNS = [
   'consent_marketing',
   'consent_health',
   'motivation',
+  'motivation_other',
 
   // ── Extension 2026-08-17 ───────────────────────────────────────────────
   'quantity_band',
@@ -427,6 +428,9 @@ function doPost(e) {
       channel: [].concat(payload.channel || []).join('|'),
       channel_other: payload.channel_other,
       // Art 9, same gate as motivation — the health consent wording names both.
+      // Re-checked here rather than trusted: this is the last gate before the
+      // data lands somewhere a human opens.
+      motivation_other: payload.consent_health ? payload.motivation_other : '',
       dietary: payload.consent_health && payload.dietary ? [].concat(payload.dietary).join('|') : '',
       dietary_other: payload.consent_health ? payload.dietary_other : '',
       research_optin: payload.research_optin,

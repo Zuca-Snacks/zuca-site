@@ -687,9 +687,10 @@ export const waitlistSchema = z
     // Art 9 health data — allergies and dietary restrictions are health facts.
     // Gated on `consent_health`, whose wording names dietary needs explicitly.
     dietary: multiEnum(DIETARY),
-    // 60, not 120. Still Art 9 health data, and the same minimisation logic
-    // that removed `motivation_other` applies to how much can be typed here:
-    // "sesame" and "low FODMAP" fit comfortably, a medical history does not.
+    // 60, not 120. Art 9 health data, and the cap is the minimisation: bound
+    // how much can be typed, since "sesame" and "low FODMAP" fit comfortably
+    // and a medical history does not. `motivation_other` carries the same cap
+    // for the same reason.
     dietary_other: safeString(60).nullish().transform((v) => v || null),
 
     // A preference about email we are already permitted to send, so it narrows
@@ -708,12 +709,19 @@ export const waitlistSchema = z
     // client bug or a probe, and text arriving when a real enum value was
     // chosen would be silently unreadable data.
     //
-    // NOTE what is absent: `motivation_other`. Removed 2026-08-18 — there is no
-    // free-text box beside the Art 9 health question. A dropdown of eight
-    // motivations bounds what we can learn about someone's health; an open box
-    // does not, and people write things in open boxes that they would never
-    // pick from a list. The cheapest special-category data to protect is the
-    // kind you gave nobody a way to type.
+    // Reinstated 2026-08-19, reversing its removal the day before.
+    //
+    // The removal argument was that a dropdown bounds what we can learn about
+    // someone's health and an open box does not — people write things in open
+    // boxes they would never pick from a list. That reasoning was sound and is
+    // kept here rather than deleted; what changed is that the Art 9 hold was
+    // lifted, not that the argument was wrong.
+    //
+    // 60, matching `dietary_other` and half the 120 the non-health boxes get.
+    // Same gate as the rest of the health block: dropped entirely without
+    // `consent_health`, and paired to an actual "other" selection below.
+    motivation_other: safeString(60).nullish().transform((v) => v || null),
+
     referral_source_other: safeString(120).nullish().transform((v) => v || null),
 
     // Freehand price. Stored verbatim, never parsed: "£30ish", "$25-30",
@@ -783,9 +791,10 @@ export const waitlistSchema = z
     // An "other" free-text box only means something next to an "other"
     // selection. Text without the selection is a client bug or a probe; the
     // selection is what makes the text interpretable at all. One rule per
-    // enum that offers "Other" — all three of them, so adding a fourth enum
+    // enum that offers "Other" — all four of them, so adding a fifth enum
     // without its pairing becomes the odd one out rather than the norm.
     const pairs = [
+      ['motivation_other', (x) => (x.motivation ?? []).includes('other')],
       ['referral_source_other', (x) => x.referral_source === 'other'],
       ['price_band_other', (x) => x.price_band === 'other'],
       ['dietary_other', (x) => (x.dietary ?? []).includes('other')],
