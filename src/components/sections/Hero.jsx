@@ -21,7 +21,7 @@
 import { useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
-import { ACTIVE_CTA, nutrition } from '../../content/copy.js';
+import { ACTIVE_CTA } from '../../content/copy.js';
 import { PLATES } from './platePositions.js';
 
 /* ONE artwork carrying both flavours, both sets of empty plates and all the
@@ -256,11 +256,6 @@ export default function Hero() {
         })}
       </div>
 
-      {/* The plates carry "10g fiber", "150 kcal" and "4g protein" with no unit
-          of their own. This states it once for all of them — ambiguous figures
-          are one careless edit away from wrong, which is exactly how "per bite"
-          reached the sticky bar and three page titles. */}
-      <p className="z-hero__serving">{nutrition.serving}</p>
 
       {/* Detail panel.
           ⚠️ A DIRECT CHILD OF THE POSTER, ABSOLUTELY POSITIONED, WITH NO GRID

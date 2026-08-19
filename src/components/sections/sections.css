@@ -165,12 +165,23 @@
      far better failure than text on top of text.
 
      ⚠️ Do not "restore" a content row to Nfr to fix spacing. Change a GAP. */
+  /* ⚠️ ROWS 1 AND 3 ARE DELIBERATELY EQUAL (Emil, 19 Aug: the wordmark should
+     sit "roughly midway between the top of the viewport and the flavour
+     cards"). They were 2.5 and 9.1, so the wordmark hugged the top — 16px of
+     air above it and 56px below.
+     Note the literal reading of that request is unsatisfiable: the wordmark's
+     CENTRE can only equal half the artwork's top offset when the top gap is
+     zero, because the centre sits at (topGap + halfWordmark) and the target at
+     (topGap + wordmark)/2. Balanced gaps either side is what it means in
+     practice, and what it looks like. Keep them equal to each other rather than
+     at any particular value. */
   grid-template-rows:
-    minmax(0, 2.5fr)    /* gap: top                                   */
+    minmax(0, 5.8fr)    /* gap: top          — was 2.5, = row 3       */
     min-content         /* WORDMARK                                   */
-    minmax(0, 9.1fr)    /* gap: wordmark -> artwork                   */
+    minmax(0, 5.8fr)    /* gap: wordmark -> artwork — was 9.1, = row 1 */
     min-content         /* FLAVOUR ARTWORK                            */
-    minmax(0, 9.0fr)    /* gap: artwork -> waitlist block             */
+    minmax(0, 5.0fr)    /* gap: artwork -> waitlist — was 9.0; closed
+                           the dead space below the cards             */
     min-content         /* WAITLIST BLOCK: JOIN, field, button,
                            SUPPORTED BY, logo card — all in flow      */
     minmax(0, 4.1fr);   /* gap: bottom                                */

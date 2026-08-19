@@ -550,10 +550,23 @@ licence — but **I have not verified current pricing or what licence Zuca alrea
 holds, and you should not budget off my estimate.** Two things to check before
 anything else:
 
-1. **Does Zuca's existing licence cover web embedding at all?** A desktop-only
-   licence does not permit serving the file from your site. Worth confirming
-   regardless of the bold question — this is a live compliance item, not a
-   nice-to-have.
+1. **✅ RESOLVED — Emil, 19 Aug: Lazy Dog is now properly licensed for web
+   embedding**, and the merge session is adding a `LICENSE.md` to
+   `public/fonts/`. This was a live compliance item and it is closed. I have not
+   seen the licence myself; recording his confirmation, not a verification.
+
+   🟡 **Two specifics my analysis below raised that "licensed for web embedding"
+   may not by itself answer.** Not blocking anything, and not a reason to
+   reopen — worth one line in that `LICENSE.md` so nobody re-derives them:
+   - **Subsetting and format conversion.** This branch serves a 23KB latin
+     **woff2 subset I generated from the OTF**. Many licences treat modifying a
+     font as separate from embedding it, and permit one without the other.
+   - **The investor site.** `zucainvestor.netlify.app` serves the
+     **unsubsetted 100KB `Lazydog.otf`** from its web root. If the new licence
+     is scoped to zuca.com, that property is still exposed — and it is the one
+     that has been public longest.
+
+   The original reasoning is kept below, unchanged, in case either needs it.
 
    > ⚠️ **This is NOT a this-branch problem — it applies to two properties, and
    > fixing one does not fix the other.**
