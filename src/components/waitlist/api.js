@@ -158,8 +158,26 @@ export function buildPayload({
   hpField = "",
 }) {
   const health = consentHealth === true;
-  const sms = consentSms === true;
-  const postal = consentPostal === true;
+  // ⚠️ A CONSENT IS A CLAIM ABOUT SOMETHING (S24).
+  // The server refuses `consent_sms` with no phone and `consent_postal` with an
+  // incomplete address — correctly: an opt-in that can never be acted on cannot
+  // be evidenced against anything. But the checkbox and the field it describes
+  // sit on the same screen, and save-on-advance fires the moment someone moves
+  // on. Tick "post me something", type a street and a city, never open the
+  // country Select, press Continue — that was a 400, and the ladder then paid
+  // for it with seventeen fields.
+  //
+  // So the coupling is enforced HERE, where the pair is visible, rather than
+  // discovered as an opaque rejection. Mirrors the server's rule exactly:
+  // phone for SMS, and line1 + city + country for postal.
+  const phoneE164 = toE164(profile.phone);
+  const sms = consentSms === true && !!phoneE164;
+  const postalAddr = {
+    line1: str(profile.address_line1, 120),
+    city: str(profile.address_city, 80),
+    country: iso2(profile.address_country),
+  };
+  const postal = consentPostal === true && !!(postalAddr.line1 && postalAddr.city && postalAddr.country);
   // Both keys are omitted unless the box was actually ticked. A personal signup
   // must not carry `business_enquiry: false` at the floor, and — more to the
   // point — the server suppresses marketing consent for any row where this is
@@ -242,18 +260,18 @@ export function buildPayload({
     // E.164 or nothing. The server requires /^\+[1-9]\d{7,14}$/ and rejects
     // anything else outright, so a number that cannot be normalised is dropped
     // rather than sent to fail — losing a phone number beats losing the record.
-    phone: sms ? toE164(p.phone) : null,
+    phone: sms ? phoneE164 : null,
     sms_consent_text_version: sms ? smsConsentTextVersion || null : null,
 
     consent_postal: postal,
-    address_line1: postal ? str(p.address_line1, 120) : null,
+    address_line1: postal ? postalAddr.line1 : null,
     address_line2: postal ? str(p.address_line2, 120) : null,
-    address_city: postal ? str(p.address_city, 80) : null,
+    address_city: postal ? postalAddr.city : null,
     address_region: postal ? str(p.address_region, 80) : null,
     address_postal_code: postal ? str(p.address_postal_code, 16) : null,
     // ISO 3166-1 alpha-2, from a picker. Free text could never satisfy the
     // server's /^[A-Z]{2}$/ reliably.
-    address_country: postal ? iso2(p.address_country) : null,
+    address_country: postal ? postalAddr.country : null,
     postal_consent_text_version: postal ? postalConsentTextVersion || null : null,
   };
 }
@@ -302,8 +320,40 @@ export const MINIMAL_KEYS = new Set([
   "edit_token",
 ]);
 
-/** Widest to narrowest. Each rung keeps everything the next one would discard. */
-const LADDER = [SERVER_KNOWN_KEYS, CORE_KEYS, MINIMAL_KEYS];
+/** The two blocks the server couples to a datum, and so the two most likely
+ *  to be the reason a full payload was refused. */
+const POSTAL_BLOCK = new Set([
+  "consent_postal", "postal_consent_text_version", "address_line1", "address_line2",
+  "address_city", "address_region", "address_postal_code", "address_country",
+]);
+const SMS_BLOCK = new Set(["consent_sms", "phone", "sms_consent_text_version"]);
+
+const without = (base, ...blocks) =>
+  new Set([...base].filter((k) => !blocks.some((b) => b.has(k))));
+
+/**
+ * Widest to narrowest. Each rung keeps everything the next one would discard.
+ *
+ * ⚠️ THE MIDDLE TWO RUNGS EXIST BECAUSE ONE BAD FIELD COST SEVENTEEN (S24).
+ * `buildPayload` only ever emits keys the server knows, so rung 1 was always a
+ * no-op and got skipped — which made CORE the FIRST rung that ever did
+ * anything, and CORE drops every extension field at once. A single refused
+ * address took the phone, the company, the headcount, the channel and the
+ * quantity band with it, none of which had any relationship to the failure.
+ *
+ * The 400 body is `{ok, error}` and names no field, so the descent cannot be
+ * targeted — but it can be ORDERED. These two blocks are the ones the server
+ * couples to a datum, so they are the likeliest cause and are shed first,
+ * cheapest-loss first. Everything unrelated survives a failure that was never
+ * about it.
+ */
+const LADDER = [
+  SERVER_KNOWN_KEYS,
+  without(SERVER_KNOWN_KEYS, POSTAL_BLOCK),
+  without(SERVER_KNOWN_KEYS, POSTAL_BLOCK, SMS_BLOCK),
+  CORE_KEYS,
+  MINIMAL_KEYS,
+];
 
 function stripTo(payload, allowed) {
   const out = {};
