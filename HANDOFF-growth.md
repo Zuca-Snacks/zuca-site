@@ -118,6 +118,56 @@ Two things that live in your files, not mine:
 
 ---
 
+## 🪜 THE LADDER HAS A FLOOR — and that is what makes a hand-maintained list safe
+
+Rungs 1 and 2 strip **keys**. They cannot fix a bad **value** in a key the
+server keeps: a retired enum member in `price_band` 400s at CORE exactly as it
+does at full. So there is a third rung, `MINIMAL_KEYS` — email, consent, and
+the consent version, which is what the server actually requires and nothing
+more.
+
+**Losing every answer is bad. Losing the email is the failure the endpoint
+exists to prevent.** The floor guarantees a version of the record that
+validates against any schema we have not seen yet.
+
+### Why this closes the SERVER_KNOWN_KEYS worry rather than deferring it
+
+The standing objection was that `SERVER_KNOWN_KEYS` is hand-maintained, and a
+hand-maintained list drifts — and drifting *optimistic* (claiming the server
+accepts something it rejects) was unrecoverable, because rung 1 would strip
+nothing and the retry would fail identically.
+
+With a floor, that is no longer true. An optimistic list now costs one wasted
+round trip instead of the submission. The list is still worth keeping accurate,
+but **being wrong about it can no longer lose a signup** — which was the actual
+risk, not the inaccuracy itself.
+
+The ladder also skips any rung that would drop nothing. Stopping at a no-op
+rung was the bug that made the floor unreachable in the first place: "nothing
+left to strip" was being treated as "nothing left to try".
+
+### A queued payload outlives the schema it was written against
+
+**"The client stopped sending that value" is not "nothing will send it
+again".** An entry sitting in `localStorage` from before an enum change still
+carries the retired member. On replay it 400s — and before the floor existed it
+was *dequeued rather than retried*, losing the email silently.
+
+Two consequences:
+
+1. **Any future REMOVE has to wait out the queue, not just the deploy.** The
+   client-first rule assumes the client stops sending immediately; a queue
+   breaks that assumption.
+2. Entries now carry `meta.schema` (`SCHEMA_GENERATION`), so a stale replay is
+   *recognisable* rather than merely unlucky. Bump it whenever an enum member
+   is retired. It gates nothing — the floor already handles survival — it makes
+   the event legible in telemetry instead of anonymous.
+
+Zero exposure so far: the queue has never run in production. That is exactly
+why it was worth fixing now.
+
+---
+
 ## 🔁 ENUM CHANGE ORDERING (now in AGENTS_BRIEF.md)
 
   ADDING a value:            server first, then client
