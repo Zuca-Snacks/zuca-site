@@ -61,6 +61,9 @@ const MUTATIONS = [
   ['unconditional key renamed', API, /^(\s+)quantity_band: /m, '$1quantity_bands: '],
   ['a wholly new unknown key', API, /^(\s+)flavor: /m, '$1surprise_field: null,\n$1flavor: '],
   ['an enum value drifts', FIELDS, /"srv_3_5"/, '"srv_3_6"'],
+  // A client cap ABOVE the server's is not a laxer client — it is a 400 for
+  // every answer that lands in the gap. 60 -> 200 against a server cap of 60.
+  ['a free-text cap rises above the server', FIELDS, /export const DIETARY_OTHER_MAX = 60;/, 'export const DIETARY_OTHER_MAX = 200;'],
 ];
 
 const run = (dir) => {
@@ -74,7 +77,22 @@ const run = (dir) => {
 const caught = (out) => /INCOMPATIBILITY|COVERAGE FAILURE/.test(out);
 
 /**
- * Declared SEPARATELY from the array, on purpose.
+ * ⚠️ READ THE CEILING BEFORE TRUSTING THIS.
+ *
+ * A declared count catches deleting a mutation. It does NOT catch deleting a
+ * mutation AND decrementing this number in the same edit — verified, that runs
+ * green. Conversion measured the same thing on their side after I claimed
+ * distance from the array was what made it work, and it is not: distance is a
+ * speed bump, worth having because removing a check stops being a one-line
+ * deletion, but it is not a control and this comment used to imply it was.
+ *
+ * The distinction that actually holds is derivation, not placement: A DERIVED
+ * FLOOR CANNOT BE EDITED IN THE SAME MOTION BECAUSE THE SECOND READING IS NOT
+ * IN THE FILE BEING EDITED. Placement is not a weak derivation; it is a
+ * different thing that happens to look similar.
+ *
+ * So the real floor here is CATEGORY_COVERAGE below, which IS derived. This
+ * count is the honest second best for "how many", and says so.
  *
  * Deleting four rows from MUTATIONS printed "All 2 mutations caught" and exited
  * 0 — the tool built to catch pass-on-nothing had pass-on-nothing. Conversion
@@ -87,13 +105,49 @@ const caught = (out) => /INCOMPATIBILITY|COVERAGE FAILURE/.test(out);
  * ask whether the new mutation actually tests something, and lowering it is a
  * deliberate act that shows up in a diff on its own line.
  */
-const EXPECTED_MUTATIONS = 6;
+const EXPECTED_MUTATIONS = 7;
 
 if (MUTATIONS.length !== EXPECTED_MUTATIONS) {
   console.log(`\n  ✗ MUTATION LIST CHANGED — ${MUTATIONS.length} present, ${EXPECTED_MUTATIONS} expected.`);
   console.log('    Every result below would describe a smaller check than the one this file claims.');
   console.log(`    If the change is intended, update EXPECTED_MUTATIONS to ${MUTATIONS.length}.\n`);
   process.exit(1);
+}
+
+/**
+ * THE DERIVED FLOOR. `check-merge-compat.mjs` declares the kinds of drift it
+ * reports — `const results = { value: [], key: [], cap: [] }` — so every one of
+ * them must have at least one mutation proving it fires.
+ *
+ * This is a genuine second reading: it lives in the file being CHECKED, not the
+ * file being edited, so adding a fourth category to the checker fails here
+ * until a mutation exercises it.
+ *
+ * FINDING ON FIRST RUN: `cap` had NO mutation. Four key mutations, one enum,
+ * and the cap check — a client free-text cap above the server's, which is a 400
+ * for every answer in the gap — had never been shown a failure at all. Both of
+ * us had been reading "6/6 caught" as though it meant the checker worked, when
+ * a third of what it claims to check was unexercised.
+ */
+const CATEGORY_OF = { key: /key/i, value: /enum|value/i, cap: /cap/i };
+{
+  const checkerSrc = readFileSync(join(process.cwd(), 'scripts/check-merge-compat.mjs'), 'utf8');
+  const declared = Object.keys(
+    Object.fromEntries(
+      [...(checkerSrc.match(/const results = \{([^}]*)\}/)?.[1] ?? '').matchAll(/(\w+):/g)].map((m) => [m[1], 1])
+    )
+  );
+  if (declared.length < 2) {
+    console.log(`\n  ✗ could not read the checker's result categories — the floor itself is broken.\n`);
+    process.exit(1);
+  }
+  const uncovered = declared.filter((c) => !MUTATIONS.some(([label]) => CATEGORY_OF[c]?.test(label)));
+  if (uncovered.length) {
+    console.log(`\n  ✗ NO MUTATION EXERCISES: ${uncovered.join(', ')}`);
+    console.log(`    check-merge-compat reports ${declared.length} kinds of drift and this file`);
+    console.log(`    proves only ${declared.length - uncovered.length} of them fire.\n`);
+    process.exit(1);
+  }
 }
 
 const tmp = mkdtempSync(join(tmpdir(), 'zuca-mutate-'));
