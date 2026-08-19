@@ -1621,6 +1621,53 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: r.status === 400 && hit && !('block' in hit), actual: JSON.stringify(hit) };
   });
 
+  // ── The generated registry must match copy.js, verbatim ─────────────────
+  // The merge session lost twenty minutes to a TRUNCATED
+  // src/lib/consent-registry.generated.js: the business wording was missing its
+  // final sentence, which is the `exclusion` element businessConsentGaps
+  // requires, so every business test failed at once with "NOT REGISTERED" and
+  // it read exactly like a change of mine having broken the S22 gate. copy.js
+  // was correct throughout. One `npm run build:consent` fixed it.
+  //
+  // THE FILE IS GITIGNORED, so `git status` was clean and nothing in the diff
+  // pointed at it. A stale build artefact that silently disables a consent gate
+  // is invisible to every habit we have.
+  //
+  // Production is immune — Vercel builds from a clean checkout — so this is a
+  // local false-alarm hazard rather than a shipping one. But six misleading
+  // failures should be one accurate one, which is what this is.
+  //
+  // Verbatim substring, deliberately: recomputing the fingerprints here would
+  // put a second copy of the generator's logic in the test, which is the
+  // failure mode this whole suite keeps finding.
+  await check('the generated registry matches copy.js verbatim', 'no stale artefact', async () => {
+    const { existsSync, readFileSync } = await import('node:fs');
+    const copyPath = new URL('../src/content/copy.js', import.meta.url);
+    if (!existsSync(copyPath)) {
+      return { skip: true, actual: 'not run — Conversion branch not merged here, registry is empty by design' };
+    }
+    const { consentTexts } = await import(copyPath.href);
+    // Every leaf wording in copy.js, whether the purpose is a leaf or split by region.
+    const wordings = [];
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (typeof node.text === 'string') { wordings.push(node.text); return; }
+      for (const v of Object.values(node)) walk(v);
+    };
+    walk(consentTexts);
+    if (wordings.length < 3) return { pass: false, actual: `read only ${wordings.length} wordings from copy.js — the walk is broken` };
+
+    const generated = readFileSync(new URL('../src/lib/consent-registry.generated.js', import.meta.url), 'utf8');
+    // The generator JSON-encodes the text, so compare against the encoded form.
+    const missing = wordings.filter((w) => !generated.includes(JSON.stringify(w).slice(1, -1)));
+    return {
+      pass: missing.length === 0,
+      actual: missing.length
+        ? `${missing.length}/${wordings.length} wording(s) STALE or TRUNCATED in the generated registry — run \`npm run build:consent\` before believing any consent-gate failure. First: "${missing[0].slice(0, 60)}…"`
+        : `${wordings.length} wordings, all present verbatim`,
+    };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   /**
    * Resolved from the REGISTRY, not pinned.
