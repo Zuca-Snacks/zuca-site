@@ -213,6 +213,44 @@ ignoring the extra key behaves exactly as before. Use it to update the live coun
 issuing a follow-up `GET /api/count`, which an edge cache can answer with a number from *before*
 this very write. If you genuinely need a separate read, `GET /api/count?fresh=1` bypasses the cache.
 
+**⚠️ THE ENDPOINT NO LONGER REFUSES SILENTLY (S24, 2026-08-19).** Every response that
+discards any part of a submission now says which part:
+
+| | |
+|---|---|
+| `400` | `refused: [{field, rule, block?}]` — names every field it would not take. Never echoes a submitted **value**; path and rule only, by construction. |
+
+**⚠️ `field` is what was WRONG. `block` is what to DROP.** They differ, and using the wrong one
+loses more data than not descending at all. A pairing rule is violated by the pair, and
+`field` names whichever half the rule is attached to — which for every consent pairing is
+**the consent, not the datum**. Demonstrated:
+
+```
+400  refused: [{field:"consent_postal", rule:"mail_consent_without_address", block:"postal"}]
+     drop just the named field, retry
+200  dropped: ["address"]        ← the address gone, and the opt-in with it
+```
+
+So a targeted descent driven by `field` alone turns a loud 400 into an accepted 200 that
+loses more than the untargeted descent it replaces. **Descend by `block` when one is
+present**; fall back to cheapest-loss-first ordering when it is absent. `block` appears only
+where a coupled block genuinely exists — a length failure has none, and inventing one would
+tell a client to drop fields that were never implicated.
+| `200` | `dropped: ["address", …]` — present only when a consent gate discarded something. Categories, not values. Absent entirely on a clean accept. |
+
+**This reverses the earlier "a 400 names nothing" rule, deliberately.** That rule came from
+anti-enumeration, which protects exactly two things: whether an *address* exists (the `409`, still
+opaque) and how the *bot* heuristics work (the honeypot `200`, still opaque). It never covered
+which of the fields **you** sent we refused — that names our own schema, which already ships in
+your bundle.
+
+Over-applying it cost S24: a client stripped seventeen fields on a fallback and nobody could see
+which single field the server had objected to, because the answer was computed, logged, and then
+withheld from the one party who could act on it.
+
+**Please surface both to the person.** "We couldn't save your address because the post box wasn't
+ticked" is a sentence they can act on. `ok: true` is not.
+
 **Response contract — ALL NINE statuses.** Every body is exactly `{"ok":false,"error":"<slug>"}`
 and carries **nothing else**. There is no field naming which input failed: the validator's
 per-field `rule` goes to the server audit log only, and assuming otherwise is a mistake I made
@@ -225,6 +263,7 @@ in writing and Conversion caught by reading the code.
 | `403` | `forbidden` | `Origin` header present and not ours | Not reachable from our own pages |
 | `405` | `method_not_allowed` | Not a POST | Bug if you see it |
 | `409` | `duplicate` | Address already on the list | **Treat as success** |
+| `409` | `session_expired` | Valid token for this row, but past the 2h TTL | **Do NOT treat as success.** Everything after step 1 was discarded. Tell them, and offer to start again — their spot IS saved, only these answers were lost |
 | `413` | `payload_too_large` | Body over the cap | Do not retry unchanged |
 | `415` | `unsupported_media_type` | Content-Type is not JSON | ⚠️ `navigator.sendBeacon` sends `text/plain` — an offline queue flushed with it gets 415, not 400, and the downgrade ladder will not save it |
 | `429` | `rate_limited` | Rate limit hit | Back off; `Retry-After` is set |

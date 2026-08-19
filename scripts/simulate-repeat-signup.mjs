@@ -70,9 +70,22 @@ const s1 = await send(base);
 const s2 = await send({ ...base, flavor: 'both', ...(s1.j.edit_token ? { edit_token: s1.j.edit_token } : {}) });
 const s3 = await send({ ...base, flavor: 'both', intent: 'preorder_now', ...(s1.j.edit_token ? { edit_token: s1.j.edit_token } : {}) });
 
+// An EXPIRED token, which is the S23 shape in a two-hour window: the visitor
+// finishes every screen and is told their spot is saved. The client keeps
+// mapping `duplicate` to success, so the server has to hand it a different code
+// or the loss stays silent.
+let expired = { s: 'n/a', j: {} };
+if (process.argv[2] === 'with-secret') {
+  const { mintEditToken, EDIT_TTL_MS } = await import('/Users/emilnordin/Desktop/zuca-sec/src/lib/edit-token.js');
+  const { emailHandle } = await import('/Users/emilnordin/Desktop/zuca-sec/src/lib/validation.js');
+  const stale = await mintEditToken(await emailHandle(base.email), Date.now() - EDIT_TTL_MS - 60_000);
+  expired = await send({ ...base, flavor: 'both', edit_token: stale });
+}
+
 console.log(`\n  ── ${process.argv[2] === 'with-secret' ? 'EDIT_TOKEN_SECRET SET (production as of now)' : 'EDIT_TOKEN_SECRET MISSING'} ──`);
 console.log('  step 1 :', s1.s, s1.j.edit_token ? 'token issued' : 'NO TOKEN');
 console.log('  step 2 :', s2.s, JSON.stringify(s2.j));
 console.log('  step 3 :', s3.s, JSON.stringify(s3.j));
+console.log('  expired:', expired.s, JSON.stringify(expired.j));
 console.log('  reached the sheet:', JSON.stringify(forwarded));
 api.close(); stub.close(); redis.close();

@@ -565,6 +565,49 @@ export const MEDICATION_MOTIVATIONS = new Set(['glp1_medication']);
  * Matters more here than for medication. A shared mailbox gives no individual's
  * consent at all, so the wording is not decorating the basis — it IS the basis.
  */
+/**
+ * Which COUPLED BLOCK a refusal belongs to, if any.
+ *
+ * ─── Why naming the field is not enough ──────────────────────────────────────
+ *
+ * A pairing rule is violated by the pair, and `issue.path` names whichever half
+ * the rule is attached to — which for every consent pairing is THE CONSENT, not
+ * the datum. Demonstrated end to end:
+ *
+ *   400  refused: [{ field: 'consent_postal', rule: 'mail_consent_without_address' }]
+ *   drop exactly that field, retry
+ *   200  dropped: ['address']        ← the address is gone, and the opt-in with it
+ *
+ * So a client that descends by dropping the field the server named converts a
+ * loud 400 into an accepted 200 that silently loses MORE than it had to. That
+ * is the failure this whole day has been about, arriving through the mechanism
+ * built to prevent it.
+ *
+ * The correct remedy for a pairing violation is to drop the block — consent AND
+ * datum together — and only the layer that owns the rules can say which block
+ * that is. Naming the violation without naming the remedy leaves the caller to
+ * infer our pairing rules, and an inferred copy of someone else's rules is the
+ * drift this branch has spent a week removing.
+ *
+ * Additive and advisory. A caller that ignores it behaves exactly as before.
+ */
+export const REFUSAL_BLOCK = {
+  mail_consent_without_address: 'postal',
+  sms_consent_without_phone: 'sms',
+  medication_without_health_consent: 'health',
+  consent_wording_omits_medication: 'health',
+  // `consent_wording_omits_business:<gaps>` carries its gaps after a colon, so
+  // it is matched by prefix rather than equality.
+  consent_wording_omits_business: 'business',
+};
+
+/** Resolve a rule name — including the suffixed business one — to its block. */
+export function refusalBlock(rule) {
+  if (typeof rule !== 'string') return null;
+  const key = rule.split(':')[0];
+  return REFUSAL_BLOCK[key] ?? null;
+}
+
 export function businessConsentGaps(resolvedText) {
   if (typeof resolvedText !== 'string' || !resolvedText) return ['no_text'];
   const gaps = [];

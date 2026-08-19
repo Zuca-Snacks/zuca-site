@@ -56,6 +56,11 @@ const FIELDS = 'src/components/waitlist/fields.js';
  */
 const MUTATIONS = [
   ['conditional key camelCased', API, /business_enquiry: true/, 'businessEnquiry: true'],
+  // The SINGLE-LINE spread shape. The mutation above targets a key on its own
+  // line inside a multi-line ternary; this one shares its line with the spread,
+  // which is a different shape and was invisible to the extractor until
+  // 2026-08-19. Both shapes are in the client, so both need a mutation.
+  ['inline-spread key camelCased', API, /edit_token: edit/, 'editToken: edit'],
   ['conditional key misspelled', API, /business_consent_text_version: str\(/, 'business_consent_text_versionn: str('],
   ['unconditional key camelCased', API, /^(\s+)referral_source: /m, '$1referralSource: '],
   ['unconditional key renamed', API, /^(\s+)quantity_band: /m, '$1quantity_bands: '],
@@ -105,7 +110,7 @@ const caught = (out) => /INCOMPATIBILITY|COVERAGE FAILURE/.test(out);
  * ask whether the new mutation actually tests something, and lowering it is a
  * deliberate act that shows up in a diff on its own line.
  */
-const EXPECTED_MUTATIONS = 7;
+const EXPECTED_MUTATIONS = 8;
 
 if (MUTATIONS.length !== EXPECTED_MUTATIONS) {
   console.log(`\n  ✗ MUTATION LIST CHANGED — ${MUTATIONS.length} present, ${EXPECTED_MUTATIONS} expected.`);

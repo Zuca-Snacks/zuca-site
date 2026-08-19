@@ -1532,6 +1532,74 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
+  await check('an EXPIRED token is distinguishable from a forged one', 'expired vs rejected', async () => {
+    // The audit log separates them by re-verifying with now=0, which skips only
+    // the expiry check. A valid signature that has aged out reports `expired`;
+    // a forgery or a token for another row reports `rejected`. The visitor sees
+    // the same 409 either way — Conversion's call, and right, since their spot
+    // genuinely is saved — but we can now measure how often the TTL bites
+    // instead of guessing.
+    const { mintEditToken, verifyEditToken, EDIT_TTL_MS } = await import('../src/lib/edit-token.js');
+    const A = 'aaaaaaaaaaaa';
+    const stale = await mintEditToken(A, Date.now() - EDIT_TTL_MS - 60_000);
+    const forged = `edit.${A}.${Date.now() + 1e6}.deadbeefdeadbeefdeadbeefdeadbeef`;
+    const staleNow = await verifyEditToken(stale, A);
+    const staleIgnoringExpiry = await verifyEditToken(stale, A, 0);
+    const forgedIgnoringExpiry = await verifyEditToken(forged, A, 0);
+    return {
+      pass: staleNow === false && staleIgnoringExpiry === true && forgedIgnoringExpiry === false,
+      actual: `stale=${staleNow} stale@0=${staleIgnoringExpiry} forged@0=${forgedIgnoringExpiry}`,
+    };
+  });
+
+  await check('an expired session gets its OWN status code, not duplicate', 'session_expired', async () => {
+    // Emil, via Conversion: someone who leaves the form open past the 2h TTL
+    // completes every screen, is told "your spot is saved", and loses
+    // everything after step 1. The client must keep mapping `duplicate` to
+    // success — right for a genuine returning signup — while showing an expired
+    // session something true. Only the server can tell them apart.
+    const { mintEditToken, EDIT_TTL_MS } = await import('../src/lib/edit-token.js');
+    const email = `expired-${Date.now()}@example.com`;
+    const first = await post(growthPayload({ email }));
+    if (first.status !== 200) return { pass: false, actual: `setup failed: ${first.status}` };
+    const { emailHandle } = await import('../src/lib/validation.js');
+    const handle = await emailHandle(email);
+    const stale = await mintEditToken(handle, Date.now() - EDIT_TTL_MS - 60_000);
+    const r = await post(growthPayload({ email, edit_token: stale }));
+    // Without a durable store the harness cannot make the second POST a
+    // duplicate, so assert the discrimination itself where it is decidable.
+    const decidable = r.status === 409;
+    return {
+      pass: !decidable || r.json?.error === 'session_expired',
+      actual: decidable ? JSON.stringify(r.json) : `${r.status} — no durable store in harness, see npm run security:repeat`,
+    };
+  });
+
+  // ── A refusal must name the REMEDY, not only the violation ──────────────
+  // `refused[].field` names whichever half a pairing rule is attached to, which
+  // for every consent pairing is THE CONSENT. Demonstrated: drop exactly that
+  // field and retry, and the server accepts with `dropped:['address']` — the
+  // address gone and the opt-in with it. A targeted descent driven by `field`
+  // alone loses MORE than the untargeted one it replaces.
+  for (const [label, patch, wantBlock] of [
+    ['postal consent without an address', { consent_postal: true, postal_consent_text_version: 'mail-eea-1', address_line1: 'Storgata 1', address_city: 'Oslo', address_country: null, address_postal_code: null }, 'postal'],
+    ['sms consent without a phone', { consent_sms: true, sms_consent_text_version: 'sms-eea-1', phone: null }, 'sms'],
+  ]) {
+    await check(`refusal for ${label} names its block`, wantBlock, async () => {
+      const r = await post(growthPayload(patch));
+      const hit = (r.json?.refused ?? []).find((f) => f.block);
+      return { pass: r.status === 400 && hit?.block === wantBlock, actual: JSON.stringify(r.json?.refused ?? r.json) };
+    });
+  }
+
+  await check('a non-pairing refusal carries NO block key', 'absent when meaningless', async () => {
+    // A length failure has no coupled block; inventing one would tell a client
+    // to drop fields that were never implicated.
+    const r = await post(growthPayload({ name: 'x'.repeat(41) }));
+    const hit = (r.json?.refused ?? []).find((f) => f.field === 'name');
+    return { pass: r.status === 400 && hit && !('block' in hit), actual: JSON.stringify(hit) };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   // Was the hand-written fixture '2026-08-19.business.a', deleted from the
   // registry once the generator minted the real id. Resolved by prefix rather
@@ -1694,10 +1762,55 @@ await check('Error response never echoes submitted input', 'no email in body', a
   // goes to the audit log. They found that by reading api/waitlist.js instead of
   // believing me. These pin both halves so the next person gets it from a test.
 
-  await check('400 body carries no field names or rule strings', 'error only', async () => {
+  // ⚠️ THIS REVERSES A DELIBERATE EARLIER DECISION. Until 2026-08-19 this test
+  // asserted the OPPOSITE — that a 400 names nothing. Recorded rather than
+  // quietly swapped, so nobody re-derives the original argument from scratch.
+  //
+  // The old rule came from anti-enumeration. That argument protects exactly
+  // two things: whether an ADDRESS exists (the 409, still opaque) and how the
+  // BOT heuristics work (the honeypot 200, still opaque). It never covered
+  // "which of the fields YOU sent we would not take" — that names our own
+  // schema, which already ships in the public client bundle.
+  //
+  // The cost of over-applying it was S24: a client fell back and stripped
+  // seventeen fields, and neither we nor the visitor could see which single
+  // field the server had objected to, because the answer was computed, logged,
+  // and then withheld from the one party who could act on it.
+  await check('a 400 NAMES the fields it refused', 'field + rule', async () => {
     const r = await post(growthPayload({ name: 'x'.repeat(41) }));
-    const keys = Object.keys(r.json ?? {}).sort().join(',');
-    return { pass: r.status === 400 && keys === 'error,ok', actual: `${r.status} ${JSON.stringify(r.json)}` };
+    const refused = r.json?.refused ?? [];
+    const hit = refused.find((f) => f.field === 'name');
+    return { pass: r.status === 400 && hit?.rule === 'too_long', actual: JSON.stringify(r.json) };
+  });
+
+  await check('but a 400 still echoes NO submitted values', 'no payload copy', async () => {
+    // The invariant that has to survive the reversal. `result.issues` carries
+    // path and rule only, by construction — so a rejection can never become a
+    // copy of the payload, in the response or in the log.
+    const secret = 'zz-canary-value-zz';
+    const r = await post(growthPayload({ name: secret.repeat(4) }));
+    const body = JSON.stringify(r.json ?? {});
+    return { pass: r.status === 400 && !body.includes('canary'), actual: body.includes('canary') ? 'VALUE ECHOED' : 'field and rule only' };
+  });
+
+  await check('a malformed body is refused with a distinguishable reason', 'not just validation', async () => {
+    const r = await post(null, { raw: '[1,2,3]' });
+    return { pass: r.status === 400 && r.json?.refused?.[0]?.rule === 'not_an_object', actual: JSON.stringify(r.json) };
+  });
+
+  await check('a 200 that DROPPED a consent-gated field says so', 'dropped surfaced', async () => {
+    // S24 proper: we ask for a postal address, discard it for want of an
+    // opt-in, and used to answer a bare ok:true.
+    const { json } = await post(growthPayload({
+      consent_postal: false, postal_consent_text_version: null,
+      address_line1: 'Storgata 1', address_city: 'Oslo',
+    }));
+    return { pass: Array.isArray(json?.dropped) && json.dropped.includes('address'), actual: JSON.stringify(json?.dropped ?? json) };
+  });
+
+  await check('a clean 200 carries no dropped key at all', 'silent when nothing lost', async () => {
+    const { json } = await post(growthPayload());
+    return { pass: !('dropped' in (json ?? {})), actual: JSON.stringify(json) };
   });
 
   await check('415 is a DISTINCT status, not a 400', 'not validation', async () => {
