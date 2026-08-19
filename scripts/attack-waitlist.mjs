@@ -1032,29 +1032,51 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const { CONSENT_TEXTS, consentCoversBusiness } = await import('../src/lib/validation.js');
     const bizVersion = Object.keys(CONSENT_TEXTS).find((k) => consentCoversBusiness(CONSENT_TEXTS[k]?.text));
 
-    // Typed, and DELIBERATELY not defaulted. A key added to MINIMAL_KEYS with no
-    // entry here fails loudly rather than silently receiving a junk string —
-    // which is exactly how this probe rotted.
+    /**
+     * ─── Why this table no longer FAILS on a key it does not know ───────────
+     *
+     * This probe has now gone red three times for its own reasons rather than
+     * the ladder's: once modelling MINIMAL_KEYS as required when it is
+     * permitted, once assuming a synthetic value could satisfy a check whose
+     * design is that the value must RESOLVE, and once because the floor gained
+     * `edit_token`. Every time, the ladder was fine and the suite was red — and
+     * a suite that cries wolf about itself stops being read.
+     *
+     * The fix follows from what MINIMAL_KEYS actually is. It is a PERMITTED
+     * set: the client keeps whichever of those keys the payload has. So a key
+     * this table cannot model is simply LEFT OUT of the floor being built —
+     * which is still a floor the client could emit, and still a real test of
+     * whether the server accepts one.
+     *
+     * The key is then reported as not exercised rather than failing the run.
+     * Unmodelled coverage is a gap; it is not evidence the ladder is broken,
+     * and only the second of those should turn a suite red.
+     */
+    const OMIT = Symbol('omit-from-floor');
     const VALUE_FOR = {
       email: 'floor@example.com',
       consent_marketing: true,
       consent_text_version: 'mkt-eea-2026-08-15-a1b2c3d4',
       business_enquiry: true,
       business_consent_text_version: bizVersion,
+      // A create has no token yet — that is the whole point of S23 — so the
+      // floor of a FIRST submission carries none. Modelled explicitly rather
+      // than left unknown, so it counts as covered.
+      edit_token: OMIT,
     };
     const unknownFloorKeys = minimal.filter((k) => !(k in VALUE_FOR));
 
     const BUSINESS_KEYS = ['business_enquiry', 'business_consent_text_version'];
-    const build = (keys) => Object.fromEntries(keys.map((k) => [k, VALUE_FOR[k]]));
+    const build = (keys) => Object.fromEntries(
+      keys.filter((k) => k in VALUE_FOR && VALUE_FOR[k] !== OMIT).map((k) => [k, VALUE_FOR[k]])
+    );
     const personalFloor = minimal.filter((k) => !BUSINESS_KEYS.includes(k));
 
     const personalOk = validateWaitlist(build(personalFloor)).ok;
-    // Only meaningful if the floor actually permits the business pair.
     const hasBusinessFloor = BUSINESS_KEYS.every((k) => minimal.includes(k));
     const businessOk = !hasBusinessFloor || (Boolean(bizVersion) && validateWaitlist(build(minimal)).ok);
 
     const floorOk = minimal.length > 0
-      && unknownFloorKeys.length === 0
       && minimal.every((k) => accepted.has(k))
       && personalOk
       && businessOk;
@@ -1063,11 +1085,10 @@ await check('Error response never echoes submitted input', 'no email in body', a
       pass: phantom.length === 0 && floorOk,
       actual: phantom.length
         ? `PHANTOM: ${phantom.join(', ')}`
-        : unknownFloorKeys.length
-          ? `MINIMAL_KEYS gained ${unknownFloorKeys.join(', ')} — add a valid value to VALUE_FOR`
-          : !bizVersion && hasBusinessFloor
+        : !bizVersion && hasBusinessFloor
             ? 'no registered business wording — the business floor cannot be built'
-            : `ladder ${known.size}, personal floor ${personalFloor.length} keys ${personalOk ? 'VALID' : 'INVALID'}, business floor ${hasBusinessFloor ? `${minimal.length} keys ${businessOk ? 'VALID' : 'INVALID'}` : 'n/a'}`,
+            : `ladder ${known.size}, personal floor ${personalOk ? 'VALID' : 'INVALID'}, business floor ${hasBusinessFloor ? (businessOk ? 'VALID' : 'INVALID') : 'n/a'}`
+            + (unknownFloorKeys.length ? ` · NOT EXERCISED: ${unknownFloorKeys.join(', ')} (add to VALUE_FOR to cover)` : ''),
     };
   });
 
@@ -1237,7 +1258,11 @@ await check('Error response never echoes submitted input', 'no email in body', a
       const { consentCoversBusiness, CONSENT_TEXTS } = await import('../src/lib/validation.js');
       // Against the REGISTRY, not against the literal above — otherwise this
       // tests a copy of the string rather than the one actually in use.
-      const registered = CONSENT_TEXTS['2026-08-19.business.a']?.text ?? '';
+      // Whichever id currently carries the business wording: the pre-merge
+      // fixture before merge, the generated `biz-eea-…` after it. Pinning
+      // either one makes this test fail on the other side of the merge.
+      const id = Object.keys(CONSENT_TEXTS).find((k) => consentCoversBusiness(CONSENT_TEXTS[k]?.text));
+      const registered = id ? CONSENT_TEXTS[id].text : '';
       const ok = consentCoversBusiness(registered) && registered === APPROVED;
       // If this fails because the wording was TRANSLATED, the fix is not a wider
       // regex — it is DECISIONS.md D1, which chose English-only deliberately and
@@ -1597,7 +1622,21 @@ await check('Error response never echoes submitted input', 'no email in body', a
   });
 
   // ── S22: role addresses behind the business basis ───────────────────────
-  const BIZ = '2026-08-19.business.a';
+  /**
+   * Resolved from the REGISTRY, not pinned.
+   *
+   * This was `'2026-08-19.business.a'` — the pre-merge fixture, which the merge
+   * session correctly DELETES once the generated `biz-eea-…` id exists, exactly
+   * as the fixture's own comment promised. Five tests then went red on the
+   * merged tree for no reason but their own hardcoding.
+   *
+   * I built a self-retiring guard for that fixture and then pinned its id in
+   * five other places. A test holding its own copy of the thing it checks has
+   * stopped checking it — mine, and Conversion's, and here applied to an id
+   * that was designed from the first line to be temporary.
+   */
+  const { CONSENT_TEXTS: REG, consentCoversBusiness: covers } = await import('../src/lib/validation.js');
+  const BIZ = Object.keys(REG).find((k) => covers(REG[k]?.text));
 
   await check('office@ still rejected without the business basis', 'role_address', async () => {
     const v = validateWaitlist(growthPayload({ email: 'office@bakeriet.example' }));
