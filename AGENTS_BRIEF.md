@@ -123,7 +123,12 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   // The ONLY thing that permits a role address (office@, info@, team@, …).
   // Send BOTH or neither. The version must resolve to wording that NAMES the
   // business basis — the verbatim text is tested, not the boolean, exactly as
-  // for glp1_medication. Registered wording: `2026-08-19.business.a`.
+  // for glp1_medication.
+  //
+  // PRODUCTION ID: `biz-eea-2026-08-19-fc6ba471`, minted by Conversion's
+  // fingerprint from their copy.js and resolved by the build-time generator.
+  // `2026-08-19.business.a` is a PRE-MERGE FIXTURE ONLY, kept so the gate is
+  // testable before copy.js exists here; the suite fails if it survives merge.
   //
   // ⚠️ A row with business_enquiry:true is STORED WITH consent_marketing FALSE
   // regardless of what the client sent, because we promised the person in
