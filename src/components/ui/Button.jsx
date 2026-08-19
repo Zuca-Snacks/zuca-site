@@ -2,7 +2,23 @@
  * Button
  *
  * Props
- *   variant   'primary' | 'secondary' | 'ghost'   default 'primary'
+ *   variant   'primary' | 'secondary' | 'ghost' | 'quiet'   default 'primary'
+ *
+ * ⚠️ PICK BY THE BUTTON'S JOB, NOT BY HOW LOUD YOU WANT IT. There are four
+ * weights because a multi-step form needs four, and the ordering carries
+ * meaning a designer can otherwise flatten by accident:
+ *
+ *   primary    the action the page IS ASKING FOR   filled --z-cta   Continue
+ *   secondary  the same ask, lower emphasis        --z-cta outline
+ *   ghost      a utility the user may want         neutral ink      Back, Skip
+ *   quiet      an exit / opt-out                   muted, text-only Finish early
+ *
+ * ⚠️ GREEN IS NOT "MOVES FORWARD". It is "this is what we are asking you to
+ * do". A Skip advances the wizard, but it is the user DECLINING the ask, so it
+ * is never --z-cta — two green buttons on one screen means the primary has
+ * stopped meaning anything. This came up directly: growth's step 2 has three
+ * controls where "Skip this one" advances, and the role model still puts it in
+ * ghost.
  *   size      'md' | 'lg'                          default 'md'
  *   block     boolean   full-width                 default false
  *   loading   boolean   shows spinner, disables and announces busy

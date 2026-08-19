@@ -94,6 +94,26 @@
 }
 .z-btn--ghost:hover:not(:disabled) { --btn-bg: color-mix(in srgb, var(--z-ink) 8%, transparent); }
 
+/* The quietest weight: an exit or opt-out. Text-only and muted so it reads as
+   available rather than offered — visibly below `ghost`, which is a utility the
+   user may actually want.
+   ⚠️ Quiet is VISUAL, not physical. It keeps the full 44px target height and
+   --z-ink-muted clears 4.5:1 on every surface it sits on (5.65:1 on --z-surface,
+   5.24:1 on --z-surface-alt). Making an exit hard to see is a dark pattern;
+   making it hard to HIT is the same dark pattern with extra steps. */
+.z-btn--quiet {
+  --btn-bg: transparent;
+  --btn-ink: var(--z-ink-muted);
+  --btn-border: transparent;
+  font-weight: 500;
+  font-size: var(--z-step--1);
+  padding-inline: var(--z-space-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.z-btn--quiet:hover:not(:disabled) { --btn-ink: var(--z-ink); }
+
 /* Sizes */
 .z-btn--lg { min-height: 56px; font-size: var(--z-step-1); padding-inline: var(--z-space-6); }
 .z-btn--block { display: flex; width: 100%; }

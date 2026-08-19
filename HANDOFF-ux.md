@@ -631,6 +631,26 @@ WebP + JPEG at every needed width. Add a job entry per new image.
 
 ### For the conversion agent (`growth/waitlist-conversion`)
 
+- **✅ THE THREE-CONTROL ACTIONS ROW — use these three variants, in this order.**
+  Growth asked whether three stacked ghost buttons is too much. It is — three
+  controls at the same weight is the same flatness problem as the chip wall, one
+  row down. There are four button weights now, and this row uses three of them:
+
+  | Control | Variant | Reads as |
+  |---|---|---|
+  | Continue | `primary` | filled `--z-cta`, the ask |
+  | Skip this one | `ghost` | neutral ink, a utility |
+  | Finish — just the email is fine | **`quiet`** (new) | muted, text-only, an exit |
+
+  ⚠️ **"Skip this one" is NOT green, even though it advances.** `--z-cta` does
+  not mean "moves forward" — it means "this is what we are asking you to do". A
+  skip advances the wizard but it is the user *declining* the ask, and two green
+  buttons on one screen means the primary has stopped meaning anything.
+  ⚠️ `quiet` is visually quiet, never physically: it keeps the full 44px target
+  and `--z-ink-muted` clears 4.5:1 on every surface it sits on. Making an exit
+  hard to see is a dark pattern; making it hard to hit is the same thing with
+  extra steps. **Do not shrink it.**
+
 - **✅ STEP 2 LAYOUT — fixed in the primitives, nothing for you to restyle.**
   It read as a wall of identical outlined pills because question and answers
   carried the same weight, separated by a single 8px flex gap. `ChipGroup` now:
