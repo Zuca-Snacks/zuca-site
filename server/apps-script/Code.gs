@@ -41,6 +41,22 @@ function getToken_() {
   return PropertiesService.getScriptProperties().getProperty('ZUCA_TOKEN');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  THE ONLY LINE YOU EDIT IN THIS FILE
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * The spreadsheet this writes to.
+ *
+ * Take it from the sheet's URL — the long string between /d/ and /edit:
+ *   https://docs.google.com/spreadsheets/d/THIS_PART_HERE/edit
+ *
+ * Leave it as '' ONLY if you created this script from inside the sheet itself
+ * (Extensions → Apps Script). A standalone project has no active spreadsheet,
+ * and getActiveSpreadsheet() returns null there — which fails with an error
+ * that does not mention the real cause.
+ */
+var SPREADSHEET_ID = '';
+
 /** Sheet tab that holds signups. Change if yours is named differently. */
 var SHEET_NAME = 'Sheet1';
 
@@ -232,7 +248,19 @@ function json_(obj) {
 // ─── Sheet access ────────────────────────────────────────────────────────────
 
 function getSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+
+  // Say which of the two setups is wrong rather than letting a null propagate
+  // into "Cannot read properties of null", which sends you looking at the write
+  // path instead of at one blank string near the top of the file.
+  if (!ss) {
+    throw new Error(
+      'No spreadsheet. Either set SPREADSHEET_ID at the top of this file, or ' +
+      'create the script from inside the sheet via Extensions -> Apps Script.'
+    );
+  }
   return ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
 }
 
