@@ -1008,17 +1008,66 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
 
     const phantom = [...known].filter((k) => !accepted.has(k));
-    // The floor must be something this server actually accepts, or the last
-    // rung of the ladder drops into nothing and the email is lost.
-    const floorOk =
-      minimal.length > 0 &&
-      minimal.every((k) => accepted.has(k)) &&
-      validateWaitlist(Object.fromEntries(minimal.map((k) =>
-        [k, k === 'consent_marketing' ? true : k === 'email' ? 'floor@example.com' : 'x'.repeat(8)]))).ok;
+
+    /**
+     * MINIMAL_KEYS IS A PERMITTED SET, NOT A REQUIRED ONE.
+     *
+     * The client's floor is `stripTo(payload, MINIMAL_KEYS)` — it keeps
+     * whichever of those keys the payload already has. So the all-keys-at-once
+     * payload this probe used to build is not a floor any client emits, and it
+     * could not be repaired by fixing types: `business_enquiry: true` arms a
+     * gate that then demands a wording which resolves to real text, and
+     * 'x'.repeat(8) will never be one. A synthetic value cannot satisfy a check
+     * whose entire design is that the value must resolve.
+     *
+     * Conversion found it by running the probe on the merged tree rather than
+     * reading it, and the diagnosis is theirs. It passed for as long as every
+     * floor key was string-ish; it broke when they added a boolean and a gated
+     * field to MINIMAL_KEYS. Their change, my check, and the assumption written
+     * down in neither file.
+     *
+     * So: assert the floors a client can ACTUALLY produce, and take the business
+     * wording from the registry instead of inventing one.
+     */
+    const { CONSENT_TEXTS, consentCoversBusiness } = await import('../src/lib/validation.js');
+    const bizVersion = Object.keys(CONSENT_TEXTS).find((k) => consentCoversBusiness(CONSENT_TEXTS[k]?.text));
+
+    // Typed, and DELIBERATELY not defaulted. A key added to MINIMAL_KEYS with no
+    // entry here fails loudly rather than silently receiving a junk string —
+    // which is exactly how this probe rotted.
+    const VALUE_FOR = {
+      email: 'floor@example.com',
+      consent_marketing: true,
+      consent_text_version: 'mkt-eea-2026-08-15-a1b2c3d4',
+      business_enquiry: true,
+      business_consent_text_version: bizVersion,
+    };
+    const unknownFloorKeys = minimal.filter((k) => !(k in VALUE_FOR));
+
+    const BUSINESS_KEYS = ['business_enquiry', 'business_consent_text_version'];
+    const build = (keys) => Object.fromEntries(keys.map((k) => [k, VALUE_FOR[k]]));
+    const personalFloor = minimal.filter((k) => !BUSINESS_KEYS.includes(k));
+
+    const personalOk = validateWaitlist(build(personalFloor)).ok;
+    // Only meaningful if the floor actually permits the business pair.
+    const hasBusinessFloor = BUSINESS_KEYS.every((k) => minimal.includes(k));
+    const businessOk = !hasBusinessFloor || (Boolean(bizVersion) && validateWaitlist(build(minimal)).ok);
+
+    const floorOk = minimal.length > 0
+      && unknownFloorKeys.length === 0
+      && minimal.every((k) => accepted.has(k))
+      && personalOk
+      && businessOk;
 
     return {
       pass: phantom.length === 0 && floorOk,
-      actual: phantom.length ? `PHANTOM: ${phantom.join(', ')}` : `ladder ${known.size}, floor ${minimal.length} keys, floor valid: ${floorOk}`,
+      actual: phantom.length
+        ? `PHANTOM: ${phantom.join(', ')}`
+        : unknownFloorKeys.length
+          ? `MINIMAL_KEYS gained ${unknownFloorKeys.join(', ')} — add a valid value to VALUE_FOR`
+          : !bizVersion && hasBusinessFloor
+            ? 'no registered business wording — the business floor cannot be built'
+            : `ladder ${known.size}, personal floor ${personalFloor.length} keys ${personalOk ? 'VALID' : 'INVALID'}, business floor ${hasBusinessFloor ? `${minimal.length} keys ${businessOk ? 'VALID' : 'INVALID'}` : 'n/a'}`,
     };
   });
 
@@ -1262,7 +1311,18 @@ await check('Error response never echoes submitted input', 'no email in body', a
         if (!OURS.test(a) && !RESERVED.test(a) && !UNDER_TEST.test(a)) bad.push(`${f}: ${a}`);
       }
     }
-    return { pass: bad.length === 0, actual: bad.length ? bad.slice(0, 4).join(' · ') : `${files.length} committed files scanned, all addresses ours, reserved, or under test` };
+    // COUNT FIRST. Conversion's point, from watching the merge session find a
+    // second tracked file only after removing the first: a finder that shows
+    // its hits without showing how many turns a sweep into an iteration, and
+    // the person iterating cannot tell how many rounds are left. The display
+    // column truncates, so anything after the first entry may not be visible —
+    // which means the number has to come before the list, not after it.
+    return {
+      pass: bad.length === 0,
+      actual: bad.length
+        ? `${bad.length} FOUND — ${bad.join(' · ')}`
+        : `${files.length} committed files scanned, all addresses ours, reserved, or under test`,
+    };
   });
 
   // ── Gate patterns are PINNED, because Conversion transcribed them ───────
