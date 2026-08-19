@@ -23,7 +23,7 @@
 // difference is that we now know it hasn't landed yet.
 
 import { EVENTS, getUtm, getPagePath, track } from "../../lib/analytics.js";
-import { CHANNEL, DIETARY, MOTIVATION, OTHER_MAX, otherMaxFor } from "./fields.js";
+import { CHANNEL, DIETARY, MOTIVATION, OTHER_MAX, PRICE_BAND, otherMaxFor } from "./fields.js";
 
 const ENDPOINT = "/api/waitlist";
 const COUNT_ENDPOINT = "/api/count";
@@ -163,6 +163,11 @@ export function buildPayload({
     referral_source_other:
       p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
     quantity_band: p.quantity_band ?? null,
+    // Stored VERBATIM and never parsed. "£30ish", "$25-30" and "depends on the
+    // size" are all real answers; a number extracted from any of them is a
+    // guess wearing data's clothes.
+    price_band_other:
+      p.price_band === "other" ? str(p.price_band_other, otherMaxFor(PRICE_BAND)) : null,
     channel: arr(p.channel, CHANNEL.options.length),
     channel_other: hasOther(p.channel) ? str(p.channel_other, OTHER_MAX) : null,
     office_interest: p.office_interest ?? null,
@@ -207,7 +212,7 @@ export function buildPayload({
 // ladder costs nothing.
 export const SERVER_KNOWN_KEYS = new Set([
   ...CORE_KEYS,
-  "quantity_band", "office_interest", "company", "headcount",
+  "quantity_band", "office_interest", "company", "headcount", "price_band_other",
   // motivation_other is deliberately ABSENT: security removes it at 10a562a,
   // so listing it would make this set wrong in the optimistic direction —
   // claiming the server accepts something it rejects. The ladder cannot
@@ -220,6 +225,20 @@ export const SERVER_KNOWN_KEYS = new Set([
   "address_postal_code", "address_country", "consent_postal",
   "postal_consent_text_version",
 ]);
+
+/**
+ * The irreducible floor: what the server requires and nothing else.
+ *
+ * Rungs 1 and 2 strip KEYS, which cannot fix a bad VALUE in a key the server
+ * keeps — a retired enum member in `price_band` 400s at CORE just as it does at
+ * full. This rung drops the values too, so there is always a version of the
+ * record that validates. Losing every answer is bad; losing the email is the
+ * failure the whole endpoint exists to prevent.
+ */
+export const MINIMAL_KEYS = new Set(["email", "consent_marketing", "consent_text_version"]);
+
+/** Widest to narrowest. Each rung keeps everything the next one would discard. */
+const LADDER = [SERVER_KNOWN_KEYS, CORE_KEYS, MINIMAL_KEYS];
 
 function stripTo(payload, allowed) {
   const out = {};
@@ -237,6 +256,17 @@ function droppedBy(payload, allowed) {
 // ─── Offline queue ───────────────────────────────────────────────────────────
 // A transport failure must never lose an email. Failed payloads are parked in
 // localStorage and replayed on the next mount and on the next `online` event.
+
+/**
+ * Bump whenever an enum member is retired or a field's shape changes. It does
+ * not gate anything — it makes a stale replay legible instead of anonymous.
+ */
+export const SCHEMA_GENERATION = "2026-08-19.servings-prices-medication";
+
+/** Queue entries used to be bare payloads; tolerate both shapes on read. */
+function unwrap(entry) {
+  return entry && entry.payload ? entry : { payload: entry, meta: {} };
+}
 
 function readQueue() {
   try {
@@ -257,20 +287,37 @@ function writeQueue(items) {
 }
 
 function enqueue(payload) {
-  const queue = readQueue().filter((item) => item.email !== payload.email);
-  queue.push(payload);
+  const queue = readQueue().filter((item) => unwrap(item).payload.email !== payload.email);
+  queue.push({ payload, meta: { schema: SCHEMA_GENERATION, at: Date.now() } });
   writeQueue(queue);
 }
 
 function dequeue(payload) {
-  writeQueue(readQueue().filter((item) => item.email !== payload.email));
+  writeQueue(readQueue().filter((item) => unwrap(item).payload.email !== payload.email));
 }
 
-/** Replay anything stranded by a previous failure. Safe to call repeatedly. */
+/**
+ * Replay anything stranded by a previous failure. Safe to call repeatedly.
+ *
+ * ⚠️ A QUEUED PAYLOAD OUTLIVES THE SCHEMA IT WAS WRITTEN AGAINST. "The client
+ * stopped sending a value" is not the same as "nothing will send it again": an
+ * entry written before an enum change still carries the old member, 400s on
+ * replay, and — before the MINIMAL rung existed — was dequeued rather than
+ * retried, losing the email silently. Any future REMOVE has to wait out the
+ * queue as well as the deploy.
+ *
+ * Entries are stamped with the schema generation they were written under, so a
+ * stale one is recognisable rather than merely unlucky. The floor rung means it
+ * survives either way; the stamp is what lets us see it happened.
+ */
 export async function drainQueue() {
   const queue = readQueue();
   if (!queue.length) return;
-  for (const payload of queue) {
+  for (const entry of queue) {
+    const { payload, meta } = unwrap(entry);
+    if (meta.schema && meta.schema !== SCHEMA_GENERATION) {
+      track(EVENTS.PAYLOAD_DOWNGRADED, { reason: "stale_queue", was: meta.schema });
+    }
     const result = await post(payload);
     if (result.status !== RESULT.OFFLINE) dequeue(payload);
   }
@@ -303,19 +350,24 @@ async function post(payload, rung = 0) {
     // Every status is now read and acted on. A 404/405 here means our own
     // endpoint is missing or misrouted, which is a deploy fault worth surfacing
     // as an error — not something to paper over with a second write path.
-    // Climb down the ladder on a validation failure, one rung at a time.
-    if (res.status === 400 && rung < 2) {
-      const allowed = rung === 0 ? SERVER_KNOWN_KEYS : CORE_KEYS;
-      const dropped = droppedBy(payload, allowed);
-      if (dropped.length) {
-        track(EVENTS.PAYLOAD_DOWNGRADED, { rung: rung + 1, dropped: dropped.length });
-        // Name what we stripped. The server writes this alongside the record so
-        // a downgraded row LOOKS incomplete in the sheet rather than looking
-        // like someone who simply declined to answer — the two are impossible
-        // to tell apart afterwards without it, and only one of them is our bug.
-        const next = stripTo(payload, allowed);
-        next.downgraded_fields = [...new Set([...(payload.downgraded_fields || []), ...dropped])].slice(0, 64);
-        return await post(next, rung + 1);
+    // Climb down the ladder on a validation failure.
+    //
+    // Skip past any rung that would drop nothing: if the payload is already
+    // within SERVER_KNOWN, that rung is a no-op, and stopping there because
+    // "nothing to strip" leaves the real failure — a bad VALUE in a key every
+    // rung keeps — unaddressed. Descend to the next rung that actually changes
+    // the record, or give up honestly.
+    if (res.status === 400) {
+      for (let next = rung; next < LADDER.length; next += 1) {
+        const allowed = LADDER[next];
+        const dropped = droppedBy(payload, allowed);
+        if (!dropped.length) continue;
+        track(EVENTS.PAYLOAD_DOWNGRADED, { rung: next + 1, dropped: dropped.length });
+        const body = stripTo(payload, allowed);
+        body.downgraded_fields = [
+          ...new Set([...(payload.downgraded_fields || []), ...dropped]),
+        ].slice(0, 64);
+        return await post(body, next + 1);
       }
     }
 

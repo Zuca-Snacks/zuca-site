@@ -439,8 +439,16 @@ export const consentTexts = {
   // unlawful. Wording changed 17 Aug to name dietary needs, which mints a new
   // version automatically.
   motivation: {
-    authored: "2026-08-17",
-    text: "I'm happy to tell Zuca why fiber matters to me and anything dietary it should know. This is optional, it's stored with my signup, it's never sold and never sent to an ad or analytics tool, and I can ask Zuca to delete it at any time.",
+    authored: "2026-08-19",
+    // ⚠️ THE WORD "MEDICATION" IS LOAD-BEARING, NOT DECORATIVE.
+    // The server gates `glp1_medication` on the VERBATIM text of the wording
+    // this person saw — /medicat|GLP-?1/i against the resolved string, not a
+    // flag. That is the literal Art 9(2)(a) test: consent has to be specific
+    // about what it covers, and a flag can drift from the sentence while this
+    // cannot. Remove the word and the gate closes on the same deploy, which is
+    // the correct behaviour, not a bug. Reword freely; keep it naming
+    // medication for as long as the chip exists.
+    text: "I'm happy to tell Zuca why fiber matters to me, anything dietary it should know, and whether I'm taking a medication such as a GLP-1. This is health information and it's optional: it's stored with my signup, never sold, never sent to an advertising or analytics tool, and I can ask Zuca to delete it at any time.",
   },
 
   // ⚠️ TCPA-GRADE. US SMS marketing needs prior EXPRESS WRITTEN consent, a

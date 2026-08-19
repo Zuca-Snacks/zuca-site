@@ -118,6 +118,56 @@ Two things that live in your files, not mine:
 
 ---
 
+## 🪜 THE LADDER HAS A FLOOR — and that is what makes a hand-maintained list safe
+
+Rungs 1 and 2 strip **keys**. They cannot fix a bad **value** in a key the
+server keeps: a retired enum member in `price_band` 400s at CORE exactly as it
+does at full. So there is a third rung, `MINIMAL_KEYS` — email, consent, and
+the consent version, which is what the server actually requires and nothing
+more.
+
+**Losing every answer is bad. Losing the email is the failure the endpoint
+exists to prevent.** The floor guarantees a version of the record that
+validates against any schema we have not seen yet.
+
+### Why this closes the SERVER_KNOWN_KEYS worry rather than deferring it
+
+The standing objection was that `SERVER_KNOWN_KEYS` is hand-maintained, and a
+hand-maintained list drifts — and drifting *optimistic* (claiming the server
+accepts something it rejects) was unrecoverable, because rung 1 would strip
+nothing and the retry would fail identically.
+
+With a floor, that is no longer true. An optimistic list now costs one wasted
+round trip instead of the submission. The list is still worth keeping accurate,
+but **being wrong about it can no longer lose a signup** — which was the actual
+risk, not the inaccuracy itself.
+
+The ladder also skips any rung that would drop nothing. Stopping at a no-op
+rung was the bug that made the floor unreachable in the first place: "nothing
+left to strip" was being treated as "nothing left to try".
+
+### A queued payload outlives the schema it was written against
+
+**"The client stopped sending that value" is not "nothing will send it
+again".** An entry sitting in `localStorage` from before an enum change still
+carries the retired member. On replay it 400s — and before the floor existed it
+was *dequeued rather than retried*, losing the email silently.
+
+Two consequences:
+
+1. **Any future REMOVE has to wait out the queue, not just the deploy.** The
+   client-first rule assumes the client stops sending immediately; a queue
+   breaks that assumption.
+2. Entries now carry `meta.schema` (`SCHEMA_GENERATION`), so a stale replay is
+   *recognisable* rather than merely unlucky. Bump it whenever an enum member
+   is retired. It gates nothing — the floor already handles survival — it makes
+   the event legible in telemetry instead of anonymous.
+
+Zero exposure so far: the queue has never run in production. That is exactly
+why it was worth fixing now.
+
+---
+
 ## 🔁 ENUM CHANGE ORDERING (now in AGENTS_BRIEF.md)
 
   ADDING a value:            server first, then client
@@ -142,6 +192,35 @@ not become chattier. The rule is the compensation.
 Practical version when changing an enum: land the server side, confirm it is
 deployed, add the value client-side, then re-verify against the named commit —
 never against a description of it.
+
+---
+
+## 📊 WATCH: DOES `price_band_other` COME IN BELOW THE FLOOR?
+
+"Under $24" was dropped on instruction, and dropping the bottom band **raises
+the anchor**. Someone who would pay $20 can no longer say so with a chip — they
+have to reach for "Something else" and type it.
+
+**So the free-text field is now a test of the band set, not just an escape
+hatch.** Watch how often `price_band_other` resolves to a figure below the
+lowest band:
+
+| Pattern | Reading |
+|---|---|
+| Rare, and mostly ranges/qualifiers ("$25-30 depends on size") | Bands are right; Other is doing its normal job. |
+| **Frequently below $25** | **The band set is wrong, not the respondents.** The floor was cut too high and every one of those people was pushed into free text to say a thing a chip should have captured. |
+
+If the second pattern shows, the fix is to restore a bottom band — not to
+reinterpret the answers upward.
+
+**Do not parse `price_band_other` into a number.** It is stored verbatim on
+purpose: "£30ish", "$25-30" and "depends on the size" are all real answers, and
+a figure extracted from any of them is a guess wearing data's clothes. Read it
+by eye, in bulk, and let it tell you whether the chips were wrong.
+
+Capped at 40 to match the server exactly. Not 16 — "$25-30 depends on size" is
+22 characters and is a real answer — and not 120, which invites prose into a
+field that should hold a figure.
 
 ---
 
@@ -285,6 +364,51 @@ of *people*, not a claim about the product, and the copy must not blur the two.
 
 Still unconfirmed and therefore unstated anywhere: dairy in Chocolate Raspberry
 Sea Salt, and shared-facility cross-contact.
+
+---
+
+## 🧩 THE LESSON OF THE WEEK: VERIFY THE JOIN, NOT THE PARTS
+
+Every serious failure this week had both sides individually correct and the
+**seam between them** unverified. Not four lessons — one, four times:
+
+| Component A | Component B | What broke |
+|---|---|---|
+| endpoint ✓ | Code.gs ✓ | the seam dropped `sms_phone` |
+| client cap 120 ✓ | server cap 40 ✓ | the **gap between them** was a 400 |
+| rung 1 ✓ | rung 2 ✓ | the **descent between them** was unreachable |
+| `ui/OtherInput` ✓ | my call sites ✓ | `show` defaulted false — every box invisible |
+| my `type` default ✓ | `ui/Button` ✓ | the swap changed the default; Back submitted |
+
+In every case the parts passed their own tests. **A green component tells you
+nothing about the join it participates in**, and joins are where the ownership
+boundary sits — which is exactly why nobody's tests covered them.
+
+### What this changes about how to check
+
+- **Test the transition, not the states.** "Rung 1 ✓, rung 2 ✓" was true and
+  useless: each was verified by handing it a pre-stripped payload, so the
+  descent between them was never exercised. The bug was in the step.
+- **Two correct numbers can still be a defect.** A client cap and a server cap
+  are each defensible alone; only comparing them shows the 41–120 dead zone.
+  When two layers hold the same constant, assert they are EQUAL, not that each
+  is reasonable.
+- **When adopting someone else's component, re-derive what your assertions
+  mean.** Not whether they pass — what they *mean*. `count() > 0` meant
+  "usable" against my stand-in and "rendered but inert" against UX's, and it
+  passed identically both times.
+
+### The corollary that nearly bit here
+
+A fix that makes failure survivable can also make it invisible. The downgrade
+floor rescues the email — and had it landed as a *bare* email, it would have
+traded a loud loss for a quiet one, which is the worse trade.
+
+It does not: `downgraded_fields` is populated at every rung including the
+floor, so a rescued record declares itself and names what it lost. Two tests
+lock that, including one asserting the floor still names a field dropped at an
+*earlier* rung. **When you make something fail softer, check what it stopped
+announcing.**
 
 ---
 

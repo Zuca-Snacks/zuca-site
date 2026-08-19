@@ -64,6 +64,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
     flavor: null, quantity_band: null,
     intent: null, price_band: null,
     referral_source: null, referral_source_other: "",
+    price_band_other: "",
     channel: [], channel_other: "",
     zip: "", is_clinician: null,
     motivation: [],
@@ -230,6 +231,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             />
             <ChipRadioGroup
               legend={QUANTITY_BAND.label} name="quantity_band" options={QUANTITY_BAND.options}
+              hint={QUANTITY_BAND.hint}
               value={v.quantity_band}
               onChange={(x) => { set({ quantity_band: x }); if (x) note(QUANTITY_BAND.key, x); }}
             />
@@ -245,7 +247,11 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
             <ChipRadioGroup
               legend={PRICE_BAND.label} name="price_band" options={PRICE_BAND.options}
               value={v.price_band}
-              onChange={(x) => { set({ price_band: x }); if (x) note(PRICE_BAND.key, x); }}
+              other={otherProps(PRICE_BAND, v.price_band_other, "price_band_other")}
+              onChange={(x) => {
+                set({ price_band: x, ...(x === "other" ? {} : { price_band_other: "" }) });
+                if (x) note(PRICE_BAND.key, x);
+              }}
             />
           </>
         )}
