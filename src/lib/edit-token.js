@@ -33,8 +33,6 @@
  * wanders off mid-form and comes back; it is not a credential worth harvesting
  * from a browser hours later.
  */
-import { emailHandle } from './validation.js';
-
 /**
  * Read at CALL time, not module load.
  *
