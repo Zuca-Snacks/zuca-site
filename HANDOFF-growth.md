@@ -521,6 +521,29 @@ question gets asked at the keyboard rather than after launch.
 
 **Emil has not been asked whether localisation is on the roadmap.** Nobody
 should infer from this note that it is.
+
+### ⚠️ A TRANSCRIBED PATTERN WENT STALE INSIDE ONE EXCHANGE
+
+The test above transcribes security's gate regexes rather than importing them —
+a deliberate trade, since importing would make this suite depend on their
+worktree sitting beside ours. The cost of that trade showed up immediately.
+
+The first version copied `consentCoversBusiness`, a single alternation, **which
+had already been replaced by a three-element conjunction in the message before
+I wrote it.** I copied from my earlier reading of their file instead of
+re-reading the file. Their basis pattern had also narrowed, `\bworkplace\b` to
+`\bmy workplace\b` — so a wording could have passed this test and been refused
+by the server, which is precisely the gap the test exists to close.
+
+Nothing shipped wrong: our wording satisfies both the old and the new gate,
+verified by running their real `businessConsentGaps()` against it (`[]`, no
+gaps). But the failure was live for the length of one commit and would not have
+been found by reading either file.
+
+Security now pins their gate patterns by fingerprint and fails their suite if
+they change, so the obligation to tell us is a test rather than a promise. **The
+rule this leaves: a test holding its own copy of the thing it checks has stopped
+checking it** — and re-read the source, never your last reading of it.
 A new always-present key fails that test, which is the moment to ask whether
 its server is deployed yet.
 

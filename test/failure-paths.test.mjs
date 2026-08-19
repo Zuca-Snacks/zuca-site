@@ -382,8 +382,23 @@ test('every gated consent wording stays in the language the server reads', async
   // than after it ships. If that is you: the fix is a decision, not an edit —
   // either a per-language element list on the server or a structured claim the
   // copy declares alongside its text. Ask security before shipping the string.
+  // Transcribed from zuca-sec@114109d — `businessConsentGaps` (three elements,
+  // ALL required) and `consentCoversMedication`. They pin these patterns on
+  // their side and will tell us if they change, because a transcribed value is
+  // a copy that can go stale silently.
+  //
+  // ⚠️ IT ALREADY DID, INSIDE ONE EXCHANGE. The first version of this test
+  // transcribed `consentCoversBusiness` — a single alternation that had ALREADY
+  // been replaced by the conjunction below when I copied it, because I copied
+  // from my earlier reading of their file instead of re-reading the file. Note
+  // also `\bworkplace\b` narrowing to `\bmy workplace\b`: a wording could have
+  // passed this test and been refused by the server. That is the whole argument
+  // for their pin, demonstrated by me rather than argued at me.
   const GATES = [
-    ['business', consentTexts.business.text, /\bon behalf of\b|\bworkplace\b|\bbusiness (?:enquiry|inquiry)\b/i],
+    ['business/basis', consentTexts.business.text, /\bon behalf of\b|\bmy workplace\b|\bbusiness (?:enquiry|inquiry)\b/i],
+    ['business/exclusion', consentTexts.business.text, /\bmailing list\b/i],
+    ['business/exclusion-negation', consentTexts.business.text, /\b(?:won'?t|will not|never|not)\b/i],
+    ['business/stop', consentTexts.business.text, /\brepl(?:y|ying)\b|\bunsubscribe\b|\bstop\b/i],
     ['motivation', consentTexts.motivation.text, /\bmedicat|\bGLP-?\s?1\b/i],
   ];
   for (const [name, text, gate] of GATES) {
