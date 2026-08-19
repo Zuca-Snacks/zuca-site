@@ -569,6 +569,34 @@ among them. Verified by planting a `sendBeacon` call there.
 **Any assertion inside a loop is an assertion about the fixture until something
 floors the fixture.**
 
+### AND A FLOOR HAS A CEILING — WHICH IS WORTH MEASURING BEFORE TRUSTING
+
+`npm run mutate` had the same bug as everything it was written to catch:
+deleting four mutations printed **`all 8 mutations caught`** and exited 0. The
+harness built to find pass-on-nothing had pass-on-nothing. It now declares
+`EXPECTED_MUTATIONS` and aborts on a mismatch.
+
+Security's distinction is the one to keep: **where a second independent reading
+exists, derive; where none does, declare a constant and say so rather than
+dressing it up as a check.** The payload keys and the ladder key sets derive.
+The gate element list and the mutation count cannot — the only second reading is
+security's repo, and importing it would make this suite depend on their worktree
+sitting beside ours.
+
+**And the received wisdom about placement is wrong, which I only know because I
+measured it.** Moving the gate floor far from the array it floors does *not*
+prevent a same-motion edit: deleting a `GATES` row together with its label still
+passes 28/28. Distance is a speed bump, not a control. It buys exactly one
+thing — removing a gate stops being a single-line deletion — and both files now
+state that ceiling instead of letting their placement imply a strength they do
+not have.
+
+The near-miss worth recording: the first run of that experiment reported a
+correct-looking failure, and the deletion had **not applied** — the floor's
+indentation differed from my patch. It failed for the wrong reason and I nearly
+wrote it up as a success. That is the did-not-apply rule from `mutate.mjs`,
+biting the person who wrote it, by hand, minutes later.
+
 **⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
 both sides are present. A deploy carrying this client without `sec@6efe051`
 offers the checkbox and then refuses the submission anyway. It fails closed —

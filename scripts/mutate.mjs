@@ -34,6 +34,31 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
+/**
+ * How many defects this file is supposed to simulate.
+ *
+ * ⚠️ A DECLARED CONSTANT, NOT A DERIVED ONE, AND DELIBERATELY KEPT UP HERE.
+ * Deleting four mutations used to print `all 8 mutations caught` and exit 0 —
+ * the pass-on-nothing failure, inside the harness written to catch
+ * pass-on-nothing. A count that lives beside the data it counts is not a floor:
+ * it gets edited in the same motion, which is exactly how the rows went.
+ *
+ * Nothing else in this repo knows how many defects this file ought to simulate,
+ * so there is nothing to derive from and this is the honest second best. Where a
+ * second independent reading DOES exist — the payload key list, the ladder key
+ * sets — the test derives instead of declaring.
+ *
+ * It is meant to be a nuisance. Raising it is the moment to ask whether the new
+ * mutation actually tests anything; lowering it shows up on its own line.
+ *
+ * ⚠️ ITS CEILING, STATED RATHER THAN IMPLIED: this catches a deleted mutation.
+ * It does not catch someone deleting a mutation and decrementing this number in
+ * the same motion, and no placement fixes that — verified by doing exactly that
+ * to the gate floor in the test suite, which still passed. A declared constant
+ * buys one thing: removal stops being a single-line edit.
+ */
+const EXPECTED_MUTATIONS = 12;
+
 const API = 'src/components/waitlist/api.js';
 const COPY = 'src/content/copy.js';
 
@@ -129,6 +154,12 @@ const MUTATIONS = [
 // runs a DIFFERENT suite than the one CI runs is itself the blindness bug this
 // file exists to find — it would report six green mutations about tests nobody
 // executes. `node --test test/` is not the same command and does not even pass.
+if (MUTATIONS.length !== EXPECTED_MUTATIONS) {
+  console.error(`✗ ABORTED: ${MUTATIONS.length} mutations defined, ${EXPECTED_MUTATIONS} expected.`);
+  console.error('  Update EXPECTED_MUTATIONS deliberately, or restore what was removed.');
+  process.exit(2);
+}
+
 const suite = () =>
   spawnSync('npm test', { encoding: 'utf8', stdio: 'pipe', shell: true }).status === 0;
 

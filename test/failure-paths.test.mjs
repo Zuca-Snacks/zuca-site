@@ -41,6 +41,26 @@ async function withFetch(impl, online = true) {
   return { mod, store };
 }
 
+// The elements security's gates require. `motivation` is the Art 9 health
+// wording and is the row whose silent removal costs the most.
+//
+// ⚠️ THIS CATCHES A DELETED ROW. IT DOES NOT CATCH A COORDINATED EDIT, AND
+// MOVING IT UP HERE DID NOT CHANGE THAT — measured, not assumed: deleting a
+// GATES row together with its label here still passes 28/28. Distance is a
+// speed bump, not a control. It buys exactly one thing, which is that removing
+// a gate can no longer happen as a single-line deletion.
+//
+// The only real defence is a SECOND INDEPENDENT READING, and for the payload
+// keys and the ladder key sets there is one, so those tests derive. For the
+// element list there is none short of importing security's repo, which would
+// make this suite depend on their worktree sitting beside ours. So this is a
+// declared constant and it is worth being plain about its ceiling rather than
+// letting its placement imply a strength it does not have.
+const GATED_ELEMENTS = [
+  'business/basis', 'business/exclusion', 'business/exclusion-negation',
+  'business/stop', 'motivation',
+];
+
 const payload = (over = {}) => ({
   email: 'a@b.com', consent_marketing: true, consent_health: false,
   consent_text_version: 'mkt-us-2026-08-15-7d912cf1', ...over,
@@ -428,12 +448,8 @@ test('every gated consent wording stays in the language the server reads', async
   // So the coverage is declared separately from the data being iterated. Adding
   // an element to security's gate means adding it here, deliberately, rather
   // than the suite quietly continuing to report success about the old set.
-  assert.deepEqual(
-    GATES.map(([name]) => name).sort(),
-    ['business/basis', 'business/exclusion', 'business/exclusion-negation',
-      'business/stop', 'motivation'],
-    'a gate went missing from the list this test iterates',
-  );
+  assert.deepEqual(GATES.map(([name]) => name).sort(), GATED_ELEMENTS,
+    'a gate went missing from the list this test iterates');
 
   for (const [name, text, gate] of GATES) {
     assert.match(text, gate, `${name}: the server's gate cannot read this wording`);
