@@ -42,6 +42,30 @@
 // Keep the upcycling story — fruit that was going to be thrown away, rescued
 // and made into something good — with no number attached to it.
 
+// ── NUTRITION FIGURES: THE UNIT IS PART OF THE CLAIM ─────────────────────────
+// EVERY nutrition figure we publish is PER SERVING, and ONE SERVING IS 5 BITES
+// (50g). 10g fiber, 150 kcal, 4g protein — all per serving, none per bite.
+//
+// ⚠️ NO FIGURE SHIPS WITHOUT ITS UNIT. A number with the wrong unit is not a
+// loose claim, it is a false one: "10g fiber per bite" overstates the fiber by
+// FIVE TIMES. That shipped, in the sticky bar and in three page titles, and it
+// is the most overstated claim the site has ever carried.
+//
+// A number with NO unit is not safe either — it is one careless edit away from
+// acquiring the wrong one, which is exactly how "in one bite" got into a
+// headline subhead. Attach the unit at the point the figure is written, never
+// in a footnote somewhere else on the page.
+//
+// Use `nutrition.serving` rather than retyping the definition, so it cannot
+// drift between the places it appears.
+export const nutrition = {
+  serving: "One serving is 5 bites (50g).",
+  perServing: "Per serving",
+  // A 12-pack is 12 servings, therefore 60 bites. Keep these consistent.
+  packServings: 12,
+  bitesPerServing: 5,
+};
+
 // ─── Headline variants ───────────────────────────────────────────────────────
 // Three tested-ready variants. See HANDOFF-growth.md for the reasoning.
 //
@@ -111,7 +135,7 @@ export const HEADLINES = {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Two flavors, no refined sugar, and about 40% of your daily fiber in one bite.",
+      "Two flavors, no refined sugar, and about 40% of your daily fiber in a serving.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -119,7 +143,7 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "10g of fiber, 150 calories, no refined sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
+      "10g of fiber and 150 calories per serving, no refined sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
@@ -127,7 +151,7 @@ export const HEADLINES = {
     id: "c",
     headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories. No refined sugar. Made from apple pulp a juicery was about to throw away.",
+      "150 calories per serving. No refined sugar. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
@@ -257,11 +281,11 @@ export const proof = {
 export const numbers = {
   title: "What's actually in one.",
   items: [
-    { value: "10g", unit: "fiber", note: "About 40% of your daily fiber, and twice what the leading bars carry." },
-    { value: "150", unit: "calories", note: "Plus 4g of protein." },
+    { value: "10g", unit: "fiber", note: "About 40% of your daily fiber per serving, and twice what the leading bars carry." },
+    { value: "150", unit: "calories", note: "Plus 4g of protein, per serving." },
     { value: "4g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
-  footnote: "Per serving. No refined sugar. Contains tree nuts — almonds and pecans.",
+  footnote: "Per serving — 5 bites (50g). No refined sugar. Contains tree nuts — almonds and pecans.",
 };
 
 // ─── Section headers ─────────────────────────────────────────────────────────
@@ -368,7 +392,7 @@ export const faq = [
   },
   {
     q: "What's in it, and what about allergens?",
-    a: "No refined sugar in either flavor. Both contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving: 10g fiber, 150 calories, 4g protein. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
+    a: "No refined sugar in either flavor. Both contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving — 5 bites, 50g — 10g fiber, 150 calories, 4g protein. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
   },
   {
     q: "What will it cost?",
@@ -383,7 +407,7 @@ export const faq = [
   },
   {
     q: "Isn't this just another protein bar?",
-    a: "No — it's built around fiber, not protein. A typical bar leads with 10-20g of protein and carries 3-5g of fiber. Zuca is 10g of fiber and 4g of protein, roughly twice the fiber of the leading bars. 95% of American adults and kids fall short on fiber; almost nobody falls short on protein. We built for the gap that's actually there.",
+    a: "No — it's built around fiber, not protein. A typical bar leads with 10-20g of protein and carries 3-5g of fiber. Zuca is 10g of fiber and 4g of protein per serving — five bites, 50g — roughly twice the fiber of the leading bars. 95% of American adults and kids fall short on fiber; almost nobody falls short on protein. We built for the gap that's actually there.",
   },
   {
     q: "Who's behind it?",
@@ -575,6 +599,11 @@ export const step2 = {
   smsDisclosure: "Want launch texts too?",
   mailDisclosure: "Want us to be able to send you something?",
   mailGate: "Answer anything above first and this opens up.",
+  // A disabled fieldset reads as LOCKED, and locked and broken look identical
+  // from the outside. UX can make it look deliberate; only copy can say what
+  // to do about it. Names the control and the direction, because "tick the
+  // consent" is useless if you cannot see which one.
+  mailLocked: "Tick the box above to fill this in.",
 };
 
 // ─── Confirmation ────────────────────────────────────────────────────────────
@@ -624,5 +653,5 @@ export const confirmation = {
   shareCopied: "Link copied.",
   shareCopyCta: "Copy link",
   shareCopyFailed: "Couldn't copy — your browser blocked it. Try the address bar instead.",
-  shareText: "Zuca: 10g of fiber, 150 calories, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
+  shareText: "Zuca: 10g of fiber and 150 calories per serving, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
 };
