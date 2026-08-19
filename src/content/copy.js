@@ -534,6 +534,20 @@ export const step1 = {
     // unreachable endpoint — none of which stored anything, so none of which
     // may imply otherwise. A false reassurance is worse than a blunt error:
     // it makes people stop trying.
+    // ⚠️ A 400 ON STEP 1 IS ALMOST CERTAINLY THE EMAIL. The only fields there
+    // are the address, the consent (blocked client-side if unticked) and our
+    // own version string — so the address is the one thing the person can
+    // change. The server deliberately will not say WHICH field failed, to
+    // avoid an enumeration oracle; naming the likely cause is our inference
+    // from what step 1 contains, not the server leaking it.
+    //
+    // This must never fall through to `server`. My permissive regex passes
+    // role addresses, disposable domains and control characters that the
+    // server then rejects — and "that's our end, not yours" tells someone
+    // with a perfectly normal-LOOKING address that there is nothing to fix,
+    // so they never fix it and never sign up.
+    validation:
+      "That address didn't work. Shared inboxes like info@ or admin@ and temporary email services aren't accepted — a personal address will be.",
     server: "That's our end, not yours — your email hasn't saved yet. Give it another go?",
     offline: "You're offline. We've saved your email here and we'll send it the moment you're back.",
   },
