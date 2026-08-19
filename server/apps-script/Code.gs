@@ -55,10 +55,48 @@ function getToken_() {
  * and getActiveSpreadsheet() returns null there — which fails with an error
  * that does not mention the real cause.
  */
-var SPREADSHEET_ID = '';
+var SPREADSHEET_ID = '1tJ9pzTYG31u1nmPF-CUnVzFiXtVUZOGjp4o4mF-gaKA';
 
-/** Sheet tab that holds signups. Change if yours is named differently. */
-var SHEET_NAME = 'Sheet1';
+/**
+ * The TAB that holds signups. Not 'Sheet1'.
+ *
+ * This spreadsheet has both: 'Pre-orders' carries the 137 real signups and
+ * 'Sheet1' is empty. With SHEET_NAME = 'Sheet1' the lookup SUCCEEDS — it finds
+ * a real tab, matches it, and writes every new signup into the empty one. No
+ * error, no warning, and the 137 rows sit untouched next door while the list
+ * silently accumulates in the wrong place.
+ *
+ * The `|| getSheets()[0]` fallback that used to follow this lookup made it
+ * worse: a typo here would have written into whatever tab happened to be first.
+ * Both are gone. See assertTargetSheet_ below.
+ */
+var SHEET_NAME = 'Pre-orders';
+
+/**
+ * Refuse to write to the target tab if it holds fewer than this many rows.
+ *
+ * A brand-new empty tab and the right tab must not look the same to this
+ * script. The sheet has 137 signups; a target showing 3 means we are pointed
+ * somewhere else, and the only safe move is to stop rather than to start a
+ * second list that looks plausible for weeks.
+ *
+ * Set to 0 ONLY when deliberately starting a genuinely fresh sheet.
+ */
+var MIN_EXPECTED_ROWS = 100;
+
+/**
+ * Existing headers this sheet already uses for a concept we also write.
+ *
+ * `normalizeHeader_` handles case and separators, so `Email` matches `email`.
+ * It cannot know that `How They Heard` and `hearAbout` are the same thing —
+ * different words, not different punctuation — so without this the script would
+ * create a second column beside the populated one and split the data.
+ *
+ * canonical name -> header text already in the sheet
+ */
+var COLUMN_ALIASES = {
+  hearAbout: 'How They Heard',
+};
 
 /**
  * Columns written, in order. Missing ones are appended to row 1 on first use.
@@ -239,6 +277,19 @@ function secureEquals_(a, b) {
   return diff === 0;
 }
 
+/**
+ * A configuration fault, or a transient one?
+ *
+ * Both used to return {error:'server'}, so "pointed at the wrong tab" looked
+ * exactly like "Google had a moment" — and only one of those is fixed by
+ * waiting. The sentinel is set at the throw site rather than inferred from the
+ * wording, because classifying a fault by searching its prose breaks the first
+ * time somebody improves a sentence.
+ */
+function isConfigError_(err) {
+  return !!err && String(err.message).indexOf('CONFIG:') === 0;
+}
+
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
@@ -257,11 +308,68 @@ function getSheet_() {
   // path instead of at one blank string near the top of the file.
   if (!ss) {
     throw new Error(
-      'No spreadsheet. Either set SPREADSHEET_ID at the top of this file, or ' +
+      'CONFIG: No spreadsheet. Either set SPREADSHEET_ID at the top of this file, or ' +
       'create the script from inside the sheet via Extensions -> Apps Script.'
     );
   }
-  return ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
+
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  assertTargetSheet_(ss, sheet);
+  return sheet;
+}
+
+/**
+ * Refuse to write into a tab that is not demonstrably the right one.
+ *
+ * Every check here exists because its absence fails QUIETLY. A wrong-tab write
+ * produces no error at any layer: the endpoint returns 200, the counter goes
+ * up, the row is real — it is simply in the wrong place, and nothing surfaces
+ * that for as long as nobody opens the other tab.
+ */
+function assertTargetSheet_(ss, sheet) {
+  if (!sheet) {
+    var names = ss.getSheets().map(function (s) { return s.getName(); });
+    throw new Error(
+      'CONFIG: ' + 'No tab named "' + SHEET_NAME + '". Tabs in this spreadsheet: ' + names.join(', ') +
+      '. Fix SHEET_NAME at the top of this file. NOT falling back to the first tab — ' +
+      'a typo must not silently redirect the list.'
+    );
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = Math.max(1, sheet.getLastColumn());
+
+  if (lastRow < 1) {
+    throw new Error(
+      'CONFIG: ' + 'Tab "' + SHEET_NAME + '" is completely empty — no header row. This does not ' +
+      'look like the signup tab. Check SHEET_NAME, or set MIN_EXPECTED_ROWS = 0 if ' +
+      'you really are starting a fresh sheet.'
+    );
+  }
+
+  // An anchor column proves it is a signup tab rather than a notes tab that
+  // happens to have something in row 1.
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var hasEmail = false;
+  for (var i = 0; i < headers.length; i++) {
+    if (normalizeHeader_(headers[i]) === 'email') hasEmail = true;
+  }
+  if (!hasEmail) {
+    throw new Error(
+      'CONFIG: ' + 'Tab "' + SHEET_NAME + '" has no "email" column in row 1. Refusing to write: ' +
+      'this is not the signup tab.'
+    );
+  }
+
+  var dataRows = lastRow - 1;
+  if (dataRows < MIN_EXPECTED_ROWS) {
+    throw new Error(
+      'CONFIG: ' + 'Tab "' + SHEET_NAME + '" holds ' + dataRows + ' rows but at least ' +
+      MIN_EXPECTED_ROWS + ' were expected. Refusing to write — an empty or nearly ' +
+      'empty tab is what a WRONG tab looks like. If this is deliberate, set ' +
+      'MIN_EXPECTED_ROWS = 0.'
+    );
+  }
 }
 
 /**
@@ -288,11 +396,13 @@ function ensureColumns_(sheet) {
     if (h) byNormalized[normalizeHeader_(h)] = i + 1;
   });
 
-  // Resolve each canonical column name against what is already in the sheet.
+  // Resolve each canonical column name against what is already in the sheet,
+  // including under a different WORD for the same thing (COLUMN_ALIASES).
   var index = {};
   var toAppend = [];
   COLUMNS.forEach(function (c) {
     var at = byNormalized[normalizeHeader_(c)];
+    if (!at && COLUMN_ALIASES[c]) at = byNormalized[normalizeHeader_(COLUMN_ALIASES[c])];
     if (at) {
       index[c] = at;
     } else {
@@ -370,7 +480,13 @@ function confirmRow_(handle, confirmedAt) {
     }
     return json_({ ok: false, error: 'not_found' });
   } catch (err) {
-    return json_({ ok: false, error: 'server' });
+    // A misconfiguration and a transient failure both used to return
+    // {error:'server'}, so "wrong tab" was indistinguishable from "Google had a
+    // moment" — and only one of those is fixed by waiting. The message goes to
+    // the Executions log where an operator actually looks, and the code tells
+    // the caller which kind it was.
+    console.error('doPost failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   } finally {
     lock.releaseLock();
   }
@@ -550,7 +666,8 @@ function doPost(e) {
     // cached value from before it.
     return json_({ ok: true, count: Math.max(0, sheet.getLastRow() - 1) });
   } catch (err) {
-    return json_({ ok: false, error: 'server' });
+    console.error('confirm failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
   } finally {
     lock.releaseLock();
   }

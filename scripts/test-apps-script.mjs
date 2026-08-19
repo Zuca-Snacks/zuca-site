@@ -20,8 +20,11 @@ const SOURCE = fs.readFileSync(new URL('../server/apps-script/Code.gs', import.m
 
 // ─── Mock sheet ──────────────────────────────────────────────────────────────
 
-function makeSheet(headerRow, dataRows = []) {
-  const grid = [headerRow.slice(), ...dataRows.map((r) => r.slice())];
+function makeSheet(headerRow, dataRows = null) {
+  // 137 filler rows so the tab looks like the live one. The guards refuse a
+  // near-empty tab, which is the whole point of them.
+  const filler = dataRows ?? Array.from({ length: 137 }, () => headerRow.map(() => ''));
+  const grid = [headerRow.slice(), ...filler.map((r) => r.slice())];
 
   const widen = (row, n) => {
     while (row.length < n) row.push('');
@@ -83,7 +86,17 @@ function loadScript(sheet, token = 'test-token') {
       getScriptProperties: () => ({ getProperty: (k) => (k === 'ZUCA_TOKEN' ? token : null) }),
     },
     SpreadsheetApp: {
-      getActiveSpreadsheet: () => ({ getSheetByName: () => sheet, getSheets: () => [sheet] }),
+      // Named-tab lookup is honoured, so the wrong-tab guard is exercised
+      // rather than bypassed. A mock that returns the sheet for any name would
+      // make the guard untestable and always green.
+      openById: () => ({
+        getSheetByName: (n) => (n === 'Pre-orders' ? sheet : null),
+        getSheets: () => [{ getName: () => 'Sheet1' }, { getName: () => 'Pre-orders' }],
+      }),
+      getActiveSpreadsheet: () => ({
+        getSheetByName: (n) => (n === 'Pre-orders' ? sheet : null),
+        getSheets: () => [{ getName: () => 'Pre-orders' }],
+      }),
     },
     ContentService: {
       MimeType: { JSON: 'application/json' },
@@ -123,18 +136,24 @@ function check(name, pass, detail) {
   if (detail) console.log(`      ${detail}`);
 }
 
-function cellFor(sheet, field, rowIndex = 1) {
+// Defaults to the LAST row, not the first. The mock now pads 137 filler rows so
+// the wrong-tab guard has something to pass on, which pushed the row under test
+// to the bottom — reading row 1 silently measured an empty filler instead.
+function cellFor(sheet, field, rowIndex = -1) {
   const headers = sheet._grid[0].map((h) => String(h).trim().toLowerCase().replace(/[\s_-]+/g, ''));
   const want = field.trim().toLowerCase().replace(/[\s_-]+/g, '');
   const at = headers.indexOf(want);
   if (at === -1) return { missing: true };
-  return { column: at + 1, value: sheet._grid[rowIndex]?.[at] ?? '' };
+  const row = rowIndex < 0 ? sheet._grid.length - 1 : rowIndex;
+  return { column: at + 1, value: sheet._grid[row]?.[at] ?? '' };
 }
 
 console.log('\n══ Apps Script migration test ══\n');
 
 // The old sheet, as it exists today: whatever the previous script wrote.
-const OLD_HEADERS = ['Timestamp', 'name', 'email', 'phone', 'hearAbout', 'reason'];
+// The REAL header row, as it exists in the live sheet. Not what I assumed for
+// three days — assumed: Timestamp, name, email, phone, hearAbout, reason.
+const OLD_HEADERS = ['Timestamp', 'Email', 'Phone', 'How They Heard', 'Reason', 'Source', 'Name'];
 
 console.log('  Scenario A — legacy modal posts to the hardened script');
 console.log('  (the fallback path: old client, new backend)\n');
@@ -149,7 +168,10 @@ console.log('  (the fallback path: old client, new backend)\n');
   });
 
   check('accepted', response?.ok === true, JSON.stringify(response));
-  for (const f of ['name', 'phone', 'hearAbout', 'email']) {
+  // 'How They Heard', not 'hearAbout' — COLUMN_ALIASES routes the legacy
+  // payload key into the column the sheet already uses, rather than creating a
+  // second column beside the populated one and splitting the data.
+  for (const f of ['Name', 'Phone', 'How They Heard', 'Email']) {
     const c = cellFor(sheet, f);
     check(`legacy field "${f}" is stored`, !c.missing && c.value !== '', `col ${c.column} = ${JSON.stringify(c.value)}`);
   }
@@ -291,8 +313,8 @@ console.log('  (the target path: new client via /api/waitlist)\n');
 
   check(
     'legacy columns left empty on the new path',
-    cellFor(sheet, 'hearAbout').value === '' && cellFor(sheet, 'name').value === '',
-    'name and hearAbout blank'
+    cellFor(sheet, 'How They Heard').value === '' && cellFor(sheet, 'Name').value === '',
+    'Name and How They Heard blank'
   );
 }
 
@@ -376,6 +398,32 @@ console.log('\n  Scenario B5 — downgrade visibility\n');
   check('dropped field names recorded, so the row looks incomplete',
     String(cellFor(sheet, 'downgraded_fields').value).includes('dietary'),
     JSON.stringify(cellFor(sheet, 'downgraded_fields').value));
+}
+
+console.log('\n  Scenario T — wrong-tab and empty-tab guards\n');
+{
+  const H = OLD_HEADERS;
+  const populated = makeSheet(H);
+
+  // The exact live-sheet trap: Sheet1 exists and is empty, Pre-orders has the
+  // data. A lookup that succeeds on the wrong tab writes with no error at all.
+  const empty = makeSheet(H, []);
+  const { response: onEmpty } = post(empty, { email: 'a@example.no' });
+  check('empty tab REFUSED, not written to', onEmpty?.error === 'misconfigured', JSON.stringify(onEmpty));
+  check('nothing was appended to the empty tab', empty._grid.length === 1, `${empty._grid.length - 1} data rows`);
+
+  const noHeaders = makeSheet(['Notes'], []);
+  const { response: onNotes } = post(noHeaders, { email: 'a@example.no' });
+  check('tab without an email column REFUSED', onNotes?.error === 'misconfigured', JSON.stringify(onNotes));
+
+  const { response: ok } = post(populated, { email: 'a@example.no' });
+  check('populated tab accepted', ok?.ok === true, JSON.stringify(ok));
+
+  check(
+    'a config error is distinguishable from a transient one',
+    onEmpty?.error === 'misconfigured' && onEmpty?.error !== 'server',
+    'misconfigured ≠ server — only one of those is fixed by waiting'
+  );
 }
 
 console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code.gs\n');
