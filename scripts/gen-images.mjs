@@ -24,6 +24,17 @@ mkdirSync(OUT, { recursive: true });
 const JOBS = [
   {
     name: 'flavor-chocolate-raspberry',
+    /* ⚠️ GRADED, not the camera original — which is preserved beside it as
+       chocolate-raspberry-original.jpg and is what to go back to.
+       The hero artwork bakes in a DIFFERENT, warmer shot of the same product,
+       and side by side the two read as different products (Emil, 18 Aug). The
+       artwork cannot be edited here, and its tile is only 271x307 — 42% of what
+       this panel needs at 3x — so it cannot be used in both directions either.
+       This grade (saturation x1.35, brightness x0.82) lands the photo on the
+       hero tile's measured values: sat 71.2% vs 70.7%, lightness 38.7% vs 38.6%.
+       ⚠️ It grades the REAL PHOTOGRAPH toward the ARTWORK. If the artwork's tile
+       was itself styled, this makes the product look more vivid than the camera
+       saw it. The clean fix is one file in both places — see HANDOFF-ux.md. */
     src: 'chocolate-raspberry.jpg',
     // Inset from the right and bottom edges, where the tray/wrapper is visible.
     extract: { left: 30, top: 30, width: 900, height: 900 },

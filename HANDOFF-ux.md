@@ -134,6 +134,38 @@ and the sticky bar, all unchanged.
 - **`$25/ton` is absent**, as required. It was already cut on merge.
 - **No price figures**, no pre-order language, no new allergen assertions.
 
+## R3.9 🟡 Chocolate Raspberry — the hero tile and the panel are two different shots
+
+**The hero tile is BAKED INTO `hero-flavours.png`.** It cannot be swapped from
+here. Side by side the two read as different products: the artwork's tile is a
+warm crimson, the repo photograph is a dusty magenta. Measured:
+
+| | mean rgb | saturation | lightness |
+|---|---|---|---|
+| hero tile (artwork) | 157, 40, 54 | 70.7% | 38.6% |
+| repo photo (camera) | 166, 78, 104 | 50.4% | 47.9% |
+
+**Neither file can serve both slots as-is:**
+- the artwork cannot take the repo photo without a re-export from Emil;
+- the artwork's tile is only **271×307px** — 42% of the ~648px the detail panel
+  needs on a 3× phone — so cropping it out and using it in the panel would be
+  visibly soft.
+
+**Shipped interim:** the panel photo is graded (`saturation ×1.35`,
+`brightness ×0.82`) to land on the hero tile's measured values — 72.4% / 38.4%
+against 70.7% / 38.6%. They now read as the same product.
+
+⚠️ **This grades the real photograph toward the artwork.** If the artwork's tile
+was itself styled in Canva, the shipped photo now shows the product more vivid
+than the camera saw it. That is a judgement worth revisiting, not a settled fix.
+The camera original is preserved at `art-src/chocolate-raspberry-original.jpg`
+and is not deployed; **always regrade from that, never from the graded file**,
+or the correction compounds.
+
+**The clean fix** is one file in both places, which needs Emil either to
+re-export `hero-flavours.png` with the repo photo in the tile, or to supply the
+original of the warmer shot at full resolution.
+
 ## R3.8 ⚠️ `--z-cta` vs `--z-accent` — which red/green goes where
 
 **Emil's ruling, 18 Aug.** There are now two tokens and they mean different

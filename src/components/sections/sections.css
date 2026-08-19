@@ -853,10 +853,13 @@
      reserves room for it, so the two cannot drift apart. Do not replace this
      with a percentage or a cqh: the art's height would then depend on the
      section's height, which depends on this padding, which is a cycle.
-     Scaled up on 18 Aug (was clamp(88px, 26vw, 190px)). No re-export needed:
-     the source measures 93.4% mean saturation, so it has plenty of colour —
-     it was small and dim, not desaturated. */
-  --gap-art-h: clamp(124px, 38vw, 280px);
+     Scaled up twice on 18 Aug: 88/26vw/190 -> 124/38vw/280 -> 150/46vw/340.
+     ⚠️ The reserve below still has to clear the art, and the art now hangs 10%
+     of its height BELOW the section edge, so the visible part is 90% of this
+     value. The reserve is deliberately left at the full height rather than
+     trimmed to 90% — it costs a little space and guarantees the label can never
+     touch the fruit when the copy changes length. */
+  --gap-art-h: clamp(150px, 46vw, 340px);
   padding-block-end: calc(var(--z-section-y) + var(--gap-art-h));
   background: var(--z-surface-alt);
   border-block: 1px solid var(--z-border);
@@ -926,9 +929,20 @@
   height: var(--gap-art-h);
   z-index: -1;
   pointer-events: none;
-  /* Brighter (Emil, 17 Aug). It is decorative and sits behind nothing now that
-     the text clears it, so it can carry real colour. */
-  opacity: 0.62;
+  /* Emil, 18 Aug: bigger, brighter, and EMERGING from the bottom edge rather
+     than floating above a strip.
+     ⚠️ THE BEIGE STRIP HERE WAS BAKED IN, unlike the footer trees: this asset
+     has ~3% of completely transparent rows at its bottom (0.0% opaque from y=97%
+     down). Raising opacity could never fix that — there is nothing there to
+     make brighter. The art is offset DOWN by 10% of its own height and .z-gap
+     clips it, so the dead band goes below the section edge and the fruit is cut
+     by that edge as if rising out of it.
+     Brightness is opacity plus a light saturate. No re-export needed: the
+     source measures 93.4% mean saturation, so the colour was always there — it
+     was being shown at 62% over a cream ground. */
+  opacity: 0.95;
+  filter: saturate(1.06);
+  bottom: calc(var(--gap-art-h) * -0.1);
   background-repeat: no-repeat;
   background-position: center bottom;
   background-size: contain;
@@ -961,10 +975,22 @@
        the trees, and its bottom rows are 42% opaque.
      - NOT a CSS offset: the layer is inset:auto 0 0 with background-position
        center bottom, and the rendered image bottom measures 1px from the footer.
-   The trees already rest on the green. At 0.26 they were so nearly transparent
-   where they met a fully saturated block that the eye read the fade as a gap.
-   The fix is presence, not position. */
-.z-art--tree { opacity: 0.55; }
+   The trees already rest on the green — but their BOTTOM ROWS ARE NEARLY EMPTY:
+   coverage falls from 42% at 98% of the file to 3.1% at the very last row, so
+   the final few drawn pixels are effectively blank and read as a beige strip.
+   Two changes, and both are needed:
+     - opacity 0.26 -> 0.6, so the bases have enough presence to look planted;
+     - a NEGATIVE bottom offset, so the dead rows are pushed under the footer.
+   ⚠️ THE CROP RELIES ON z-index: -1. A negative-z element paints BEFORE in-flow
+   block backgrounds, so the footer's green paints over the overhang and cuts
+   the plants off cleanly at its top edge. Give this a positive z-index and the
+   overhang will hang over the green instead of being clipped by it.
+   Scaled with vw because the drawn height scales with width: the dead band is
+   ~2% of the image, which is ~4px at 390 and ~11px at 1280. */
+.z-art--tree {
+  opacity: 0.6;
+  bottom: calc(-8px - 0.6vw);
+}
 
 .is-in .z-art--tree {
   background-image: image-set(
