@@ -88,7 +88,10 @@ export default function StickyCta() {
             The second line still always renders, so the bar cannot resize under
             the user's thumb — it just renders growth's fallback instead. */}
         <p className="z-sticky-cta__text">
-          <strong>10g fiber per bite</strong>
+          {/* WAS "10g fiber per bite" — false, and by 5x: a serving is five
+              bites. Every nutrition figure is per serving. See the nutrition
+              guardrail at the top of copy.js. */}
+          <strong>10g fiber per serving</strong>
           <span>
             {hasCount ? `${count.toLocaleString()} ${proof.liveLabel}` : copy.countFallback}
           </span>
