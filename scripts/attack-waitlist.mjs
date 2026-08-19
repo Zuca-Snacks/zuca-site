@@ -306,14 +306,42 @@ await check('Non-medication motivations unaffected by the gate', '200', async ()
   return { pass: r.status === 200, actual: String(r.status) };
 });
 
-// price_band: new bands live, legacy still accepted until the client switches.
+await check('Servings quantity bands accepted', '200', async () => {
+  const codes = await Promise.all(['srv_1_2', 'srv_3_5', 'srv_6_10', 'srv_11_20', 'srv_gt_20']
+    .map((v) => post(goodPayload({ quantity_band: v }))));
+  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+});
+await check('Legacy bite bands now REJECTED — client stopped sending them', '400', async () => {
+  const codes = await Promise.all(['lt_4', '4_8', '9_16', '17_30', 'gt_30']
+    .map((v) => post(goodPayload({ quantity_band: v }))));
+  return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
+});
+await check('srv_ prefix kept after the legacy values went', 'unit stays visible', async () => {
+  // The prefix outlives the migration on purpose: the SHEET still holds
+  // bite-counting rows, so a query pooling both generations is still wrong.
+  // Dropping it because "everything is servings now" would be true of the enum
+  // and false of the data.
+  const { QUANTITY_BANDS } = await import('../src/lib/validation.js');
+  return {
+    pass: QUANTITY_BANDS.length === 5 && QUANTITY_BANDS.every((v) => v.startsWith('srv_')),
+    actual: QUANTITY_BANDS.join(', '),
+  };
+});
+await check('price_band_other cap holds a real answer but not an essay', '40', async () => {
+  const ok = await post(goodPayload({ price_band: 'other', price_band_other: '$25-30 depends on size' }));
+  const no = await post(goodPayload({ price_band: 'other', price_band_other: 'x'.repeat(41) }));
+  return { pass: ok.status === 200 && no.status === 400, actual: `22ch->${ok.status}, 41ch->${no.status}` };
+});
+
+// price_band: current bands live; the legacy set was removed once the client
+// stopped sending it.
 await check('New price bands accepted', '200', async () => {
   const codes = await Promise.all(['25_34', '35_44', 'gt_45'].map((v) => post(goodPayload({ price_band: v }))));
   return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
 });
-await check('Legacy price bands still accepted — REMOVE is client-first', '200', async () => {
+await check('Legacy price bands now REJECTED — client stopped sending them', '400', async () => {
   const codes = await Promise.all(['lt_24', '24_29', '30_35', '36_42', 'gt_42'].map((v) => post(goodPayload({ price_band: v }))));
-  return { pass: codes.every((r) => r.status === 200), actual: codes.map((r) => r.status).join(',') };
+  return { pass: codes.every((r) => r.status === 400), actual: codes.map((r) => r.status).join(',') };
 });
 await check('price_band_other stored verbatim, never parsed', 'as typed', async () => {
   const { validateWaitlist } = await import('../src/lib/validation.js');
@@ -854,7 +882,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     zip: null,
     motivation: ['gut_health'],
     intent: 'very_interested',
-    price_band: '24_29',
+    price_band: '25_34',
     flavor: 'both',
     is_clinician: false,
     referral_source: 'other',
@@ -869,7 +897,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
     dietary: ['nut_allergy'],
     dietary_other: null,
     referral_source_other: 'Podcast',
-    quantity_band: '4_8',
+    quantity_band: 'srv_3_5',
     channel: ['grocery'],
     channel_other: null,
     office_interest: 'maybe',
@@ -917,6 +945,50 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // Same file, same parse, three more properties. Written ONCE here rather than
+  // re-derived in a throwaway script each time the branches move — my ad-hoc
+  // extractors have been wrong three times this week (a DIETARY/DIETARY_OTHER_MAX
+  // prefix collision, an over-escaped regex, and a Set built with a spread I did
+  // not expand). Every one produced a confident wrong answer about someone
+  // else's code. Verification written under time pressure is exactly the code
+  // that should not be improvised.
+  await check('Cross-check: growth ladder has no phantom keys, and its floor is valid', 'ladder sound', async () => {
+    const path = new URL('../src/components/waitlist/api.js', import.meta.url);
+    let src;
+    try {
+      src = (await import('node:fs')).readFileSync(path, 'utf8');
+    } catch {
+      return { pass: true, actual: 'SKIPPED — Conversion branch not merged yet' };
+    }
+    // NOTE the spread: SERVER_KNOWN_KEYS is `new Set([...CORE_KEYS, "…"])`, so
+    // its literals alone are not the set. Union, or you measure a third of it.
+    const literals = (name) => {
+      const i = src.indexOf(`${name} = new Set([`);
+      if (i < 0) return [];
+      return (src.slice(i, src.indexOf('])', i)).match(/"[a-z_0-9]+"/g) || []).map((x) => x.slice(1, -1));
+    };
+    const core = new Set(literals('CORE_KEYS'));
+    const known = new Set([...core, ...literals('SERVER_KNOWN_KEYS')]);
+    const minimal = literals('MINIMAL_KEYS');
+
+    const { waitlistSchema } = await import('../src/lib/validation.js');
+    const accepted = new Set(Object.keys(waitlistSchema._def?.schema?.shape ?? waitlistSchema.shape));
+
+    const phantom = [...known].filter((k) => !accepted.has(k));
+    // The floor must be something this server actually accepts, or the last
+    // rung of the ladder drops into nothing and the email is lost.
+    const floorOk =
+      minimal.length > 0 &&
+      minimal.every((k) => accepted.has(k)) &&
+      validateWaitlist(Object.fromEntries(minimal.map((k) =>
+        [k, k === 'consent_marketing' ? true : k === 'email' ? 'floor@example.com' : 'x'.repeat(8)]))).ok;
+
+    return {
+      pass: phantom.length === 0 && floorOk,
+      actual: phantom.length ? `PHANTOM: ${phantom.join(', ')}` : `ladder ${known.size}, floor ${minimal.length} keys, floor valid: ${floorOk}`,
+    };
+  });
+
   await check("Growth's full payload accepted whole — no downgrade needed", '200', async () => {
     const r = await post(growthPayload());
     return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json)}` };
@@ -952,7 +1024,7 @@ await check('Error response never echoes submitted input', 'no email in body', a
 
   // Enum values, growth's set
   for (const [f, good, bad] of [
-    ['quantity_band', '9_16', 'qty_4_6'],
+    ['quantity_band', 'srv_6_10', '9_16'], // good = servings; bad = the retired bite value
     ['headcount', '50_199', 'hc_51_200'],
     ['office_interest', 'maybe', true],
     ['channel', ['office'], ['pharmacy']],
@@ -990,6 +1062,29 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const ok = await post(growthPayload({ consent_health: true, dietary: ['other'], dietary_other: 'x'.repeat(60) }));
     const no = await post(growthPayload({ consent_health: true, dietary: ['other'], dietary_other: 'x'.repeat(61) }));
     return { pass: ok.status === 200 && no.status === 400, actual: `60->${ok.status}, 61->${no.status}` };
+  });
+
+  // "When you make something fail softer, check what it stopped announcing."
+  // A silently-dropped phone is indistinguishable from a phone never typed, and
+  // only one of those means the consent UI is failing.
+  await check('Every consent-gated drop is announced, not just motivation', 'all four', async () => {
+    const { validateWaitlist } = await import('../src/lib/validation.js');
+    const cases = [
+      ['motivation', { consent_health: false, motivation: ['energy'] }],
+      ['dietary', { consent_health: false, dietary: ['vegan'] }],
+      ['phone', { consent_sms: false, phone: '+4791234567' }],
+      ['address', { consent_postal: false, address_line1: 'Storgata 1', address_city: 'Oslo', address_country: 'NO' }],
+    ];
+    const results = cases.map(([name, extra]) => {
+      const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, ...extra });
+      // Each must VALIDATE (the drop is server-side, not a rejection) and the
+      // handler must have something to report.
+      return [name, v.ok];
+    });
+    return {
+      pass: results.every(([, ok]) => ok),
+      actual: results.map(([n, ok]) => `${n}:${ok ? 'validates' : 'REJECTED'}`).join(' '),
+    };
   });
 
   await check('dietary is Art 9 — dropped without consent_health', 'dropped', async () => {

@@ -507,33 +507,30 @@ export function consentCoversMedication(resolvedText) {
  * what flag we set.
  */export const INTENTS = ['preorder_now', 'very_interested', 'curious', 'just_browsing'];
 /**
- * Two generations at once, on purpose.
+ * Price per 12-pack. The five predecessors were removed 2026-08-19 once the
+ * client stopped sending them; their boundaries differed, so rows written
+ * before the switch are a separate series and cannot be mapped onto these.
  *
- * The 2026-08-19 bands are `25_34`, `35_44`, `gt_45`, `other`. The five older
- * values stay accepted until the client stops sending them — my own ordering
- * rule in AGENTS_BRIEF.md: ADD server-first, REMOVE client-first. Dropping the
- * old set in the same commit would 400 every submission from a client that has
- * not shipped yet, and a value error is one the downgrade ladder cannot
- * recover.
- *
- * REMOVE the five legacy values once growth confirms the new chips are live.
- * They are marked rather than mixed so that clean-up is a deletion, not an
- * archaeology exercise — and the 137 existing rows keep meaning what they meant.
+ * `gt_45` rather than `45_plus` — it matches the `gt_42` / `gt_30` convention,
+ * and the $44–45 gap the rename was meant to close is a label problem, fixed by
+ * labelling it "$45 or more".
  */
-export const PRICE_BANDS = [
-  // Current
-  '25_34', '35_44', 'gt_45', 'other',
-  // Legacy — remove after the client switches
-  'lt_24', '24_29', '30_35', '36_42', 'gt_42',
-];
+export const PRICE_BANDS = ['25_34', '35_44', 'gt_45', 'other'];
 export const FLAVORS = ['choc_rasp_salt', 'maple_pecan', 'both', 'undecided'];
 /**
- * Monthly consumption, not units per order. Values are the Conversion agent's,
- * matching the question actually asked on the form — it forecasts reorder rate,
- * which is the number that matters, rather than basket size. Exhaustive by
- * design: no free-text escape.
+ * Servings per month. The bite-counting predecessors were removed 2026-08-19
+ * once the client stopped sending them.
+ *
+ * The `srv_` prefix stays even though nothing unprefixed is accepted any more,
+ * because THE SHEET STILL HOLDS THE OLD VALUES. Rows written before the switch
+ * carry `9_16` and friends, counting bites, and a serving is five bites — so
+ * pooling the two generations produces a number that means nothing. The prefix
+ * is what makes that obvious in a query rather than quiet.
+ *
+ * Dropping it later because "everything is servings now" would be true of the
+ * enum and false of the data.
  */
-export const QUANTITY_BANDS = ['lt_4', '4_8', '9_16', '17_30', 'gt_30'];
+export const QUANTITY_BANDS = ['srv_1_2', 'srv_3_5', 'srv_6_10', 'srv_11_20', 'srv_gt_20'];
 
 /** Company size, for the office-snack path. Bands, not a number — a headcount
  *  typed as free text is unusable for segmentation and more identifying. */
@@ -722,11 +719,18 @@ export const waitlistSchema = z
     // Freehand price. Stored verbatim, never parsed: "£30ish", "$25-30",
     // "40 NOK a bar" and "depends on the size" are all legitimate answers, and
     // a number extracted from any of them would be a guess presented as data.
-    // Same treatment as every other free-text box — normalised, control chars
-    // rejected, capped, and formula-sanitised before it reaches a cell. That
-    // last one matters more here than elsewhere: a price answer beginning "-"
-    // or "=" is a plausible thing for someone to type.
-    price_band_other: safeString(120).nullish().transform((v) => v || null),
+    // Normalised, control chars rejected, capped, and formula-sanitised before
+    // it reaches a cell — that last one matters more here than elsewhere, since
+    // a price answer beginning "-" or "=" is a plausible thing to type.
+    //
+    // 40, between the 120 I first shipped and the 16 the Conversion agent
+    // proposed. 120 invites prose into a field that should hold a figure. 16
+    // fails "$25-30 depends on size" at 22 characters, and an over-length
+    // answer is a 400 on the WHOLE submission — losing a signup to protect a
+    // price note is the wrong trade, and it is the failure this project has
+    // spent the week designing against. 40 holds every realistic answer and
+    // still has no room for an essay.
+    price_band_other: safeString(40).nullish().transform((v) => v || null),
 
     // SMS. Strict phone format — see phoneSchema for why this one does not
     // fail soft the way `zip` does.

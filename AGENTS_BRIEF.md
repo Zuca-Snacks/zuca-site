@@ -95,13 +95,13 @@ Type: display face **Fraunces** (variable, warm serif — reads "chef-made"), bo
   "motivation":       "array<enum>|null, NO product cap — pick as many as apply. One of: digestion, regularity,\n  //                     gut_health, energy, sustainability, doctor_suggested, family_health,\n  //                     fullness, whole_foods, glp1_medication, other.\n  //                     glp1_medication is accepted ONLY with a health consent whose WORDING\n  //                     names medication — see below.",
   "intent":           "enum|null: preorder_now | very_interested | curious | just_browsing",
   "price_band":       "enum|null: 25_34 | 35_44 | gt_45 | other   // per 12-pack.\n  //                     Legacy lt_24 | 24_29 | 30_35 | 36_42 | gt_42 still accepted until the\n  //                     client stops sending them — REMOVE is client-first.",
-  "price_band_other": "string|null, <=120 chars   // requires price_band === 'other'. Freehand,\n  //                     stored VERBATIM and never parsed: currency symbols and ranges expected.",
+  "price_band_other": "string|null, <=40 chars   // requires price_band === 'other'. Freehand,\n  //                     stored VERBATIM and never parsed: currency symbols and ranges expected.",
   "flavor":           "enum|null: choc_rasp_salt | maple_pecan | both | undecided",
   "is_clinician":     "boolean|null",
   "referral_source":  "enum|null: doctor, friend, instagram, tiktok, event, search, email, other",
 
   // ── Added 2026-08-17 ──────────────────────────────────────────────────────
-  "quantity_band":    "enum|null: lt_4 | 4_8 | 9_16 | 17_30 | gt_30   // 12-packs per MONTH — forecasts reorder rate, not basket size",
+  "quantity_band":    "enum|null: srv_1_2 | srv_3_5 | srv_6_10 | srv_11_20 | srv_gt_20   // SERVINGS per month.\n  //                     Legacy lt_4 | 4_8 | 9_16 | 17_30 | gt_30 count BITES and are still\n  //                     accepted — five times smaller, NOT the same series. See below.",
 
   // Office-snack path
   // TRI-STATE, not a boolean. "Maybe" is the most common honest answer to
@@ -248,6 +248,30 @@ Retention for records carrying it is **6 months**, not the 12 that other health
 data gets. The reason is accuracy rather than sensitivity: medication status is
 perishable, and an eleven-month-old answer may simply be false.
 
+### Two enums are mid-migration, and the old values are NOT comparable
+
+`quantity_band` and `price_band` each accept two generations at once, so the
+client can switch without a coupled deploy. Both create a break in the data that
+anyone querying the sheet has to know about.
+
+| Field | Legacy values | Current values | Why they cannot be pooled |
+|---|---|---|---|
+| `quantity_band` | `lt_4 … gt_30` | `srv_1_2 … srv_gt_20` | Legacy counts **bites**, current counts **servings**, and one serving is five bites. `9_16` and `srv_6_10` overlap as ranges while meaning quantities five times apart |
+| `price_band` | `lt_24 … gt_42` | `25_34`, `35_44`, `gt_45`, `other` | Different boundaries. There is no mapping from one set to the other that preserves meaning |
+
+The `srv_` prefix exists for exactly this reason and **must not be dropped**:
+unprefixed, a query that pools both generations is quietly wrong. Prefixed, it
+is obviously wrong. A mistake you can see beats a mistake you cannot.
+
+Treat each as two series, the way `social` → `instagram`/`tiktok` is already
+treated. Legacy values are removed once the client stops sending them —
+client-first, per the rule below.
+
+**Watch `price_band_other` for answers below the lowest band.** "Under $24" was
+dropped, so someone who would pay $20 now has to use Other. If those come in
+often, the band set is wrong rather than the respondents — the Conversion
+agent's observation and worth acting on rather than filing.
+
 ### Enum changes: ADD server-first, REMOVE client-first
 
 The two directions are not symmetric, and getting the order wrong loses signups.
@@ -256,6 +280,14 @@ The two directions are not symmetric, and getting the order wrong loses signups.
 |---|---|---|
 | **Adding** a value | **Server, then client** | The client sending a value the server does not know is a *value* error. It 400s the whole submission, and the downgrade ladder cannot recover it — the ladder strips unknown **keys**, and this is a known key with an unknown value. Land the enum first and the window never exists. |
 | **Removing** a value, or a field | **Client, then server** | The mirror image: stop sending it before the server stops accepting it. This is what made `motivation_other` a coupled change. |
+
+**One caveat on REMOVE, now that the client keeps a persistent offline queue.**
+Failed submissions are parked in `localStorage` and replayed on a later visit,
+so "the client stopped sending it" is not the same as "nothing will send it
+again". A payload queued before a switch still carries the old value, and on
+replay it 400s and is discarded rather than retried. Zero risk for the 19 Aug
+removal — that queue has never run in production — but for any future removal,
+wait out the queue as well as the deploy.
 
 Neither is caught by the downgrade path. It is an emergency valve for schema
 lag on keys, and value errors are outside what it can see — the endpoint

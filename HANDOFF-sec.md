@@ -618,6 +618,45 @@ unnecessarily, including two Art 9 dietary fields. A hand-maintained list of "wh
 accepts" drifts exactly like a hand-maintained fixture; the durable fix is to derive it, or to let
 the alarm catch the drift.
 
+## 3a-quater → The week's actual lesson: components verified, joins not
+
+Six failures across two branches, all one shape. Worth stating once rather than
+six times.
+
+| Component A | Component B | What broke |
+|---|---|---|
+| endpoint ✓ | `Code.gs` ✓ | the seam dropped `sms_phone` |
+| endpoint sanitiser ✓ | sheet force-text ✓ | composed, they double-prefixed a phone |
+| client cap 120 ✓ | server cap 40 ✓ | the gap between them was a 400 |
+| ladder rung 1 ✓ | rung 2 ✓ | the descent between them was unreachable |
+| `ui/OtherInput` ✓ | its call sites ✓ | `show` defaulted false, every box inert |
+| my extractor ✓ | the file it read ✓ | it read the wrong block, three times |
+
+**Why the joins go uncovered is structural, not careless** — the Conversion
+agent's diagnosis and the best thing anyone said this week: *the join is exactly
+where the ownership boundary sits*, so it falls in the gap between two people
+who each tested their own side thoroughly. Nobody is negligent and the defect is
+systematic.
+
+Three habits, theirs, that follow from it:
+
+1. **Test the transition, not the states.** Two green states say nothing about
+   the move between them.
+2. **When two layers hold the same constant, assert they are EQUAL** — not that
+   each is individually reasonable. 120 and 40 are both defensible numbers and
+   together they are a bug.
+3. **When adopting someone else's component, re-derive what your assertions
+   MEAN**, not merely whether they still pass.
+
+And one more, which caught a live defect on this branch within minutes of being
+stated: **when you make something fail softer, check what it stopped
+announcing.** A fix that makes failure survivable can also make it invisible,
+and invisible is worse, because nobody investigates a success. Applying it here
+found that `motivation` announced its consent-gated drop and `dietary`, `phone`
+and the six `address_*` fields did not — so a visitor who typed a phone and did
+not tick the box produced a row identical to one who typed nothing. Those are
+different facts, and only one of them says the consent UI is failing.
+
 ## 3a-ter → Failure mode worth naming: simultaneous convergence
 
 Recorded at the merge session's suggestion, because it cost a round trip and would have cost a
