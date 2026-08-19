@@ -733,6 +733,101 @@ business wording (`46acf5e` then `789ffdb`). Checked rather than assumed, becaus
 pair is exactly where a restored string gets lost: the wording there is byte-identical to this
 branch. No action needed — recorded so nobody re-checks it.
 
+## 0-TOMORROW-A → Address removal: the answer to the blocking question is **NO**
+
+**Asked by Emil 2026-08-19, blocking Conversion's step 2. Answered by running every
+combination, not by reading the rule.**
+
+> Would `address_country` alone have satisfied `mail_consent_without_address`?
+
+**No.** The rule is a conjunction of three:
+
+```js
+if (d.consent_postal && !(d.address_line1 && d.address_city && d.address_country))
+```
+
+```
+consent_postal = true, with:
+  (none)                    REFUSED      line1 + city              REFUSED
+  country                   REFUSED      line1 + country           REFUSED
+  line1                     REFUSED      city + country            REFUSED
+  city                      REFUSED      line1 + city + country    ACCEPTED
+```
+
+`address_postal_code` is **not part of the rule at all** — line1 + city + country with no
+postcode is accepted. `address_region` and `address_line2` likewise.
+
+So the S24 signup could not have been saved by any single field. It needed all three, and the
+one it was missing was the one behind a Select the person never opened.
+
+### What that means for the removal plan
+
+`consent_postal` and `postal_consent_text_version` are cut, and `mail_consent_without_address`
+goes with them — correct, because the rule exists only to stop a postal opt-in being claimed
+without something to post to. **No opt-in, no rule.** Nothing else references those two fields.
+
+The five address keys staying as **accepted-and-ignored** is right, and Agent 1's reason is the
+one that matters: a payload queued offline tonight can replay next week against a schema that no
+longer accepts it, and `.strict()` rejects on key PRESENCE — so removing them would 400 every
+queued submission from someone whose connection already failed them once. That is S24 recreated
+on exactly the people least able to notice.
+
+### ⚠️ ONE THING THE PLAN MUST CARRY, or it reintroduces today's bug
+
+**Accepted-and-ignored must still be REPORTED as dropped.** The whole of S24 was that we asked
+for a postal address, discarded it, and answered `ok:true`. If the five keys are accepted and
+silently thrown away, that is the same defect with the rule removed instead of the field.
+
+The machinery already exists — `dropped: ["address"]` on the 200, shipped in `d086b3e`. The
+removal work needs to keep `address` in that list whenever any of the five arrives, and the
+reason changes from *"you did not tick the box"* to *"we no longer collect this"*. Both are true
+sentences; silence is not.
+
+Storing nothing is a genuine data-protection improvement — the postal address is the most
+identifying thing the form ever collected. Ignoring it silently is not.
+
+## 0-TOMORROW → Two items parked by Emil on 2026-08-19, scheduled for 20 Aug
+
+Both are **built on the server and unbuilt on the client**. Neither is blocking; both are one
+small change away from done, and both are parked deliberately rather than forgotten.
+
+### T1 — `session_expired` client handling · **Conversion owns the change**
+
+Server side shipped in `0a52d48`. The endpoint already distinguishes them:
+
+```
+409 {"ok":false,"error":"duplicate"}         genuine returning signup — keep mapping to success
+409 {"ok":false,"error":"session_expired"}   valid token for this row, past the 2h TTL
+```
+
+**Why it matters:** someone who leaves the form open and returns three hours later completes
+every screen, is told *"Your spot is saved"*, and has everything after step 1 discarded. S23's
+shape in a two-hour window.
+
+Client side is small: a `SESSION_EXPIRED` result, `save()` stops mapping it to success, and one
+line of copy. Conversion has the copy and it is the accurate one — **their place IS saved, only
+steps 2–4 were lost**, so anything implying they must re-join is false and costs the person.
+
+Cannot be reissued server-side: minting a fresh token on a duplicate is the unauthenticated-write
+hole S23 exists to avoid. The 409 is correct; only the telling is missing.
+
+### T2 — targeted descent · **Conversion owns the change; the server support is done**
+
+`refused: [{field, rule, block?}]` shipped in `b5f6fa1`.
+
+⚠️ **The whole point is `block`, not `field`.** A descent driven by the named field is WORSE than
+the untargeted one it replaces — demonstrated end to end:
+
+```
+400  refused: [{field:"consent_postal", rule:"mail_consent_without_address", block:"postal"}]
+     drop just the named field, retry
+200  dropped: ["address"]     ← the address gone, and the opt-in with it
+```
+
+`field` is what was WRONG; `block` is what to DROP. They differ for every consent pairing,
+because the rule attaches to the consent and not the datum. **Descend by `block` when one is
+present; fall back to cheapest-loss-first ordering when it is absent.**
+
 ## 0a → AND: `npm run security:mutate` · **run this BEFORE trusting item 0**
 
 `security:compat` has had **three separate blindness bugs**, each of which reported
