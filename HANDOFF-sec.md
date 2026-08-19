@@ -733,6 +733,59 @@ business wording (`46acf5e` then `789ffdb`). Checked rather than assumed, becaus
 pair is exactly where a restored string gets lost: the wording there is byte-identical to this
 branch. No action needed — recorded so nobody re-checks it.
 
+## 0-TOMORROW-A → Address removal: the answer to the blocking question is **NO**
+
+**Asked by Emil 2026-08-19, blocking Conversion's step 2. Answered by running every
+combination, not by reading the rule.**
+
+> Would `address_country` alone have satisfied `mail_consent_without_address`?
+
+**No.** The rule is a conjunction of three:
+
+```js
+if (d.consent_postal && !(d.address_line1 && d.address_city && d.address_country))
+```
+
+```
+consent_postal = true, with:
+  (none)                    REFUSED      line1 + city              REFUSED
+  country                   REFUSED      line1 + country           REFUSED
+  line1                     REFUSED      city + country            REFUSED
+  city                      REFUSED      line1 + city + country    ACCEPTED
+```
+
+`address_postal_code` is **not part of the rule at all** — line1 + city + country with no
+postcode is accepted. `address_region` and `address_line2` likewise.
+
+So the S24 signup could not have been saved by any single field. It needed all three, and the
+one it was missing was the one behind a Select the person never opened.
+
+### What that means for the removal plan
+
+`consent_postal` and `postal_consent_text_version` are cut, and `mail_consent_without_address`
+goes with them — correct, because the rule exists only to stop a postal opt-in being claimed
+without something to post to. **No opt-in, no rule.** Nothing else references those two fields.
+
+The five address keys staying as **accepted-and-ignored** is right, and Agent 1's reason is the
+one that matters: a payload queued offline tonight can replay next week against a schema that no
+longer accepts it, and `.strict()` rejects on key PRESENCE — so removing them would 400 every
+queued submission from someone whose connection already failed them once. That is S24 recreated
+on exactly the people least able to notice.
+
+### ⚠️ ONE THING THE PLAN MUST CARRY, or it reintroduces today's bug
+
+**Accepted-and-ignored must still be REPORTED as dropped.** The whole of S24 was that we asked
+for a postal address, discarded it, and answered `ok:true`. If the five keys are accepted and
+silently thrown away, that is the same defect with the rule removed instead of the field.
+
+The machinery already exists — `dropped: ["address"]` on the 200, shipped in `d086b3e`. The
+removal work needs to keep `address` in that list whenever any of the five arrives, and the
+reason changes from *"you did not tick the box"* to *"we no longer collect this"*. Both are true
+sentences; silence is not.
+
+Storing nothing is a genuine data-protection improvement — the postal address is the most
+identifying thing the form ever collected. Ignoring it silently is not.
+
 ## 0-TOMORROW → Two items parked by Emil on 2026-08-19, scheduled for 20 Aug
 
 Both are **built on the server and unbuilt on the client**. Neither is blocking; both are one
