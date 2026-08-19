@@ -171,3 +171,43 @@ test('queued entries record the schema generation they were written under', asyn
     'a stale replay should be recognisable, not merely unlucky');
   assert.equal(entry.payload.email, 'a@b.com');
 });
+
+test('the floor still says what it discarded — a quiet loss is worse than a loud one', async () => {
+  // A stale replay lands as a bare email. It must not LOOK like a bare email:
+  // without downgraded_fields the floor would trade a visible failure for an
+  // invisible one, which is a worse trade than the failure.
+  const bodies = [];
+  const { mod } = await withFetch(async (_url, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body);
+    const stale = body.price_band === '24_29';
+    return { status: stale ? 400 : 200, json: async () => ({ ok: !stale }) };
+  });
+
+  await mod.submitWaitlist(payload({ price_band: '24_29', flavor: 'maple_pecan' }));
+
+  const landed = bodies.at(-1);
+  assert.ok(landed.downgraded_fields, 'the record that landed must declare itself downgraded');
+  assert.ok(landed.downgraded_fields.includes('price_band'),
+    'and must name the field that actually caused it');
+  assert.equal(landed.email, 'a@b.com');
+});
+
+test('every rung accumulates, so the floor names losses from earlier rungs too', async () => {
+  const bodies = [];
+  const { mod } = await withFetch(async (_url, init) => {
+    const body = JSON.parse(init.body);
+    bodies.push(body);
+    // Refuse until nothing but the floor is left.
+    const ok = !('flavor' in body) && !('price_band' in body);
+    return { status: ok ? 200 : 400, json: async () => ({ ok }) };
+  });
+
+  await mod.submitWaitlist(payload({ price_band: '24_29', flavor: 'maple_pecan', zip: '94305' }));
+
+  const landed = bodies.at(-1);
+  for (const field of ['price_band', 'flavor']) {
+    assert.ok(landed.downgraded_fields.includes(field),
+      `${field} was dropped somewhere on the way down and must still be named`);
+  }
+});

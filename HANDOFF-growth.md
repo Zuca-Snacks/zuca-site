@@ -367,6 +367,51 @@ Sea Salt, and shared-facility cross-contact.
 
 ---
 
+## 🧩 THE LESSON OF THE WEEK: VERIFY THE JOIN, NOT THE PARTS
+
+Every serious failure this week had both sides individually correct and the
+**seam between them** unverified. Not four lessons — one, four times:
+
+| Component A | Component B | What broke |
+|---|---|---|
+| endpoint ✓ | Code.gs ✓ | the seam dropped `sms_phone` |
+| client cap 120 ✓ | server cap 40 ✓ | the **gap between them** was a 400 |
+| rung 1 ✓ | rung 2 ✓ | the **descent between them** was unreachable |
+| `ui/OtherInput` ✓ | my call sites ✓ | `show` defaulted false — every box invisible |
+| my `type` default ✓ | `ui/Button` ✓ | the swap changed the default; Back submitted |
+
+In every case the parts passed their own tests. **A green component tells you
+nothing about the join it participates in**, and joins are where the ownership
+boundary sits — which is exactly why nobody's tests covered them.
+
+### What this changes about how to check
+
+- **Test the transition, not the states.** "Rung 1 ✓, rung 2 ✓" was true and
+  useless: each was verified by handing it a pre-stripped payload, so the
+  descent between them was never exercised. The bug was in the step.
+- **Two correct numbers can still be a defect.** A client cap and a server cap
+  are each defensible alone; only comparing them shows the 41–120 dead zone.
+  When two layers hold the same constant, assert they are EQUAL, not that each
+  is reasonable.
+- **When adopting someone else's component, re-derive what your assertions
+  mean.** Not whether they pass — what they *mean*. `count() > 0` meant
+  "usable" against my stand-in and "rendered but inert" against UX's, and it
+  passed identically both times.
+
+### The corollary that nearly bit here
+
+A fix that makes failure survivable can also make it invisible. The downgrade
+floor rescues the email — and had it landed as a *bare* email, it would have
+traded a loud loss for a quiet one, which is the worse trade.
+
+It does not: `downgraded_fields` is populated at every rung including the
+floor, so a rescued record declares itself and names what it lost. Two tests
+lock that, including one asserting the floor still names a field dropped at an
+*earlier* rung. **When you make something fail softer, check what it stopped
+announcing.**
+
+---
+
 ## ⚠️ RULE: assert on visibility, never on presence
 
 **For anything gated on a prop, assert that it is visible and interactable. A
