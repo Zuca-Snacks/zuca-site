@@ -397,3 +397,43 @@ test('the business consent id keeps its purpose and region tokens', async () => 
   // and their generator rebuilds from this file, so the two cannot drift.
   assert.match(businessConsent().version, /^biz-eea-\d{4}-\d{2}-\d{2}-[0-9a-f]{8}$/);
 });
+
+test('an empty signup sends no key a deployed server has not seen', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const keys = Object.keys(mod.buildPayload({
+    email: 'a@b.co', consentMarketing: true, consentTextVersion: 'x',
+    formRenderTs: Date.now() - 9000,
+  })).sort();
+
+  // ⚠️ THE UNSTATED SECOND HALF OF THE ORDERING RULE.
+  // `waitlistSchema` is .strict(), and strict rejects on key PRESENCE, not on
+  // value — so `newfield: null` from a client whose server predates the field
+  // is not "ignored", it is `Unrecognized key` and a 400 for EVERY submission.
+  // ADD-goes-server-first is therefore only half the rule; the other half is
+  // that the client must not emit the key until that server is actually
+  // deployed. A half-merge holds that window open indefinitely.
+  //
+  // Verified against sec@8d6bf01, the real pre-S22 schema: this exact payload
+  // is ACCEPTED, and the same payload with `business_enquiry: false` added is
+  // rejected outright. That one-key difference is a working form versus a
+  // total outage, and the value being false changes nothing.
+  //
+  // So: every key here is one an already-deployed server accepts. A new field
+  // must either land here only after its server is live, or — better, and what
+  // the business keys do — be omitted entirely unless it carries a value.
+  // If this list changed, that is the question to answer before relaxing it.
+  assert.deepEqual(keys, [
+    'address_city', 'address_country', 'address_line1', 'address_line2',
+    'address_postal_code', 'address_region', 'channel', 'channel_other',
+    'company', 'consent_health', 'consent_marketing', 'consent_postal',
+    'consent_sms', 'consent_text_version', 'dietary', 'dietary_other', 'email',
+    'flavor', 'form_render_ts', 'headcount', 'hp_field', 'intent',
+    'is_clinician', 'motivation', 'motivation_consent_text_version',
+    'motivation_other', 'name', 'office_interest', 'page_path', 'phone',
+    'postal_consent_text_version', 'price_band', 'price_band_other',
+    'quantity_band', 'referral_source', 'referral_source_other',
+    'research_optin', 'sms_consent_text_version', 'utm', 'zip',
+  ]);
+  // And the business keys must NOT be among them — the whole point.
+  assert.equal(keys.some((k) => k.startsWith('business_')), false);
+});

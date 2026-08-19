@@ -421,6 +421,35 @@ go stale: edit the wording and the id, the registration and the gate all move
 together. Confirmed by running their generator against this repo's copy.js —
 it emits exactly the id this client mints.
 
+### ⚠️ `.strict()` REJECTS ON KEY PRESENCE, NOT ON VALUE — the ordering rule's missing half
+
+The rule says ADD goes server-first. Its unstated second half is that **the
+client must not emit the key until the server carrying it is deployed.** The
+window between two deploys is not "the new field is ignored" — it is
+`Unrecognized key` and a 400 on *every* submission. Measured against
+`sec@8d6bf01`, the real pre-S22 schema, with this client's actual payloads:
+
+```
+personal signup, keys omitted           ACCEPTED   ← what we ship
+same payload + business_enquiry: false  REJECTED   Unrecognized keys
+```
+
+One key, value `false`, nobody ticking anything: a working form versus a total
+outage for everyone. Which is why both business keys are **omitted entirely
+unless the box is ticked** — an ordinary signup is byte-identical to what
+shipped before S22, so an old server accepts it and only the office path
+degrades.
+
+It also compounds with the ladder fix. The keys are in CORE and MINIMAL, so
+against an old server the retry cannot strip its way out: it fails identically
+at every rung and burns three round trips doing it. Correct for a current
+server, useless against a stale one — the floor cannot rescue a key the server
+has never heard of.
+
+`test/failure-paths.test.mjs` pins the unconditional key list for this reason.
+A new always-present key fails that test, which is the moment to ask whether
+its server is deployed yet.
+
 **⚠️ THE ONE REMAINING DEPENDENCY IS DEPLOY ORDER.** The id resolves only where
 both sides are present. A deploy carrying this client without `sec@6efe051`
 offers the checkbox and then refuses the submission anyway. It fails closed —
