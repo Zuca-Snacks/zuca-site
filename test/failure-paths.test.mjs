@@ -287,3 +287,32 @@ test('a double-dot typo is named as a typo, not as a policy rejection', async ()
   // has to be caught client-side or the person gets told about shared inboxes.
   assert.notEqual(step1.errors.typo, step1.errors.validation);
 });
+
+test('413 climbs the ladder — "do not retry unchanged" means change it', async () => {
+  const sizes = [];
+  const { mod } = await withFetch(async (_url, init) => {
+    const body = init.body;
+    sizes.push(body.length);
+    // Refuse anything still carrying the optional fields, as an over-cap body would.
+    const big = JSON.parse(body).flavor != null;
+    return { status: big ? 413 : 200, json: async () => ({ ok: !big }) };
+  });
+
+  const r = await mod.submitWaitlist(payload({ flavor: 'maple_pecan', company: 'Acme' }));
+
+  assert.equal(r.status, mod.RESULT.OK, 'a 413 must not cost the signup');
+  assert.ok(sizes.length > 1, 'it should have descended rather than returning the 413');
+  assert.ok(sizes.at(-1) < sizes[0], 'and the retry must actually be SMALLER — that is the remedy');
+});
+
+test('there is no sendBeacon in the client', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../src/components/waitlist/', import.meta.url);
+  const hits = readdirSync(dir)
+    .filter((f) => /\.(js|jsx)$/.test(f))
+    .filter((f) => /sendBeacon\s*\(/.test(readFileSync(new URL(f, dir), 'utf8')));
+  // sendBeacon posts text/plain, which earns a 415 — a status the ladder does
+  // not climb. A queue flushed with it drops signups inside the mechanism
+  // built to stop signups being dropped.
+  assert.deepEqual(hits, [], 'sendBeacon would make queue flushes fail as 415');
+});

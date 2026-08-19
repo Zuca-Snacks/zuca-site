@@ -293,9 +293,9 @@ Draft, to be reviewed rather than shipped as-is:
 
 > **"I'm asking on behalf of my workplace."**
 > This is a business enquiry, not a personal signup. We'll email this address
-> about stocking Zuca at work — not about anything else — and anyone can stop
-> it by replying. Because it's a shared inbox, we won't add it to our personal
-> mailing list.
+> about stocking Zuca at work — nothing else — and **anyone reading this inbox
+> can stop it by replying to that email**. Because it's a shared address, we
+> won't add it to our personal mailing list.
 
 Three things that wording is doing deliberately:
 
@@ -307,6 +307,22 @@ Three things that wording is doing deliberately:
 3. **States the exclusion out loud** — these rows never join the personal send
    list. Security's recommendation is to flag the row; the promise should be
    visible to the person, not only enforced in the sheet.
+
+**"Anyone reading this inbox"** rather than "you", on security's point: with a
+shared mailbox, the person who wants it stopped is often not the person who
+signed up. An opt-out only the original sender can exercise is not an opt-out
+for a shared address.
+
+### The narrowing is a constraint on us, not a courtesy
+
+Worth stating beside the wording so nobody later reads these as a general list
+with a note attached: **a mailbox nobody personally consented from can only
+support a purpose that is genuinely about the organisation.** The moment we mail
+`office@` about a consumer launch, the basis evaporates — not weakens, evaporates,
+because the only thing making it lawful was that the enquiry was the company's.
+
+So the exclusion is not a preference we could revisit when the list looks thin.
+It is the condition the wording is standing on.
 
 It would mint its own version id (`biz-…`) through the existing fingerprint, so
 the evidence trail works unchanged.

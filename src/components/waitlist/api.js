@@ -342,6 +342,15 @@ export async function drainQueue() {
 
 // ─── Transport ───────────────────────────────────────────────────────────────
 
+/**
+ * The endpoint emits nine statuses, not the five the contract used to list.
+ * 403 (origin), 405 (method), 415 (content type) are all OUR faults and are not
+ * reachable from our own pages — 415 in particular cannot happen here because
+ * we post JSON with an explicit Content-Type via fetch. `navigator.sendBeacon`
+ * would send text/plain and earn a 415 that the ladder ignores, so the queue
+ * must never be flushed with it. There is no sendBeacon in this codebase and
+ * there should not be one.
+ */
 function statusToResult(status) {
   if (status === 200 || status === 201 || status === 204) return RESULT.OK;
   if (status === 409) return RESULT.DUPLICATE;
@@ -374,7 +383,14 @@ async function post(payload, rung = 0) {
     // "nothing to strip" leaves the real failure — a bad VALUE in a key every
     // rung keeps — unaddressed. Descend to the next rung that actually changes
     // the record, or give up honestly.
-    if (res.status === 400) {
+    /* 413 climbs the ladder too, not just 400.
+       The brief says of a 413: "do not retry unchanged" — and the ladder is the
+       one thing here that retries CHANGED. Stripping fields makes the body
+       smaller, which is the actual remedy for a body over the cap, so this is
+       the one status where descending is not a workaround but the fix.
+       Without it a 413 mapped to SERVER, the person pressed the button again,
+       and sent the identical oversized payload the brief warns against. */
+    if (res.status === 400 || res.status === 413) {
       for (let next = rung; next < LADDER.length; next += 1) {
         const allowed = LADDER[next];
         const dropped = droppedBy(payload, allowed);
