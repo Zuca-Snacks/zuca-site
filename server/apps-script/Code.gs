@@ -194,7 +194,12 @@ function sanitizeCell_(value, column) {
   if (column && FORCE_TEXT.indexOf(column) !== -1) {
     var forced = String(value).replace(/[\r\n\t]/g, ' ').trim();
     if (forced === '') return '';
-    return /^['=+\-@]/.test(forced) ? "'" + forced : "'" + forced;
+    // Do NOT re-prefix something already prefixed. The Vercel function runs its
+    // own formula sanitiser first, so a phone arrives here as "'+47…" — adding
+    // a second apostrophe stored "''+47…", which Sheets renders as a visible
+    // leading quote inside the number. Two correct guards composing into a
+    // wrong result; the second one has to be idempotent.
+    return forced.charAt(0) === "'" ? forced : "'" + forced;
   }
   var s = String(value).replace(/[\r\n\t]/g, ' ').trim();
   if (s.length > limit) s = s.slice(0, limit);
@@ -424,7 +429,13 @@ function doPost(e) {
       dietary_other: payload.consent_health ? payload.dietary_other : '',
       research_optin: payload.research_optin,
 
-      sms_phone: payload.consent_sms ? payload.phone : '',
+      // `sms_phone`, not `phone`. The Vercel function renames it on the wire so
+      // the consent-gated number never lands in the legacy `phone` column that
+      // holds 137 numbers captured without consent. Reading `payload.phone`
+      // here silently wrote nothing — the endpoint had already renamed it.
+      // Found by the local test drive, because it was the first thing to run
+      // both halves in sequence; each suite tested its own side of this seam.
+      sms_phone: payload.consent_sms ? payload.sms_phone : '',
       consent_sms: payload.consent_sms,
       sms_consent_text_version: payload.sms_consent_text_version,
 

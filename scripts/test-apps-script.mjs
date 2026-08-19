@@ -301,7 +301,10 @@ console.log('\n  Scenario B2 — the extension fields\n');
   const sheet = makeSheet(OLD_HEADERS);
   const { response } = post(sheet, {
     email: 'ola@example.no',
-    phone: '+4791234567',
+    // `sms_phone` — the wire name the endpoint sends. Writing `phone` here is
+    // what let the seam bug hide: the fixture agreed with Code.gs and both
+    // disagreed with the endpoint.
+    sms_phone: '+4791234567',
     consent_sms: true,
     address_line1: 'Storgata 1',
     address_postal_code: '0150',
@@ -329,7 +332,7 @@ console.log('\n  Scenario B3 — consents withheld, gated data must not land\n')
   const sheet = makeSheet(OLD_HEADERS);
   post(sheet, {
     email: 'ola@example.no',
-    phone: '+4791234567',
+    sms_phone: '+4791234567',
     consent_sms: false,
     address_line1: 'Storgata 1',
     consent_postal: false,
@@ -373,6 +376,87 @@ console.log('\n  Scenario B5 — downgrade visibility\n');
   check('dropped field names recorded, so the row looks incomplete',
     String(cellFor(sheet, 'downgraded_fields').value).includes('dietary'),
     JSON.stringify(cellFor(sheet, 'downgraded_fields').value));
+}
+
+console.log('\n  Scenario S — THE SEAM: endpoint output fed straight into Code.gs\n');
+{
+  // Every other scenario hand-writes a payload and posts it to Code.gs, which
+  // tests Code.gs against what the test author BELIEVES the endpoint sends.
+  // This one captures what api/waitlist.js actually forwards and feeds that in.
+  // The gap between those two is where sms_phone was silently dropped.
+  const http = await import('node:http');
+  const captured = [];
+  const up = http.createServer((q, r) => {
+    let b = '';
+    q.on('data', (c) => (b += c));
+    q.on('end', () => {
+      captured.push(JSON.parse(b));
+      r.setHeader('Content-Type', 'application/json');
+      r.end(JSON.stringify({ ok: true, count: 138 }));
+    });
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+
+  process.env.SHEETS_WEBHOOK_URL = `http://127.0.0.1:${up.address().port}/exec`;
+  process.env.SHEETS_WEBHOOK_TOKEN = 'test-token';
+  process.env.EMAIL_HASH_PEPPER = 'x'.repeat(64);
+  const { default: endpoint } = await import(`../api/waitlist.js?seam=${Date.now()}`);
+  const api = http.createServer((q, r) => {
+    q.headers['x-real-ip'] = '51.175.3.3';
+    q.headers['x-vercel-ip-country'] = 'NO';
+    endpoint(q, r);
+  });
+  await new Promise((r) => api.listen(0, '127.0.0.1', r));
+
+  const res = await fetch(`http://127.0.0.1:${api.address().port}/api/waitlist`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: 'seam@example.no', consent_marketing: true,
+      phone: '+4791234567', consent_sms: true, sms_consent_text_version: '2026-08-17.sms.a',
+      consent_postal: true, address_line1: 'Storgata 1', address_city: 'Oslo',
+      address_postal_code: '0150', address_country: 'NO',
+      postal_consent_text_version: '2026-08-17.postal.a',
+      consent_health: true, motivation: ['gut_health'], dietary: ['nut_allergy'],
+      motivation_consent_text_version: '2026-08-15.health.a',
+      utm: { source: 'newsletter' }, form_render_ts: Date.now() - 9000,
+    }),
+  });
+  api.close(); up.close();
+
+  check('endpoint accepted', res.status === 200, `HTTP ${res.status}`);
+  const forwarded = captured[0];
+  check('endpoint forwarded a payload', Boolean(forwarded), forwarded ? `${Object.keys(forwarded).length} keys` : 'NOTHING');
+
+  if (forwarded) {
+    const sheet = makeSheet(OLD_HEADERS);
+    post(sheet, forwarded, forwarded.token);
+    // Anything the endpoint gated ON must survive the trip. A key renamed on
+    // one side of the seam and not the other lands as an empty cell.
+    // Double-sanitising is the failure this catches: both layers guard formula
+    // injection correctly, and composing them stored "''+47…".
+    for (const col of ['sms_phone', 'address_postal_code', 'zip']) {
+      const v = String(cellFor(sheet, col).value);
+      check(`seam: ${col} sanitised exactly once`, !v.startsWith("''"), JSON.stringify(v || '(empty)'));
+    }
+
+    for (const [col, why] of [
+      ['sms_phone', 'consent-gated phone'],
+      ['address_line1', 'consent-gated address'],
+      ['address_postal_code', 'international postal code'],
+      ['dietary', 'Art 9 dietary'],
+      ['motivation', 'Art 9 motivation'],
+      ['utm_source', 'decomposed utm'],
+      ['email_handle', 'confirmation lookup key'],
+      ['consent_receipt', 'evidence blob'],
+    ]) {
+      const c = cellFor(sheet, col);
+      check(`seam: ${col} survives (${why})`, !c.missing && String(c.value) !== '', JSON.stringify(String(c.value).slice(0, 46)));
+    }
+    check('seam: confirmed written as FALSE, not blank',
+      String(cellFor(sheet, 'confirmed').value) === 'FALSE',
+      JSON.stringify(cellFor(sheet, 'confirmed').value));
+  }
 }
 
 console.log('\n  Scenario C — health data without the separate consent\n');
