@@ -30,6 +30,12 @@ secrets/
 src/lib/consent-registry.generated.js
 .testdrive.pid
 
-# Test-drive rig output — real submissions, never committed (see DECISIONS.md).
+# Test-drive rig output. Generated, and it captures whatever the run captured —
+# consent receipts, IP prefixes, user agents, and the email actually submitted.
+# The copies committed here were synthetic (RFC 5737 addresses, example.com
+# handles), but the file is REGENERATED on every run: tracking it means the next
+# person's real submission is committed by whoever runs the rig next. That is
+# not hypothetical — it is how a real address reached polish/round-2, on a repo
+# that gh reports as PUBLIC.
 testdrive-rows.jsonl
 testdrive-sheet.json
