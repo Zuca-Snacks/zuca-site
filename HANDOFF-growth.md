@@ -258,6 +258,80 @@ growth to defend against, only signal dilution.
 
 ---
 
+## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — Emil's call)
+
+Two things we built are in direct conflict, and neither team could see it alone.
+
+Step 2 asks **"Would you want these as an office snack?"** and then collects a
+company name and headcount. The server's `ROLE_LOCALPARTS` rejects the address a
+small company actually uses:
+
+```
+office@bakeriet.no    REJECTED   role_address
+team@ · contact@ · info@ · sales@   REJECTED
+post@bakeriet.no      OK   ← the standard Norwegian business prefix
+emil@bakeriet.no      OK
+```
+
+Setting `office_interest`, `company` and `headcount` does not help: the address
+is rejected before any of them is read. **We invite someone to tell us about
+their workplace and then refuse the workplace address**, and the arbitrariness
+is visible to anyone who tries twice — `post@` works, `office@` does not.
+
+The blocklist is not wrong. It exists because a shared mailbox is a bad
+marketing contact. The conflict is that we later built a path where a shared
+mailbox is exactly the right contact.
+
+### If Emil takes it, the consent wording is ours — draft ready
+
+**A shared mailbox cannot give Art 7(1) consent as an individual.** We cannot
+demonstrate *who* agreed, and the person who eventually reads the mail may never
+have seen the form. So these rows need a different basis and different wording —
+not the personal marketing consent with a wider blocklist.
+
+Draft, to be reviewed rather than shipped as-is:
+
+> **"I'm asking on behalf of my workplace."**
+> This is a business enquiry, not a personal signup. We'll email this address
+> about stocking Zuca at work — nothing else — and **anyone reading this inbox
+> can stop it by replying to that email**. Because it's a shared address, we
+> won't add it to our personal mailing list.
+
+Three things that wording is doing deliberately:
+
+1. **Names it as a business enquiry**, so the basis is business contact rather
+   than personal consent.
+2. **Narrows the purpose to the office conversation.** The reason a shared
+   mailbox is a bad marketing contact is that consent cannot follow the person;
+   narrowing the purpose is what makes it defensible.
+3. **States the exclusion out loud** — these rows never join the personal send
+   list. Security's recommendation is to flag the row; the promise should be
+   visible to the person, not only enforced in the sheet.
+
+**"Anyone reading this inbox"** rather than "you", on security's point: with a
+shared mailbox, the person who wants it stopped is often not the person who
+signed up. An opt-out only the original sender can exercise is not an opt-out
+for a shared address.
+
+### The narrowing is a constraint on us, not a courtesy
+
+Worth stating beside the wording so nobody later reads these as a general list
+with a note attached: **a mailbox nobody personally consented from can only
+support a purpose that is genuinely about the organisation.** The moment we mail
+`office@` about a consumer launch, the basis evaporates — not weakens, evaporates,
+because the only thing making it lawful was that the enquiry was the company's.
+
+So the exclusion is not a preference we could revisit when the list looks thin.
+It is the condition the wording is standing on.
+
+It would mint its own version id (`biz-…`) through the existing fingerprint, so
+the evidence trail works unchanged.
+
+**Not built, not requested.** Recorded so the wording is not being drafted from
+scratch on the day the decision lands.
+
+---
+
 ## ⚖️ FOR COOLEY REVIEW — two items, both added on instruction, neither to be assumed safe
 
 Emil instructed both of these on 18 Aug 2026 and asked that counsel **bless them

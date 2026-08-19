@@ -25,7 +25,7 @@ import { ChipMultiGroup, ChipRadioGroup } from "./chipGroups.jsx";
 import { OtherInput, Progress } from "../ui/index.js";
 import {
   ADDRESS, CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, FLAVOR, INTENT,
-  IS_CLINICIAN, MOTIVATION, OFFICE_INTEREST, otherMaxFor, PHONE, PRICE_BAND,
+  IS_CLINICIAN, MOTIVATION, NAME, OFFICE_INTEREST, otherMaxFor, PHONE, PRICE_BAND,
   QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
@@ -42,7 +42,7 @@ const SCREENS = copy.screens;
 // whole submission.
 const isE164 = (raw) => toE164(raw) !== null;
 
-export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
+export default function Step2Profile({ email, formRenderTs, onDone, onSkip, onName }) {
   const uid = useId();
   const [screen, setScreen] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -58,6 +58,7 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
   // One flat bag. Screens read and write slices of it; the payload builder is
   // the only place that knows the wire shape.
   const [v, setV] = useState({
+    name: "",
     flavor: null, quantity_band: null,
     intent: null, price_band: null,
     referral_source: null, referral_source_other: "",
@@ -219,6 +220,22 @@ export default function Step2Profile({ email, formRenderTs, onDone, onSkip }) {
       <form onSubmit={advance} noValidate>
         {s.id === "product" && (
           <>
+            {/* First, and deliberately: the lowest-effort question in the flow.
+                Opening with an easy one lifts completion on everything after
+                it. `optional` is not decoration — the privacy policy promises
+                only email and consent are required. */}
+            <Field
+              id={`name-${uid}`} label={NAME.label} optional hint={NAME.hint}
+            >
+              {(props) => (
+                <Input
+                  {...props} type="text" autoComplete="given-name"
+                  maxLength={NAME.maxLength} placeholder={NAME.placeholder}
+                  value={v.name}
+                  onChange={(e) => { set({ name: e.target.value }); onName?.(e.target.value); }}
+                />
+              )}
+            </Field>
             <ChipRadioGroup
               legend={FLAVOR.label} name="flavor" options={FLAVOR.options} value={v.flavor}
               onChange={(x) => { set({ flavor: x }); if (x) note(FLAVOR.key, x); }}

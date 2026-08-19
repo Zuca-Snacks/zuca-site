@@ -527,6 +527,12 @@ export const step1 = {
   errors: {
     empty: "Enter your email and we'll save your spot.",
     invalid: "That email doesn't look right — mind checking it?",
+    // A double dot is a plain typo (emil..nordin@gmail.com) and deserves to be
+    // told so. The server rejects it, but its 400 body is {ok, error} only —
+    // the rule name goes to its audit LOG, not to us — so we cannot branch on
+    // the response. Catching it here is better anyway: no round trip, and the
+    // message arrives while their hands are still on the field.
+    typo: "There's a double dot in there — looks like a typo?",
     consent: "Tick the box so we're allowed to email you.",
     rate_limited: "That's a lot of tries. Give it a minute and we'll take it from there.",
     // ⚠️ ONLY `offline` may say the address is saved. It is the only failure
@@ -534,6 +540,20 @@ export const step1 = {
     // unreachable endpoint — none of which stored anything, so none of which
     // may imply otherwise. A false reassurance is worse than a blunt error:
     // it makes people stop trying.
+    // ⚠️ A 400 ON STEP 1 IS ALMOST CERTAINLY THE EMAIL. The only fields there
+    // are the address, the consent (blocked client-side if unticked) and our
+    // own version string — so the address is the one thing the person can
+    // change. The server deliberately will not say WHICH field failed, to
+    // avoid an enumeration oracle; naming the likely cause is our inference
+    // from what step 1 contains, not the server leaking it.
+    //
+    // This must never fall through to `server`. My permissive regex passes
+    // role addresses, disposable domains and control characters that the
+    // server then rejects — and "that's our end, not yours" tells someone
+    // with a perfectly normal-LOOKING address that there is nothing to fix,
+    // so they never fix it and never sign up.
+    validation:
+      "That address didn't work. Shared inboxes like info@ or admin@ and temporary email services aren't accepted — a personal address will be.",
     server: "That's our end, not yours — your email hasn't saved yet. Give it another go?",
     offline: "You're offline. We've saved your email here and we'll send it the moment you're back.",
   },
@@ -622,6 +642,11 @@ export const confirmation = {
   // responsible for our production run — pressure they did not ask for — and
   // promised something outside our control.
   title: "Welcome to Zuca.",
+  // Used only when a name was given. The unnamed version has to stay good on
+  // its own: the question is optional, so plenty of people will never answer
+  // it, and a greeting that only works with a name is a greeting that fails
+  // for everyone who skipped.
+  titleNamed: "Welcome to Zuca, {name}.",
   position: "You're the {position} member of our family.",
   titleFallback: "Welcome to Zuca.",
   duplicate: "You're already one of us.",

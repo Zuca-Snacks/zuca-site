@@ -250,3 +250,69 @@ test('a signup on top of a real count still shows the +1', async () => {
   store.bumpCount();
   assert.equal(store.getCount().value, 144, 'the optimistic bump is the point when there IS a base');
 });
+
+/* ─── A rejected address must say so ────────────────────────────────────────
+ * The client regex is deliberately permissive — the server is the authority —
+ * so it passes role addresses, disposable domains and control characters the
+ * server then rejects. Falling through to the `server` copy tells someone with
+ * a normal-LOOKING address that nothing is wrong with it. */
+
+test('400 maps to its own message, never the "our end" one', async () => {
+  const { step1 } = await import('../src/content/copy.js');
+  assert.ok(step1.errors.validation, 'RESULT.VALIDATION needs a message of its own');
+  assert.notEqual(step1.errors.validation, step1.errors.server,
+    'a rejected address is the visitor\'s to fix; "our end" says it is not');
+  assert.match(step1.errors.validation, /address|email/i, 'it should name what to look at');
+});
+
+test('the email is NOT control-stripped — repairing an identifier is worse than rejecting it', async () => {
+  const { mod } = await withFetch(json(200));
+  const dirty = `a${String.fromCharCode(7)}@b.com`;
+  const body = mod.buildPayload({ email: dirty, consentMarketing: true });
+  // Stripping here would turn one address into a DIFFERENT, valid one and then
+  // mail it — an accuracy failure wearing a convenience costume. Free-text
+  // fields are cosmetic; an identifier is not.
+  assert.ok(body.email.includes(String.fromCharCode(7)),
+    'the control character must survive so the server can reject the address');
+  const clean = mod.buildPayload({ email: 'A@B.com ', consentMarketing: true });
+  assert.equal(clean.email, 'a@b.com', 'trim and lowercase still apply');
+});
+
+test('a double-dot typo is named as a typo, not as a policy rejection', async () => {
+  const { step1 } = await import('../src/content/copy.js');
+  assert.ok(step1.errors.typo, 'the commonest email typo deserves its own message');
+  assert.match(step1.errors.typo, /typo|double dot/i);
+  // The server rejects ".." as a generic validation failure and its 400 body is
+  // {ok, error} only — the rule name goes to its audit log, not to us. So this
+  // has to be caught client-side or the person gets told about shared inboxes.
+  assert.notEqual(step1.errors.typo, step1.errors.validation);
+});
+
+test('413 climbs the ladder — "do not retry unchanged" means change it', async () => {
+  const sizes = [];
+  const { mod } = await withFetch(async (_url, init) => {
+    const body = init.body;
+    sizes.push(body.length);
+    // Refuse anything still carrying the optional fields, as an over-cap body would.
+    const big = JSON.parse(body).flavor != null;
+    return { status: big ? 413 : 200, json: async () => ({ ok: !big }) };
+  });
+
+  const r = await mod.submitWaitlist(payload({ flavor: 'maple_pecan', company: 'Acme' }));
+
+  assert.equal(r.status, mod.RESULT.OK, 'a 413 must not cost the signup');
+  assert.ok(sizes.length > 1, 'it should have descended rather than returning the 413');
+  assert.ok(sizes.at(-1) < sizes[0], 'and the retry must actually be SMALLER — that is the remedy');
+});
+
+test('there is no sendBeacon in the client', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = new URL('../src/components/waitlist/', import.meta.url);
+  const hits = readdirSync(dir)
+    .filter((f) => /\.(js|jsx)$/.test(f))
+    .filter((f) => /sendBeacon\s*\(/.test(readFileSync(new URL(f, dir), 'utf8')));
+  // sendBeacon posts text/plain, which earns a 415 — a status the ladder does
+  // not climb. A queue flushed with it drops signups inside the mechanism
+  // built to stop signups being dropped.
+  assert.deepEqual(hits, [], 'sendBeacon would make queue flushes fail as 415');
+});

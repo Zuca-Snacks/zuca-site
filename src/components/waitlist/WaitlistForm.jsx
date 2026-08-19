@@ -96,6 +96,7 @@ export default function WaitlistForm({ location = "hero" }) {
           <Step2Profile
             email={shared.email}
             formRenderTs={formRenderTs}
+            onName={(n) => setState({ name: n })}
             onDone={handleStep2Done}
             onSkip={handleStep2Skip}
           />
@@ -106,6 +107,7 @@ export default function WaitlistForm({ location = "hero" }) {
         <Suspense fallback={<Skeleton />}>
           <Confirmation
             position={shared.position}
+            name={shared.name}
             duplicate={shared.duplicate}
             profileSaved={shared.profileSaved}
           />
