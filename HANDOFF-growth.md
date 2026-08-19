@@ -258,6 +258,33 @@ growth to defend against, only signal dilution.
 
 ---
 
+## 📧 THE REPO IS PUBLIC, SO EVERY EXAMPLE ADDRESS IS A PUBLISHED ONE
+
+Confirmed rather than assumed — `gh repo view` reports `Zuca-Snacks/zuca-site`
+as **PUBLIC**. That changes what an illustrative address is: not a placeholder,
+but a string committed to a scrapeable public tree, pointing at whoever owns the
+domain.
+
+Everything here now uses RFC 2606 reserved names — `example.com`, or a `.example`
+TLD where the fiction needs to read as a real business:
+
+```
+support@zuca.com        →  support@example.com     src/lib/validation.js (shipped source)
+emil..nordin@gmail.com  →  sarah..jones@example.com  src/content/copy.js (shipped source)
+office@bakeriet.no      →  office@bakeriet.example   tests + this handoff
+a@b.com, A@B.com, a@b.co → example.com               tests (b.com, b.co are registered)
+```
+
+**`mailinator.com` stays, deliberately.** The disposable-domain test has to name a
+real disposable provider or it tests nothing — the string IS the thing under
+test, which is the same exemption-by-scope that keeps security's
+`admin@zucasnacks.com` role-address fixture where it is.
+
+The rule, since it is not obvious from any single instance: **an example address
+belongs at a reserved domain unless the specific domain is what is being
+tested.** `.co` and `.no` are live TLDs and do not qualify; `.example`, `.test`,
+`.invalid` and `example.com/net/org` do.
+
 ## 🏢 THE OFFICE PATH REJECTS OFFICE ADDRESSES (S22 — BUILT AND LIVE)
 
 Two things we built are in direct conflict, and neither team could see it alone.
@@ -267,10 +294,10 @@ company name and headcount. The server's `ROLE_LOCALPARTS` rejects the address a
 small company actually uses:
 
 ```
-office@bakeriet.no    REJECTED   role_address
+office@bakeriet.example    REJECTED   role_address
 team@ · contact@ · info@ · sales@   REJECTED
-post@bakeriet.no      OK   ← the standard Norwegian business prefix
-emil@bakeriet.no      OK
+post@bakeriet.example      OK   ← the standard Norwegian business prefix
+emil@bakeriet.example      OK
 ```
 
 Setting `office_interest`, `company` and `headcount` does not help: the address
