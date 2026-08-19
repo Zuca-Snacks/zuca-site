@@ -292,7 +292,7 @@ console.log(`
   └──────────────────────────────────────────────────────────────┘
 
      To stop:    kill ${process.pid}
-                 NOT `pkill -f testdrive.mjs` — that matches on the command
+                 NOT \`pkill -f testdrive.mjs\` — that matches on the command
                  line, so it kills every copy of this script on the machine
                  regardless of directory. It has already taken out someone
                  else's rig once.
