@@ -57,7 +57,7 @@ import { spawnSync } from 'node:child_process';
  * to the gate floor in the test suite, which still passed. A declared constant
  * buys one thing: removal stops being a single-line edit.
  */
-const EXPECTED_MUTATIONS = 18;
+const EXPECTED_MUTATIONS = 20;
 
 const API = 'src/components/waitlist/api.js';
 const COPY = 'src/content/copy.js';
@@ -117,6 +117,20 @@ const MUTATIONS = [
     file: API,
     find: '  // true the moment these are dropped.\n  "business_enquiry", "business_consent_text_version",\n',
     with: '  // true the moment these are dropped.\n',
+  },
+  {
+    label: 'a consent is claimed without its datum',
+    why: 'S24: consent_postal with no country is a 400, and the ladder pays for it in fields',
+    file: API,
+    find: '  const postal = consentPostal === true && !!(postalAddr.line1 && postalAddr.city && postalAddr.country);',
+    with: '  const postal = consentPostal === true;',
+  },
+  {
+    label: 'the ladder loses its coupled-block rungs',
+    why: 'CORE becomes the first effective rung again and one bad field costs every extension',
+    file: API,
+    find: '  without(SERVER_KNOWN_KEYS, POSTAL_BLOCK),\n  without(SERVER_KNOWN_KEYS, POSTAL_BLOCK, SMS_BLOCK),\n',
+    with: '',
   },
   {
     label: 'the edit token is dropped from the payload',

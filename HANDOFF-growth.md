@@ -311,6 +311,62 @@ belongs at a reserved domain unless the specific domain is what is being
 tested.** `.co` and `.no` are live TLDs and do not qualify; `.example`, `.test`,
 `.invalid` and `example.com/net/org` do.
 
+## 🔴 S24 — ONE REFUSED FIELD COST SEVENTEEN, AND IT WAS NEVER ABOUT HEALTH
+
+Reported as "the ladder strips seventeen fields when health consent is
+declined". Declining health consent is not involved at all — reproduced against
+`main`'s real `validateWaitlist` with a stateful duplicate store:
+
+```
+rung 0   41 keys   400   mail_consent_without_address
+rung 1   skipped   no-op — buildPayload only ever emits SERVER_KNOWN keys
+rung 2   19 keys   200   update
+13 fields lost, including the phone, company, headcount, channel, quantity_band
+```
+
+Nothing health-gated is ever sent when the opt-in is declined — `motivation`,
+`motivation_other`, `dietary`, `dietary_other` and
+`motivation_consent_text_version` are all null. Verified, not assumed.
+
+### The trigger: a consent claimed without its datum
+
+The server refuses `consent_sms` without a phone and `consent_postal` without
+line1 + city + country. That rule is right — an opt-in that can never be acted
+on cannot be evidenced against anything. **The client was sending exactly the
+state the server forbids**, and constantly, because the checkbox and the fields
+it describes are on the same screen under save-on-advance:
+
+> tick "post me something" → type a street and a city → never open the country
+> Select → press Continue.
+
+Now enforced in `buildPayload`, where the pair is visible, mirroring the
+server's rule exactly. That submission is accepted at rung 0 and loses nothing.
+
+### The second half was ours and real regardless of trigger
+
+`buildPayload` only ever emits keys the server knows, so **rung 1 was always a
+no-op** — which made CORE the first rung that ever did anything, and CORE sheds
+every extension field at once. A rejected address took the phone, the company,
+the headcount, the channel and the quantity band with it.
+
+The 400 body names no field, deliberately, so the descent **cannot be targeted —
+but it can be ordered**. The ladder now sheds the postal block, then the SMS
+block, then CORE, then the floor: likeliest cause first, cheapest loss first.
+
+### ⚠️ THE REPORTED SYMPTOM POINTED AT THE WRONG SUBSYSTEM
+
+Seventeen fields vanished on a screen where health consent was declined, so
+health consent looked causal. It was coincident. **The fastest way to the real
+answer was to stop reasoning about the trigger and print the actual rejection**
+— one run against the real validator named `mail_consent_without_address` in a
+second.
+
+A near-miss worth recording: the first probe of that run reported `headcount:
+Invalid input`, which looked like a live enum mismatch. It was a value I had
+invented for the fixture and the form cannot emit. **Fixtures must be built from
+`fields.js`, never hand-written** — a synthetic value produces a real-looking
+failure in someone else's component.
+
 ## 🔴 S23 — TEN DAYS OF STEP 2-4 ANSWERS DISCARDED IN PRODUCTION
 
 The largest failure this project has had, and the only one found by a person

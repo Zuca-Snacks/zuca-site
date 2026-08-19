@@ -665,3 +665,74 @@ test('S23: the token survives every rung of the downgrade ladder', async () => {
   assert.ok(mod.CORE_KEYS.has('edit_token'));
   assert.ok(mod.MINIMAL_KEYS.has('edit_token'));
 });
+
+// ─── S24: a consent is a claim about something ───────────────────────────────
+
+test('S24: ticking SMS or postal consent without the datum never leaves the client', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const base = {
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    formRenderTs: Date.now() - 9000,
+    smsConsentTextVersion: 'sms-v1', postalConsentTextVersion: 'mail-v1',
+  };
+
+  // The screen-4 state that cost seventeen fields: both boxes ticked, phone
+  // typed, street and city typed, country Select never opened.
+  const partial = mod.buildPayload({
+    ...base, consentSms: true, consentPostal: true,
+    profile: { phone: '+4791234567', address_line1: '1 Main St', address_city: 'Oslo', address_country: null },
+  });
+  assert.equal(partial.consent_postal, false, 'postal consent needs line1 + city + country');
+  assert.equal(partial.address_line1, null, 'and the partial address goes with it');
+  assert.equal(partial.consent_sms, true, 'but the SMS opt-in is complete and must survive');
+  assert.equal(partial.phone, '+4791234567');
+
+  // Ticked with nothing typed at all.
+  const empty = mod.buildPayload({ ...base, consentSms: true, consentPostal: true, profile: {} });
+  assert.equal(empty.consent_sms, false, 'an SMS opt-in with no number can never be acted on');
+  assert.equal(empty.consent_postal, false);
+
+  // Complete, and therefore claimable.
+  const full = mod.buildPayload({
+    ...base, consentSms: true, consentPostal: true,
+    profile: { phone: '+4791234567', address_line1: '1 Main St', address_city: 'Oslo', address_country: 'NO' },
+  });
+  assert.equal(full.consent_sms, true);
+  assert.equal(full.consent_postal, true);
+});
+
+test('S24: a refused coupled block does not cost the fields it has nothing to do with', async () => {
+  const seen = [];
+  const { mod } = await withFetch(async (_u, opts) => {
+    const body = JSON.parse(opts.body);
+    seen.push(body);
+    // A server that refuses the postal block and accepts everything else — the
+    // real rule, and the trigger the ladder has to survive gracefully.
+    if (body.consent_postal) return { ok: false, status: 400, json: async () => ({ ok: false, error: 'validation' }) };
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  });
+
+  const r = await mod.submitWaitlist(mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    consentSms: true, consentPostal: true, formRenderTs: Date.now() - 9000,
+    smsConsentTextVersion: 'sms-v1', postalConsentTextVersion: 'mail-v1',
+    profile: {
+      phone: '+4791234567', address_line1: '1 Main St', address_city: 'Oslo', address_country: 'NO',
+      company: 'Acme', headcount: '10_49', quantity_band: 'srv_3_5', channel: ['grocery'],
+      research_optin: true, office_interest: 'yes',
+    },
+  }));
+
+  assert.equal(r.status, mod.RESULT.OK);
+  const delivered = seen.at(-1);
+  // ⚠️ THE WHOLE POINT. Before S24 the first effective rung was CORE, so this
+  // retry would have dropped every extension field — company, headcount,
+  // channel, quantity band, the phone — for a rejection about an address.
+  assert.equal(delivered.consent_postal, undefined, 'the refused block is gone');
+  assert.equal(delivered.consent_sms, true, 'the SMS block is untouched');
+  assert.equal(delivered.phone, '+4791234567');
+  assert.equal(delivered.company, 'Acme', 'and so is everything unrelated');
+  assert.equal(delivered.headcount, '10_49');
+  assert.equal(delivered.quantity_band, 'srv_3_5');
+  assert.deepEqual(delivered.channel, ['grocery']);
+});
