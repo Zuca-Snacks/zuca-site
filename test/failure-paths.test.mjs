@@ -820,3 +820,52 @@ test('S25: a permanent background failure is reported, never swallowed', async (
   assert.equal(settled.ok, false, 'the confirmation gate must see the failure');
   assert.equal(settled.status, mod.RESULT.SERVER);
 });
+
+// ─── S26: assembling a phone number must never invent a subscriber ───────────
+
+test('S26: a leading zero cannot become a different real number', async () => {
+  const { assemblePhone } = await import('../src/components/waitlist/phone.js');
+
+  // ⚠️ THE CASE WHERE A WRONG ANSWER LOOKS RIGHT.
+  // Norway has no trunk prefix and an 8-digit plan. "0912 34 567" is nine
+  // digits. Strip the zero and you invent a different subscriber; keep it and
+  // you assemble +47091234567, which passes /^\+[1-9]\d{7,14}$/ and is not a
+  // Norwegian number. Both outcomes are valid E.164. Only refusal is safe.
+  const no = assemblePhone('NO', '0912 34 567');
+  assert.equal(no.e164, undefined, 'must not assemble anything');
+  assert.match(no.error, /doesn't start with 0/);
+
+  // Denmark: same shape, and it survived the first version of this file
+  // because 8 digits with the zero passes a length check.
+  assert.match(assemblePhone('DK', '0912 34 56').error, /doesn't start with 0/);
+
+  // The trunk prefix is real in the UK and must be dropped, not refused.
+  assert.equal(assemblePhone('GB', '07700 900123').e164, '+447700900123');
+  assert.equal(assemblePhone('GB', '7700 900123').e164, '+447700900123');
+
+  // Italy's leading zero IS part of the number — the blanket rule would break it.
+  assert.equal(assemblePhone('IT', '06 1234 5678').e164, '+390612345678');
+
+  // The everyday case that started this: a US number typed normally.
+  assert.equal(assemblePhone('US', '(555) 123-4567').e164, '+15551234567');
+  assert.equal(assemblePhone('US', '555 123 4567').e164, '+15551234567');
+});
+
+test('S26: every assembled number satisfies the server rule unchanged', async () => {
+  const { assemblePhone, DIAL_CODES } = await import('../src/components/waitlist/phone.js');
+  // The client assembles; the server keeps verifying. Nothing here loosens it.
+  for (const c of DIAL_CODES) {
+    const digits = '9'.repeat(c.min);
+    const r = assemblePhone(c.code, digits);
+    assert.equal(r.error, null, `${c.code}: ${c.min} digits must assemble`);
+    assert.match(r.e164, /^\+[1-9]\d{7,14}$/, `${c.code}: must satisfy the server's E.164 rule`);
+  }
+});
+
+test('S26: the default dial country is a hint, never a silent decision', async () => {
+  const { defaultDialCountry, DIAL_CODES } = await import('../src/components/waitlist/phone.js');
+  const picked = defaultDialCountry();
+  // Whatever it picks must be selectable, so it renders as a visible choice the
+  // person can change rather than a hidden assumption.
+  assert.ok(DIAL_CODES.some((c) => c.code === picked), 'the default must be in the list');
+});

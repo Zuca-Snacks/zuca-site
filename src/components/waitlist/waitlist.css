@@ -318,3 +318,22 @@
     animation-duration: 1ms !important;
   }
 }
+
+/* ─── Phone: dial code + number ───────────────────────────────────────────── */
+/* The dial code sits beside the number rather than inside a placeholder, so
+   the format requirement is visible before the press rather than after it. */
+.zw-phone-row {
+  display: flex;
+  gap: var(--z-space-2);
+  align-items: stretch;
+}
+
+.zw-phone-row .zw-dial {
+  flex: 0 0 auto;
+  inline-size: 7.5rem;
+}
+
+.zw-phone-row > :last-child {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}

@@ -29,19 +29,19 @@ import {
   QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
-import { buildPayload, RESULT, toE164 } from "./api.js";
+import { buildPayload, RESULT } from "./api.js";
 import { queueSave, settleSaves } from "./saveQueue.js";
 import { EVENTS, track, trackOnce, trackScreen } from "../../lib/analytics.js";
 import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
 import { detectPostalRegion } from "./region.js";
 import { COUNTRY_OPTIONS } from "./countries.js";
+import { assemblePhone, DIAL_CODES, defaultDialCountry } from "./phone.js";
 
 const SCREENS = copy.screens;
 
 // Matches the server's rule exactly. Being laxer here does not help anyone: it
 // just moves the rejection from an inline message to a 400 that discards the
 // whole submission.
-const isE164 = (raw) => toE164(raw) !== null;
 
 export default function Step2Profile({ email, editToken = null, formRenderTs, onDone, onSkip, onName }) {
   const uid = useId();
@@ -49,6 +49,18 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [phoneError, setPhoneError] = useState("");
+  // Visible and changeable, never inferred silently. The IP-derived country is
+  // server-side only, so this is a time-zone hint rendered as a selected option
+  // — a wrong guess costs one tap, not a stranger's number.
+  const [dialCountry, setDialCountry] = useState(defaultDialCountry);
+  // The message that appears AT THE BUTTON. A refusal has to be visible at the
+  // point of the press: the field error can be — and was — above the fold, so
+  // pressing submit looked like pressing a dead control.
+  const [blockedMsg, setBlockedMsg] = useState("");
+  // id -> element, so a blocked submit can move the person to the field that
+  // is actually blocking rather than to the top of the form.
+  const fieldEls = useRef({});
+  const registerField = (id) => (el) => { if (el) fieldEls.current[id] = el; };
 
   const [consentCopy] = useState(marketingConsent);
   const [healthCopy] = useState(motivationConsent);
@@ -129,7 +141,9 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
       // Without this every save is a duplicate, and `save()` maps duplicates to
       // success — so the answers vanish and the screen advances. That was S23.
       editToken,
-      profile: { ...v, zip: null },
+      // Assembled from the STATED country code. `v.phone` keeps whatever was
+      // typed so the field still shows it; only E.164 travels.
+      profile: { ...v, phone: assemblePhone(dialCountry, v.phone).e164 || null, zip: null },
     });
   }
 
@@ -187,12 +201,70 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
     );
   }
 
-  function validateScreen() {
-    if (SCREENS[screen].id === "extras" && consentSms && v.phone && !isE164(v.phone)) {
-      setPhoneError("Include the country code, like +1 555 000 0000.");
-      return false;
+  /**
+   * Every rule that can block a submit, in the order they appear on screen.
+   *
+   * ⚠️ THIS IS A REGISTRY, NOT A CONDITION, AND THAT IS THE POINT.
+   * There was one check here and it failed silently: the message rendered
+   * beside the field, the field was above the fold, and the button did nothing
+   * visible. Anything added here now inherits focus, scroll, an announcement
+   * and a message at the button, so the next rule cannot reintroduce the bug.
+   *
+   * `id` must match the Field id so the person can be moved to it.
+   */
+  function screenRules() {
+    const id = SCREENS[screen].id;
+    const rules = [];
+    if (id === "extras") {
+      // Ticked "text me" and gave nothing. buildPayload now silently drops the
+      // consent in this state (S24: a consent with no datum is refused by the
+      // server), so without this the opt-in disappears with no explanation.
+      rules.push({
+        id: `ph-${uid}`,
+        set: setPhoneError,
+        message: consentSms && !String(v.phone || "").trim()
+          ? "Add your number, or untick the text option."
+          : null,
+      });
+      rules.push({
+        id: `ph-${uid}`,
+        set: setPhoneError,
+        // One source of truth for "is this a phone number": the same assembler
+        // that builds what gets sent. A separate check here could disagree with
+        // it, and the disagreement would only show up as a server rejection.
+        message: consentSms && v.phone ? assemblePhone(dialCountry, v.phone).error : null,
+      });
     }
-    return true;
+    return rules;
+  }
+
+  /** Validate one field as the person leaves it, so they learn while looking. */
+  function validateOnBlur() {
+    const failed = screenRules().find((r) => r.message);
+    if (failed) failed.set(failed.message);
+  }
+
+  /**
+   * Returns true when the screen may advance. When it may not, the person is
+   * moved to the blocking field, told at the button, and told aloud.
+   */
+  function validateScreen() {
+    for (const r of screenRules()) r.set("");
+    const failed = screenRules().find((r) => r.message);
+    if (!failed) {
+      setBlockedMsg("");
+      return true;
+    }
+    failed.set(failed.message);
+    setBlockedMsg(copy.blocked);
+    const el = fieldEls.current[failed.id];
+    if (el) {
+      // Scroll BEFORE focus: focus alone jumps abruptly and, on iOS, can be
+      // swallowed by the keyboard opening over the field it just moved to.
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.requestAnimationFrame(() => el.focus({ preventScroll: true }));
+    }
+    return false;
   }
 
   async function advance(e) {
@@ -410,14 +482,34 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
                   label={smsCopy.text}
                   onChange={(e) => { const on = e.target.checked; setConsentSms(on); optin("sms", on); if (!on) { set({ phone: "" }); setPhoneError(""); } }}
                 />
-                <Field id={`ph-${uid}`} label={PHONE.label} optional error={phoneError}>
+                <Field id={`ph-${uid}`} label={PHONE.label} optional error={phoneError} hint={PHONE.hint || undefined}>
                   {(props) => (
-                    <Input
-                      {...props} type="tel" inputMode="tel" autoComplete="tel"
-                      maxLength={PHONE.maxLength} placeholder={PHONE.placeholder}
-                      value={v.phone} disabled={!consentSms}
-                      onChange={(e) => { set({ phone: e.target.value }); if (phoneError) setPhoneError(""); }}
-                    />
+                    /* The dial code is a CONTROL, not a placeholder hint. The
+                       requirement is stated by the interface instead of being
+                       enforced after the press — which is how a real person
+                       met a dead button and left. */
+                    <div className="zw-phone-row">
+                      <Select
+                        aria-label="Country code"
+                        className="zw-dial"
+                        value={dialCountry}
+                        disabled={!consentSms}
+                        options={DIAL_CODES.map((c) => ({ value: c.code, label: `${c.code} +${c.dial}` }))}
+                        onChange={(e) => {
+                          setDialCountry(e.target.value);
+                          if (phoneError) setPhoneError("");
+                          if (blockedMsg) setBlockedMsg("");
+                        }}
+                      />
+                      <Input
+                        {...props} type="tel" inputMode="tel" autoComplete="tel"
+                        maxLength={PHONE.maxLength} placeholder={PHONE.placeholder}
+                        value={v.phone} disabled={!consentSms}
+                        ref={registerField(`ph-${uid}`)}
+                        onBlur={validateOnBlur}
+                        onChange={(e) => { set({ phone: e.target.value }); if (phoneError) setPhoneError(""); if (blockedMsg) setBlockedMsg(""); }}
+                      />
+                    </div>
                   )}
                 </Field>
               </div>
@@ -492,6 +584,10 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
         )}
 
         <span className="zw-error" role="alert" aria-live="assertive">{error}</span>
+
+        {/* Announced, and rendered where the press happened. role="alert" so a
+            screen reader hears it even though the visual error is elsewhere. */}
+        <p className="zw-error" role="alert" aria-live="assertive">{blockedMsg}</p>
 
         <div className="zw-actions">
           <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.nextBusy}>
