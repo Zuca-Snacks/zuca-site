@@ -1668,6 +1668,45 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // ── The CSP under observation must survive promotion ────────────────────
+  // `security:headers` probes a LIVE response, so it cannot see a config change
+  // until it deploys. This reads vercel.json, so the repo is pinned the moment
+  // the change is made rather than the moment it ships.
+  //
+  // Growth found that promoting the report-only policy as it stood would block
+  // the Plausible tag WHILE IT STILL LOOKED INSTALLED. A report-only policy is
+  // the ideal hiding place for that: nothing breaks until the day it is
+  // enforced, and then everything does at once, in production, with the change
+  // that caused it weeks in the past.
+  await check('report-only CSP carries plausible.io in BOTH directives', 'script-src + connect-src', async () => {
+    const { readFileSync } = await import('node:fs');
+    const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+    const all = cfg.headers.flatMap((h) => h.headers);
+    const ro = all.find((h) => h.key.toLowerCase() === 'content-security-policy-report-only')?.value;
+    if (!ro) return { pass: false, actual: 'no report-only policy in vercel.json' };
+    const dir = (name) => ro.split(';').map((x) => x.trim()).find((x) => x.startsWith(`${name} `)) ?? '';
+    const script = dir('script-src').includes('https://plausible.io');
+    const connect = dir('connect-src').includes('https://plausible.io');
+    // Both, not one. The tag loads from plausible.io AND posts its events to
+    // plausible.io/api/event — script-src alone would load it and silently drop
+    // every event, which is the same bug wearing a smaller coat.
+    return { pass: script && connect, actual: `script-src:${script ? 'yes' : 'MISSING'} connect-src:${connect ? 'yes' : 'MISSING'}` };
+  });
+
+  await check('the ENFORCED CSP was not widened by that', 'still minimal', async () => {
+    // The enforced policy has no script-src at all, which is why the tag is not
+    // blocked today. Adding an origin there would grant execution rights now,
+    // for a promotion that has not happened. Separate policies, separate risks.
+    const { readFileSync } = await import('node:fs');
+    const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+    const enforced = cfg.headers.flatMap((h) => h.headers)
+      .find((h) => h.key.toLowerCase() === 'content-security-policy')?.value ?? '';
+    return {
+      pass: !enforced.includes('plausible') && !/script-src/.test(enforced),
+      actual: enforced || '(absent)',
+    };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   /**
    * Resolved from the REGISTRY, not pinned.

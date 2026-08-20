@@ -43,8 +43,22 @@ const CHECKS = [
   ],
   [
     'content-security-policy-report-only',
-    (v) => v.includes("default-src 'self'") && !/script-src[^;]*unsafe-inline/.test(v),
-    'The strict policy under observation. script-src must never carry unsafe-inline.',
+    (v) =>
+      v.includes("default-src 'self'")
+      && !/script-src[^;]*unsafe-inline/.test(v)
+      // Plausible must survive into the promoted policy. Growth found that
+      // promoting it without these two would block the analytics tag WHILE IT
+      // STILL LOOKS INSTALLED — the third thing this week reporting success
+      // while doing nothing. A report-only policy is exactly where that hides:
+      // nothing breaks until the day it is enforced.
+      //
+      // Both directives, not one. The script loads from plausible.io and posts
+      // its events back to plausible.io/api/event, so script-src alone would
+      // load the tag and silently drop every event — a subtler version of the
+      // same bug, and the one you would ship believing you had fixed it.
+      && /script-src[^;]*https:\/\/plausible\.io/.test(v)
+      && /connect-src[^;]*https:\/\/plausible\.io/.test(v),
+    'The strict policy under observation. No unsafe-inline in script-src, and plausible.io in BOTH script-src and connect-src.',
   ],
 ];
 

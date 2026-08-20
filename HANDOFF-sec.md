@@ -733,6 +733,71 @@ business wording (`46acf5e` then `789ffdb`). Checked rather than assumed, becaus
 pair is exactly where a restored string gets lost: the wording there is byte-identical to this
 branch. No action needed — recorded so nobody re-checks it.
 
+## 0-TOMORROW-A0 → ⚠️ Conversion's address sequence has TWO defects. Checked, not read.
+
+They sent the sequence for review before starting. Run against the real endpoint, steps 1–2 do
+not do what they say, and one of the reasons is a gap in **my** S24 fix.
+
+### Defect 1 — `address_country` is consent-gated, so step 2 stores nothing
+
+```
+api/waitlist.js:474   address_country: data.consent_postal ? data.address_country : null,
+```
+
+All seven address fields are gated on `consent_postal`, `address_country` included. Their step 1
+stops sending `consent_postal`; their step 2 expects `address_country` to be written. Measured:
+
+```
+POST { address_country: 'NO' }  and no consent_postal
+  ->  200, stored address_country: null
+```
+
+So the one field the plan keeps is the one field the plan silently loses.
+
+**The fix is server-first and their sequence has no server step until 3.** `address_country` must
+be ungated BEFORE the client stops sending `consent_postal`, or every signup in between stores no
+country at all. Same ordering rule as always; it just happens to bite in the direction nobody
+expected, because this is a REMOVAL that requires an ADD to land first.
+
+### Defect 2 — the drop is not even reported, and that one is mine
+
+```js
+(data.address_line1 || data.address_city || data.address_postal_code) && !data.consent_postal
+```
+
+The detector watches **line1, city and postal_code**. It does not watch `address_country`,
+`address_region` or `address_line2`. So a payload carrying only those is discarded with
+`200 {"ok":true}` and **no `dropped` entry at all**.
+
+That is S24 exactly — ask for something, throw it away, answer ok — surviving inside the
+mechanism built in `d086b3e` to end it. It went unnoticed because no client has ever sent a
+country without a line1. **Conversion's new client would be the first, and it would send that
+payload on every single signup.**
+
+Fold into tomorrow's change, not a separate patch: the detector must watch all six ignored
+fields, and the reason changes from *"you did not tick the box"* to *"we no longer collect this"*.
+
+### The corrected sequence
+
+```
+0.  SERVER  ungate address_country, and widen the dropped-detector to all six
+            ignored fields                                    ← NEW, must be first
+1.  CLIENT  stop sending the six + consent_postal + postal_consent_text_version
+2.  VERIFY  a real signup stores address_country, 200 at rung 0, no downgrade
+3.  SERVER  keep ACCEPTING all seven permanently, ignore the six, report them
+            in `dropped`                                       ← unchanged
+4.  DATA    delete existing address values                     (Emil's call, made)
+```
+
+### One more thing for step 4
+
+Deleting the address values leaves rows with `consent_postal = TRUE` and nothing to post to —
+an opt-in that can never be acted on, which is the precise state
+`mail_consent_without_address` exists to forbid at collection time. **Clear `consent_postal` on
+those rows in the same pass**, or the sheet ends up holding consents we have deliberately made
+unactionable. The consent receipt keeps the historical record either way; the live column should
+not claim an opt-in we cannot honour.
+
 ## 0-TOMORROW-A → Address removal: the answer to the blocking question is **NO**
 
 **Asked by Emil 2026-08-19, blocking Conversion's step 2. Answered by running every
