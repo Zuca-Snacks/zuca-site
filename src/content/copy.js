@@ -279,6 +279,7 @@ export const proof = {
 // the range.
 
 export const numbers = {
+  title: "What's actually in one.",
   items: [
     { value: "10g", unit: "fiber", note: "About 40% of your daily fiber per serving, and twice what the leading bars carry." },
     { value: "150", unit: "calories", note: "Plus 4g of protein, per serving." },
@@ -294,6 +295,7 @@ export const sections = {
     body: "The first production run is limited, and the waitlist gets it before anyone else.",
   },
   product: {
+    title: "Two flavors. Same 10 grams.",
     body: "Developed with input from 10+ physicians across 7 specialties, and cooked by someone who spent his twenties in a two-Michelin-star kitchen.",
   },
   founders: {
