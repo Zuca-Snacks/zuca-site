@@ -15,7 +15,21 @@ export default function Footer() {
         <span className="z-footer__wordmark">ZUCA</span>
 
         <p className="z-footer__meta">
-          Upcycled apple pulp, made into something worth eating. Stanford, CA.
+          {/* ⚠️ THE LOCATION SLOT IS DELIBERATELY EMPTY — do not backfill it
+              with a city (Emil, 19 Aug, carried here from growth@9419dbb so the
+              merge does not arbitrate a claim removal).
+              "Stanford, CA" was removed. Each Stanford reference on the page is
+              true alone — two Stanford-affiliated founders, the institutional
+              supporter line in the hero and the supporter wall — but a Stanford
+              business address sitting directly above the contact email and the
+              copyright is the canonical "where the company is" slot, and
+              stacked on the rest it asserts an institutional affiliation Emil
+              has not claimed. His words: the pieces were fine, the accumulation
+              was not.
+              What belongs here eventually is the REAL postal address, once the
+              PO Box exists: privacy.html §11 promises every email carries one,
+              and a city and state would never have satisfied CAN-SPAM. */}
+          Upcycled apple pulp, made into something worth eating.
         </p>
 
         <p className="z-footer__meta">
