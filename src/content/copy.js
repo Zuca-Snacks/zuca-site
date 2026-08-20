@@ -291,7 +291,7 @@ export const numbers = {
 // ─── Section headers ─────────────────────────────────────────────────────────
 export const sections = {
   waitlist: {
-    title: "Be first when the first run ships.",
+    title: "Be first when the first run ships",
     body: "The first production run is limited, and the waitlist gets it before anyone else.",
   },
   product: {
@@ -299,11 +299,11 @@ export const sections = {
     body: "Developed with input from 10+ physicians across 7 specialties, and cooked by someone who spent his twenties in a two-Michelin-star kitchen.",
   },
   founders: {
-    title: "A chef and a physician.",
-    body: "Zuca was created by a Michelin-trained chef and a Stanford Medicine physician.",
+    title: "A chef and a physician",
+    body: "Zuca was created by a Michelin-trained chef and a Stanford Medicine physician",
   },
   faq: {
-    title: "The questions everyone asks.",
+    title: "The questions everyone asks",
   },
   /* Labels the taster-quote group so the boundary between the <h1> and the
      testimonials is explicit rather than implied. CONFIRMED BY EMIL 18 Aug —
@@ -686,7 +686,7 @@ export const confirmation = {
   // it, and a greeting that only works with a name is a greeting that fails
   // for everyone who skipped.
   titleNamed: "Welcome to Zuca, {name}.",
-  position: "You're the {position} member of our family.",
+  position: "You're the {position} member of our family",
   titleFallback: "Welcome to Zuca.",
   duplicate: "You're already one of us.",
   duplicateBody: "Nothing to do — you're on the list, and you'll hear from us with everyone else who got in early.",

@@ -30,7 +30,7 @@ import {
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT, submitWaitlist, toE164 } from "./api.js";
-import { EVENTS, track, trackOnce } from "../../lib/analytics.js";
+import { EVENTS, track, trackOnce, trackScreen } from "../../lib/analytics.js";
 import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
 import { detectPostalRegion } from "./region.js";
 import { COUNTRY_OPTIONS } from "./countries.js";
@@ -92,7 +92,7 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   }, [postalRegion]);
 
   useEffect(() => {
-    track(EVENTS.STEP2_SCREEN_VIEW, { screen: SCREENS[screen].id, index: screen + 1 });
+    trackScreen(EVENTS.STEP2_SCREEN_VIEW, screen, { screen: SCREENS[screen].id });
     if (screen > 0) headingRef.current?.focus();
   }, [screen]);
 
@@ -179,7 +179,7 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
     if (!validateScreen()) return;
     const ok = await save();
     if (!ok) return;
-    track(EVENTS.STEP2_SCREEN_ADVANCE, { screen: SCREENS[screen].id, answered });
+    trackScreen(EVENTS.STEP2_SCREEN_ADVANCE, screen, { screen: SCREENS[screen].id, answered });
     if (screen + 1 < SCREENS.length) setScreen(screen + 1);
     else onDone();
   }
@@ -196,7 +196,7 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
    * it never saw screens 3 or 4. Two exits, and the loud one advances.
    */
   async function skipScreen() {
-    track(EVENTS.STEP2_SCREEN_SKIP, { screen: SCREENS[screen].id, answered });
+    trackScreen(EVENTS.STEP2_SCREEN_SKIP, screen, { screen: SCREENS[screen].id, answered });
     // Still saves: a screen skipped after two were answered must not lose them.
     await save();
     if (screen + 1 < SCREENS.length) setScreen(screen + 1);
