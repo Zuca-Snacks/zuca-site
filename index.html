@@ -64,15 +64,20 @@
     <meta name="twitter:title" content="Zuca — 10g of fiber per serving, in a snack you'll look forward to">
     <meta name="twitter:description" content="Snack bites made from upcycled apple pulp. Per serving: 10g fiber, 4g protein, 150 calories, no refined sugar.">
 
-    <!-- Plausible: cookieless, no personal data, so no cookie banner and no
-         consent surface. The custom-event queue stub is NOT inlined here — an
-         inline script needs 'unsafe-inline', which this site's CSP does not
-         grant. It lives in src/lib/analytics.js instead, same-origin.
-         ⚠️ REQUIRES script-src and connect-src to allow https://plausible.io,
-         in the report-only policy as well as the enforcing one. Without that
-         the tag loads today and stops the moment report-only is promoted —
-         installed-looking and collecting nothing. -->
-    <script defer data-domain="zucasnacks.com" src="https://plausible.io/js/script.js"></script>
+    <!-- Privacy-friendly analytics by Plausible. Cookieless, no personal data,
+         so no cookie banner and no consent surface.
+         ⚠️ SITE-SPECIFIC URL — the domain is baked into the script, verified by
+         reading it (it contains "zucasnacks.com"). Do NOT swap this for
+         script.js + data-domain: that is the older SDK and would collect
+         nothing here. async, not defer, per Plausible's snippet.
+         The queue stub that belongs beside this lives in src/lib/analytics.js,
+         because an inline <script> needs 'unsafe-inline' and this site's CSP
+         does not grant it.
+         ⚠️ Needs script-src AND connect-src to allow https://plausible.io — the
+         script loads from there and the beacons POST to /api/event. Missing
+         connect-src leaves the tag installed and every call reporting success
+         while nothing is recorded. -->
+    <script async src="https://plausible.io/js/pa-d8RUApAFPL7Dlz814Oip_.js"></script>
   </head>
   <body>
     <div id="root"></div>

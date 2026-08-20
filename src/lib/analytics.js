@@ -26,40 +26,39 @@ const UTM_MAX_LEN = 64;
 const FORBIDDEN_KEYS = new Set(["email", "motivation", "zip", "hp_field"]);
 
 /**
- * Plausible's custom-event queue, defined here rather than inlined in the HTML.
+ * Plausible's queue stub, VERBATIM from the account snippet, moved out of the
+ * HTML because an inline <script> needs 'unsafe-inline' and this site's CSP
+ * does not grant it. Bundled it is same-origin and needs nothing.
  *
- * Their documented snippet is an inline <script>, which needs 'unsafe-inline'
- * in script-src. This site does not grant that and should not start. Bundled,
- * it is same-origin and needs nothing.
+ * ⚠️ `plausible.init()` IS LOAD-BEARING. VERIFIED BY READING THE SCRIPT.
+ * Its bootstrap ends `window.plausible = window.plausible || {},
+ * plausible.o && S(plausible.o), plausible.init = S` — so it only initialises
+ * when `plausible.o` is already set, which is what init() does. Drop that call
+ * and the library loads, never initialises, never drains the queue and never
+ * sends a pageview. Silent, total, and it looks installed.
  *
- * It closes the first-pageview race: `script.js` is deferred, so PAGE_VIEW can
- * fire before it exists. The stub queues; the real script drains `q` on load.
- *
- * ⚠️ AND IT CREATES ONE FAILURE MODE, STATED SO IT IS NOT DISCOVERED LATER.
- * With the stub present, `sinks()` always finds a function, so `deliver()`
- * always reports success and nothing is ever buffered or retried. If the real
- * script never arrives — no account yet, CSP block, blocker — events queue into
- * `q` forever and are silently discarded on unload. That is the same
- * looks-installed-collects-nothing shape the CSP note above is about, so the
- * dev warning below exists to make it audible where anyone can hear it.
+ * Load order is safe either way, which is why bundling is acceptable:
+ *   stub first   events queue in `plausible.q`; the script drains them with
+ *                `for (…r = plausible.q…) m.apply(this, r[s])` on load.
+ *   script first `window.plausible` is already the real function, so `||`
+ *                keeps it, and init() hits the library's own already-loaded
+ *                guard rather than re-initialising.
  */
-const PLAUSIBLE_QUEUE_WARN_AT = 25;
-if (typeof window !== "undefined") {
-  window.plausible =
-    window.plausible ||
-    function stub() {
-      (window.plausible.q = window.plausible.q || []).push(arguments);
-      if (
-        import.meta.env?.DEV &&
-        window.plausible.q.length === PLAUSIBLE_QUEUE_WARN_AT &&
-        window.plausible.name === "stub"
-      ) {
-        console.warn(
-          `[zuca:analytics] ${PLAUSIBLE_QUEUE_WARN_AT} events queued and plausible.io has not loaded. ` +
-            "Check the script tag, the CSP (script-src/connect-src), and the account.",
-        );
-      }
-    };
+/* global plausible -- the snippet below is vendor-verbatim and uses the bare
+   global, exactly as Plausible ship it. Declared rather than rewritten: an
+   edited copy of a vendor snippet is a copy that silently drifts from theirs. */
+// ⚠️ GUARDED ON `window === globalThis`, AND THAT IS NOT PEDANTRY.
+// The vendor line assigns `window.plausible` and then reads the BARE global
+// `plausible` on the same line. In a browser those are the same object. Under
+// the test harness `window` is a plain stub, so the assignment creates no
+// global and the next read throws ReferenceError at import time — which took
+// the whole suite from 33 passing to 25 failing the moment it was added.
+// Guarding is the fix that leaves their snippet untouched; rewriting it to use
+// `window.plausible` throughout would be an edited copy of a vendor snippet,
+// which is a copy that drifts.
+if (typeof window !== "undefined" && window === globalThis) {
+  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+  plausible.init();
 }
 
 const buffer = [];
@@ -238,6 +237,30 @@ const firedOnce = new Set();
  * twice (hero and footer), so a per-mount event would double every stage and
  * make the drop-off between stages meaningless.
  */
+/**
+ * Emit a per-screen event with the index IN THE NAME, not in a property.
+ *
+ * Plausible's custom PROPERTIES are a Business-tier feature; plain custom
+ * events are on every tier. For the one number this funnel exists to produce —
+ * how many people reach each step-2 screen — the two are equivalent: a count
+ * per screen either way. So the index goes in the name and the site stays on
+ * the free tier.
+ *
+ * The props are still passed. They cost nothing, they reach the DOM event that
+ * anything else can subscribe to, and they become readable the day the account
+ * is upgraded — without a code change, which is the point.
+ *
+ * ⚠️ WHAT THIS COSTS, so nobody discovers it later: names cannot be CROSSED.
+ * "which traffic source drops off at screen 2" needs the screen and the source
+ * on the same event, and encoding both in the name is a combinatorial mess.
+ * At current volume those segments would be unreadable anyway; if the list
+ * grows and that question matters, properties are the answer and this helper
+ * is the only place that changes.
+ */
+export function trackScreen(name, index, props) {
+  track(`${name}_${index}`, { ...props, screen_index: index });
+}
+
 export function trackOnce(name, props) {
   if (firedOnce.has(name)) return;
   firedOnce.add(name);
