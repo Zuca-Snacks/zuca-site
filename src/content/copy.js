@@ -349,7 +349,7 @@ export const founders = [
       "Named Norway's Most Promising Young Chef",
       "Trained at Restaurant Kontrast (two Michelin stars and a Michelin Green Star)",
       "Hosted his own show on Norway's national food channel",
-      "BSc in Bioengineering and Food Systems Design, Stanford",
+      "Bachelor of Science in Bioengineering and Food Systems Design, Stanford, 2026",
     ],
   },
   {
@@ -411,7 +411,7 @@ export const faq = [
   },
   {
     q: "Who's behind it?",
-    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering student, and Kelley Yuan, MD, a Stanford Medicine physician.",
+    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering graduate, and Kelley Yuan, MD, a Stanford Medicine physician.",
   },
 ];
 
