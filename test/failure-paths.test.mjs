@@ -736,3 +736,87 @@ test('S24: a refused coupled block does not cost the fields it has nothing to do
   assert.equal(delivered.quantity_band, 'srv_3_5');
   assert.deepEqual(delivered.channel, ['grocery']);
 });
+
+// ─── S25: background saves must not revert a newer answer ────────────────────
+
+test('S25: a slow earlier save cannot land after a faster later one', async () => {
+  // The Back-button race. Screen 2 saves flavor=maple_pecan on a connection
+  // that stalls; the person presses Back, changes it to both, and that save is
+  // fast. Without serialisation the stale one lands last and the sheet ends up
+  // holding the answer the person corrected AWAY from — silently, because
+  // last-write-wins means nothing errors and nothing looks wrong.
+  const landed = [];
+  const delays = { maple_pecan: 120, both: 5 };
+  const { mod } = await withFetch(async (_u, opts) => {
+    const body = JSON.parse(opts.body);
+    await new Promise((r) => setTimeout(r, delays[body.flavor] ?? 0));
+    landed.push(body.flavor);
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  });
+
+  const q = await import(`../src/components/waitlist/saveQueue.js?t=${Math.random()}`);
+  // saveQueue imports api.js itself, so point it at the same stubbed fetch by
+  // reusing the module the harness just built.
+  const payload = (flavor) => mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { flavor },
+  });
+
+  q.resetSaveQueue();
+  q.queueSave(payload('maple_pecan'));
+  q.queueSave(payload('both'));       // the correction, made while the first is in flight
+  const settled = await q.settleSaves();
+
+  assert.equal(settled.ok, true);
+  // ⚠️ THE ASSERTION THAT MATTERS: the LAST thing the server saw is the
+  // correction, not the answer it replaced.
+  assert.equal(landed.at(-1), 'both', 'the newest answer must be the last write');
+  assert.ok(!landed.includes('maple_pecan') || landed.indexOf('maple_pecan') < landed.indexOf('both'),
+    'a stale save may never arrive after the newer one');
+});
+
+test('S25: only one save is ever in flight, and the newest supersedes', async () => {
+  let concurrent = 0;
+  let peak = 0;
+  const seen = [];
+  const { mod } = await withFetch(async (_u, opts) => {
+    concurrent += 1;
+    peak = Math.max(peak, concurrent);
+    await new Promise((r) => setTimeout(r, 15));
+    concurrent -= 1;
+    seen.push(JSON.parse(opts.body).flavor);
+    return { ok: true, status: 200, json: async () => ({ ok: true }) };
+  });
+  const q = await import(`../src/components/waitlist/saveQueue.js?t=${Math.random()}`);
+  const payload = (flavor) => mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { flavor },
+  });
+
+  q.resetSaveQueue();
+  for (const f of ['maple_pecan', 'choc_rasp_salt', 'both', 'undecided']) q.queueSave(payload(f));
+  await q.settleSaves();
+
+  assert.equal(peak, 1, 'never more than one request on the wire');
+  // Middle saves are superseded rather than sent: every payload is the full
+  // accumulated profile, so an older one holds nothing the newer one lacks.
+  assert.equal(seen.at(-1), 'undecided', 'the final state is what the server ends with');
+  assert.ok(seen.length < 4, 'superseded saves are dropped, not queued up');
+});
+
+test('S25: a permanent background failure is reported, never swallowed', async () => {
+  const { mod } = await withFetch(async () => ({
+    ok: false, status: 500, json: async () => ({ ok: false }),
+  }));
+  const q = await import(`../src/components/waitlist/saveQueue.js?t=${Math.random()}`);
+  q.resetSaveQueue();
+  q.queueSave(mod.buildPayload({
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { flavor: 'both' },
+  }));
+  const settled = await q.settleSaves();
+  // If this returned ok the person would reach a confirmation saying their
+  // answers are saved when the server never accepted them — S23 on purpose.
+  assert.equal(settled.ok, false, 'the confirmation gate must see the failure');
+  assert.equal(settled.status, mod.RESULT.SERVER);
+});
