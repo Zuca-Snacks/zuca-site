@@ -21,7 +21,7 @@
 import { useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
-import { ACTIVE_CTA } from '../../content/copy.js';
+import { ACTIVE_CTA, nutrition } from '../../content/copy.js';
 import { PLATES } from './platePositions.js';
 
 /* ONE artwork carrying both flavours, both sets of empty plates and all the
@@ -256,6 +256,15 @@ export default function Hero() {
         })}
       </div>
 
+      {/* Sits in the band between the plates and the waitlist block, so the
+          unit lands BELOW the numbers it qualifies rather than above them.
+          ⚠️ Not decoration: the plates read "10G FIBER", "150 KCAL" and "4G
+          PROTEIN" with no unit of their own, and unqualified figures beside a
+          product are how "per bite" — wrong by five times — reached the sticky
+          bar and three page titles. If it is ever cut again the unit has to
+          move INTO the pill, not simply disappear.
+          See .z-hero__serving in sections.css for why it gets its own row. */}
+      <p className="z-hero__serving">{nutrition.serving}</p>
 
       {/* Detail panel.
           ⚠️ A DIRECT CHILD OF THE POSTER, ABSOLUTELY POSITIONED, WITH NO GRID

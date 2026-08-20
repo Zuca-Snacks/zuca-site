@@ -180,8 +180,9 @@
     min-content         /* WORDMARK                                   */
     minmax(0, 5.8fr)    /* gap: wordmark -> artwork — was 9.1, = row 1 */
     min-content         /* FLAVOUR ARTWORK                            */
-    minmax(0, 5.0fr)    /* gap: artwork -> waitlist — was 9.0; closed
-                           the dead space below the cards             */
+    minmax(0, 3.0fr)    /* gap: artwork -> serving line               */
+    min-content         /* SERVING QUALIFIER                          */
+    minmax(0, 3.4fr)    /* gap: serving line -> waitlist block        */
     min-content         /* WAITLIST BLOCK: JOIN, field, button,
                            SUPPORTED BY, logo card — all in flow      */
     minmax(0, 4.1fr);   /* gap: bottom                                */
@@ -322,6 +323,27 @@
 .z-hero__plate-chip {
   font-size: 2.6cqw;
   color: var(--z-ink);
+}
+
+/* The per-serving qualifier, in the band BELOW the numbers it qualifies
+   (Emil, 19 Aug). It previously sat above the wordmark, unstyled and
+   auto-placed into row 1, where it read as clutter and — being above the
+   plates — qualified nothing the eye had reached yet.
+   ⚠️ IT HAS ITS OWN min-content ROW, with a fr gap either side. Do not put it
+   back in a fr gap row: a fr row is a fixed fraction of the viewport and
+   content in one overflows onto whatever is beneath. That is the fault
+   audit:hero exists to catch.
+   ⚠️ WHY THIS SENTENCE EXISTS AT ALL: the plates read "10G FIBER", "150 KCAL"
+   and "4G PROTEIN" with no unit of their own. Unqualified figures beside a
+   product are how "per bite" — wrong by five times — reached the sticky bar and
+   three page titles. If it is ever cut again, the unit has to move INTO the
+   pill, not simply disappear. */
+.z-hero__serving {
+  grid-row: 6;
+  margin: 0;
+  font-size: var(--z-step--1);
+  line-height: 1.2;
+  color: var(--z-ink-muted);   /* 4.51:1 on the cream ground */
 }
 
 /* --- Flavour detail, tap to open ------------------------------------------
@@ -489,7 +511,7 @@
 /* The LOWER STACK — field, button, SUPPORTED BY and the logo card, in flow.
    See the grid-template-rows note above for why these are not four rows. */
 .z-hero__lower {
-  grid-row: 6;
+  grid-row: 8;
   display: grid;
   justify-items: center;
   align-content: center;
