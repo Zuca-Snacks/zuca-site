@@ -138,16 +138,37 @@ never run.
 `git diff HEAD <branch>` measures divergence, not change — see the two-dot entry
 above. Same shape: a real command, a real answer, about the wrong comparison.
 
+### Instance 4 — a tool that fails by succeeding (growth, 20 Aug 2026)
+
+The live-bundle scan in the credentials sweep was a `grep -oE` with a
+60-character context window on both sides. `ugrep` refused it — *"exceeds
+complexity limits"* — and **the command still exited 0.** It scanned nothing and
+reported success, inside the very sweep built to avoid the miss that let a
+heading slip through the night before. Caught only by reading the output file
+rather than trusting the exit status.
+
+> **An exit code is not a result.**
+
+A verification step must assert on what it *found*, not merely that it *ran* —
+and a regex with a wide context window is a plausible way for a scan to become a
+no-op without saying so. Prefer a fixed-width or literal pattern for sweeps whose
+whole purpose is completeness.
+
+This is the same shape as the merge session's `npm run lint | tail -2 && echo
+"LINT CLEAN"`, where the `&&` gated on `tail` rather than on eslint and reported
+a clean lint over a real error for two days.
+
 ### The rule
 
 **Check what is actually in the tree you are testing, not what you think you put
-there.**
+there** — and **an exit code is not a result.**
 
-Concretely, before trusting a red result: confirm the change is committed and in
-*this* tree, rebuild anything generated, and confirm the comparison base is the
-merge base. All three cost debugging time only — none reached production — but
-each one first presented as a serious product defect, and two nearly went into a
-report to Emil as one.
+Concretely, before trusting a result: confirm the change is committed and in
+*this* tree, rebuild anything generated, confirm the comparison base is the merge
+base, and make the check assert on its findings rather than on having run. All
+four cost debugging time only — none reached production — but each first
+presented as something else, and two nearly went into a report to Emil as a
+product defect.
 
 ---
 
