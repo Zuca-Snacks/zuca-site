@@ -300,7 +300,7 @@ export const sections = {
   },
   founders: {
     title: "A chef and a physician",
-    body: "Zuca was created by a Michelin-trained chef and a Stanford Medicine physician",
+    body: "Zuca was created by a Michelin-trained chef and a Stanford Medicine physician.",
   },
   faq: {
     title: "The questions everyone asks",
