@@ -29,7 +29,8 @@ import {
   QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
-import { buildPayload, RESULT, submitWaitlist, toE164 } from "./api.js";
+import { buildPayload, RESULT, toE164 } from "./api.js";
+import { queueSave, settleSaves } from "./saveQueue.js";
 import { EVENTS, track, trackOnce, trackScreen } from "../../lib/analytics.js";
 import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
 import { detectPostalRegion } from "./region.js";
@@ -78,7 +79,6 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   const [consentSms, setConsentSms] = useState(false);
   const [consentPostal, setConsentPostal] = useState(false);
 
-  const inFlight = useRef(false);
   // Fingerprint of the last record the server accepted. Moving Back and forward
   // again re-submitted a byte-identical payload, which the rate limiter
   // correctly refused — and the refusal surfaced as red text blocking a
@@ -142,28 +142,49 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
    * not have is a claim, and nothing tests a claim. It upserts now, and only
    * while `editToken` is present and unexpired.
    */
-  async function save() {
-    if (inFlight.current) return true;
-    // Nothing changed since the last accepted save — moving between screens is
-    // free. This is what stops Back-then-Continue costing a request.
+  /**
+   * Hand the save to the background and return. The screen advances now.
+   *
+   * Measured on production: a warm step save is 4.9-7.1s, because the endpoint
+   * awaits an Apps Script write. Every "Next" paid that. Nothing about the save
+   * needs the person to wait for it — the answer is already in `v`, and the
+   * payload is the full accumulated profile, so a save that lands late still
+   * lands complete.
+   *
+   * Ordering is guaranteed by saveQueue's single-flight coalescing, not by this
+   * function. See that file for why a race here would REVERT a correction
+   * rather than merely delay it.
+   */
+  function save() {
     const fingerprint = JSON.stringify(payload());
-    if (fingerprint === lastSaved.current) return true;
-    inFlight.current = true;
-    setBusy(true);
+    // Unchanged since the last queued save — Back-then-Continue stays free.
+    if (fingerprint === lastSaved.current) return;
+    lastSaved.current = fingerprint;
     setError("");
-    const result = await submitWaitlist(payload());
-    inFlight.current = false;
+    queueSave(payload());
+  }
+
+  /**
+   * The one place the person waits, and only at the end.
+   *
+   * A background save that fails with nobody awaiting it is S23 performed on
+   * purpose: a confirmation screen saying the answers are saved while they are
+   * not. So the last step blocks until everything queued has settled, and a
+   * permanent failure stops the confirmation rather than decorating it.
+   */
+  async function finishWithSaves(done) {
+    setBusy(true);
+    const settled = await settleSaves();
     setBusy(false);
-    if (result.status === RESULT.OK || result.status === RESULT.DUPLICATE) {
-      lastSaved.current = fingerprint;
-      return true;
+    if (settled.ok) {
+      done();
+      return;
     }
-    if (result.status === RESULT.RATE_LIMITED) {
-      setError("Give that a couple of seconds — your spot is already saved.");
-      return false;
-    }
-    setError("We couldn't save that just now, but your spot is safe. Try again, or skip.");
-    return false;
+    setError(
+      settled.status === RESULT.RATE_LIMITED
+        ? "Give that a couple of seconds — your spot is already saved."
+        : "Your spot is safe, but we couldn't save these answers. Try again?",
+    );
   }
 
   function validateScreen() {
@@ -177,17 +198,18 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   async function advance(e) {
     e.preventDefault();
     if (!validateScreen()) return;
-    const ok = await save();
-    if (!ok) return;
+    save();
     trackScreen(EVENTS.STEP2_SCREEN_ADVANCE, screen, { screen: SCREENS[screen].id, answered });
     if (screen + 1 < SCREENS.length) setScreen(screen + 1);
-    else onDone();
+    else await finishWithSaves(onDone);
   }
 
   /** Leave the whole flow. Deliberately the quieter of the two exits. */
-  function finish() {
+  async function finish() {
     trackOnce(EVENTS.STEP2_SKIP, { answered, screen: SCREENS[screen].id });
-    onSkip();
+    // Leaving early still waits for whatever is in flight. Someone who answered
+    // two screens and then exits must not lose them to a request we abandoned.
+    await finishWithSaves(onSkip);
   }
 
   /**
@@ -198,9 +220,9 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   async function skipScreen() {
     trackScreen(EVENTS.STEP2_SCREEN_SKIP, screen, { screen: SCREENS[screen].id, answered });
     // Still saves: a screen skipped after two were answered must not lose them.
-    await save();
+    save();
     if (screen + 1 < SCREENS.length) setScreen(screen + 1);
-    else onDone();
+    else await finishWithSaves(onDone);
   }
 
   function optin(name, on) {
