@@ -349,7 +349,7 @@ export const founders = [
       "Named Norway's Most Promising Young Chef",
       "Trained at Restaurant Kontrast (two Michelin stars and a Michelin Green Star)",
       "Hosted his own show on Norway's national food channel",
-      "BSc in Bioengineering and Food Systems Design, Stanford",
+      "Bachelor of Science in Bioengineering and Food Systems Design, Stanford, 2026",
     ],
   },
   {
@@ -411,7 +411,7 @@ export const faq = [
   },
   {
     q: "Who's behind it?",
-    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering student, and Kelley Yuan, MD, a Stanford Medicine physician.",
+    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering graduate, and Kelley Yuan, MD, a Stanford Medicine physician.",
   },
 ];
 
@@ -600,6 +600,12 @@ export const step1 = {
 
 // ─── Step 2 ──────────────────────────────────────────────────────────────────
 export const step2 = {
+  // Shown AT THE BUTTON when a submit is refused. The field error is often
+  // above the fold, so without this the press produces nothing a person can
+  // see — which is how this was found: real people pressed twice and left.
+  // It says what happened AND what we did, so the jump is explained rather
+  // than merely experienced.
+  blocked: "One field needs fixing — we've jumped you to it.",
   title: "You're in. Want first access and a say in what we make?",
   body: "Seven quick taps. It decides which flavor we produce first and what we charge — and it moves you up the list for the first run.",
   cta: "Save my answers",
