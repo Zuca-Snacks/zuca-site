@@ -36,6 +36,38 @@ for the whole engagement and should not be moved or deleted.
 
 ---
 
+## ⚠️ THE ALLERGEN STATEMENT IS FACILITY-SPECIFIC (Step Change, 21 Aug 2026)
+
+The FAQ and `public/terms.html` both name the shared-facility allergens: **milk,
+eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, sesame.**
+Confirmed in writing for **the facility we operate in now.** Plant-based and
+vegan confirmed against the formulation.
+
+### Revisit trigger
+
+**A change of manufacturer or production site — not a date.** It must be
+re-confirmed in writing **before** such a change goes live, never after.
+
+A stale allergen statement **fails silently**: people with allergies rely on it
+and nothing breaks until someone is hurt. There is no test that can catch it,
+because the copy stays valid-looking while the fact underneath it stops being
+true. Co-manufacturers change, especially when scaling a first production run.
+
+Do not soften the wording. Present tense and firm is correct — hedging a safety
+statement makes it worse, which is what the previous version proved: Terms said
+*"we have not tested against it or confirmed what else the facility handles"*
+while the FAQ named the allergens, so a reader with an allergy was told we did
+not know.
+
+### Two pages rest on one letter
+
+Each carries a comment saying so. **A sweep of `copy.js` alone would miss the
+legal page** — which is how that contradiction survived until a pre-check was
+demanded. Verified at integration by extracting the nine allergens and asserting
+each appears in both `copy.js` and `dist/terms.html`; they agree.
+
+---
+
 ## ⚠️ MEASURING A BRANCH: use three dots, never two (19 Aug 2026)
 
 **This has now cost three sessions in one week.** It is not a subtle bug; it is
@@ -157,6 +189,21 @@ whole purpose is completeness.
 This is the same shape as the merge session's `npm run lint | tail -2 && echo
 "LINT CLEAN"`, where the `&&` gated on `tail` rather than on eslint and reported
 a clean lint over a real error for two days.
+
+### Named versus general regulations (Emil, 21 Aug 2026)
+
+**A named regulation is checkable, a general one isn't — which is exactly why it
+is the weaker claim despite sounding stronger.** The site's only `21 CFR 117`
+reference was removed deliberately with the pomace rewrite. If that food-safety
+reassurance is ever wanted back, **that specific sentence returns, never a
+blanket "compliant with FDA rules".**
+
+Same round, same reasoning, recorded for Cooley as considered and rejected: an
+earlier draft called the pomace *"classified as GRAS by the FDA, meaning it is
+completely safe for human consumption"*. GRAS is a status for substances **added**
+to food, established by FDA affirmation or documented expert consensus, and it
+describes conditions of use rather than blanket safety. Claiming a classification
+we do not hold is the same class as displaying an ungranted certification mark.
 
 ### The rule
 
