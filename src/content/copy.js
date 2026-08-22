@@ -384,34 +384,53 @@ export const founders = [
 export const faq = [
   {
     q: "What does it actually taste like?",
-    a: "Like a dessert someone put effort into, not like a health food. Chocolate Raspberry Sea Salt is tart and deep, with the salt landing at the end. Maple Pecan is warm and toasty and only gently sweet. Both are chewy, not chalky. Emil trained in a two-Michelin-star kitchen and refused to ship anything he wouldn't put on a menu.",
+    a: "Like a dessert someone put effort into, not like a health food. Chocolate Raspberry Sea Salt is tart and deep, with the salt landing at the end. Maple Pecan is warm and toasty and only gently sweet. Both are chewy, not chalky.",
   },
   {
     q: "\"Made from apple pulp\" — is that gross? Is it safe?",
-    a: "It's the fruit. When a juicery presses apples, the juice goes in the bottle and the rest of the apple — the fiber, mostly — gets thrown out as waste. That pulp is the same apple you'd eat whole. We rescue it fresh, and it's made in facilities that comply with 21 CFR 117, the FDA's food safety rules for human food. Nothing about it is a byproduct except the accounting.",
+    // ⚠️ NO FDA REFERENCE, AND THAT IS DELIBERATE (Emil, 21 Aug 2026).
+    // An earlier draft said the pomace "is classified as GRAS by the FDA,
+    // meaning it is completely safe for human consumption". Rejected and not to
+    // be reinstated: GRAS is a status for substances ADDED to food, established
+    // by FDA affirmation or documented expert consensus, and it describes
+    // conditions of use rather than blanket safety. Claiming a classification
+    // we do not hold is the same class as displaying an ungranted certification
+    // mark. Recorded for Cooley as considered and rejected.
+    //
+    // This also removed the site's only 21 CFR 117 reference. That sentence was
+    // true and checkable and was dropped deliberately. If the food-safety
+    // reassurance is ever wanted back, THAT SPECIFIC SENTENCE returns — never a
+    // blanket "compliant with FDA rules".
+    a: "It's the fruit. When apples get pressed, the juice goes in a bottle while the pulp often gets discarded. That pomace is the same apple you'd eat whole, just more concentrated with fiber and nutrients.",
   },
   {
     q: "What's in it, and what about allergens?",
-    a: "No refined sugar in either flavor. Both contain tree nuts — almonds and pecans. If you have a tree nut allergy, this is not a product for you, and we'd rather say so now than sell you one bite. Per serving — 5 bites, 50g — 10g fiber, 150 calories, 4g protein. The full ingredient and allergen panel — including gluten, dairy, and whether it shares a facility with other allergens — goes up the moment our manufacturer confirms it in writing. We're not publishing a guess.",
+    // ⚠️ FACILITY-SPECIFIC AND CONFIRMED IN WRITING BY STEP CHANGE, 21 Aug 2026.
+    // The shared-facility list describes THE FACILITY WE OPERATE IN NOW. Co-
+    // manufacturers change, especially scaling a first production run, and a
+    // stale allergen statement fails silently — people with allergies rely on
+    // it and nothing breaks until someone is hurt.
+    //
+    // The revisit trigger is A CHANGE OF MANUFACTURER OR PRODUCTION SITE, not a
+    // date. It must be re-confirmed in writing BEFORE such a change goes live,
+    // never after. Do not soften this copy: present tense and firm is correct,
+    // and hedging a safety statement makes it worse.
+    a: "One serving is 50g: 5 × 10g bites. 10g fiber derived from whole foods, 4g protein, and 150 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame.",
   },
   {
     q: "What will it cost?",
     // Deliberately no number. The waitlist is measuring willingness to pay, and
     // any figure on this page anchors the price question in step 2. Verified
     // internal reference is $2.99/unit — it stays internal until launch.
-    a: "We haven't fixed the price yet, and we're not going to pretend otherwise — what a 12-pack should cost is one of the questions we ask people who join. Joining costs nothing and commits you to nothing: no card, no charge. Waitlist members get the first run at launch pricing, and hear the number before anyone else.",
+    a: "We'd love for you to help us decide. When you join, we'll give you the chance to share how much you think a 12-pack should cost.",
   },
   {
     q: "When does it ship?",
-    a: "The first production run is being scheduled now with our manufacturing partner. Waitlist members get the ship date and the ordering window by email before it goes public. If you'd rather not hear from us again, one click unsubscribes you.",
+    a: "That's a secret we'll share with our Zuca family. We'd love for you to join us through the waitlist so you don't miss out.",
   },
   {
     q: "Isn't this just another protein bar?",
-    a: "No — it's built around fiber, not protein. A typical bar leads with 10-20g of protein and carries 3-5g of fiber. Zuca is 10g of fiber and 4g of protein per serving — five bites, 50g — roughly twice the fiber of the leading bars. 95% of American adults and kids fall short on fiber; almost nobody falls short on protein. We built for the gap that's actually there.",
-  },
-  {
-    q: "Who's behind it?",
-    a: "Emil Nordin, a Michelin-trained chef and Stanford bioengineering graduate, and Kelley Yuan, MD, a Stanford Medicine physician.",
+    a: "No, and that's an important distinction. Protein is very important, and the market has done a good job making it easy to get. Almost no one falls short on protein. Dietary fiber is unfortunately a different story, with 95% of American adults and kids not getting enough. Convenient options that deliver real fiber and taste great are hard to find, and Zuca was built to address that need.",
   },
 ];
 
