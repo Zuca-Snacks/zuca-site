@@ -833,6 +833,69 @@ gets `whatNextLineBusiness` instead. The suppression and the promise are the
 same fact in two places; only one of them was in security's diff.
 
 
+## ⚖️ CLAIMS CONSIDERED AND REJECTED — do not re-propose
+
+### GRAS (Emil, 21 Aug 2026) — rejected, and the reasoning is the point
+
+A draft of the pomace answer said the pulp *"is classified as GRAS by the FDA,
+meaning it is completely safe for human consumption."* **It is not going on the
+site and must not come back.**
+
+GRAS is a status for substances **added** to food, established by FDA
+affirmation or by documented expert consensus, and it describes **conditions of
+use** rather than blanket safety. We hold no such classification. Emil's
+framing, which is the one to keep: claiming a classification we do not hold is
+the same class as displaying an ungranted certification mark.
+
+For Cooley: recorded as considered and rejected, so the absence is a decision
+rather than an oversight.
+
+### The 21 CFR 117 sentence went with it — deliberately, not lost
+
+Rewriting that answer removed **the site's only reference to 21 CFR 117**
+(*"made in facilities that comply with 21 CFR 117, the FDA's food safety rules
+for human food"*). That sentence was true and checkable.
+
+⚠️ **If the food-safety reassurance is ever wanted back, THAT SPECIFIC SENTENCE
+is what returns — never a blanket "compliant with FDA rules".** A named,
+checkable regulation is a claim someone can verify; a general compliance claim
+is one nobody can, and it is the shape regulators treat as puffery at best.
+
+Also in DECISIONS.md, so it is not later flagged as a regression.
+
+## 🥜 THE ALLERGEN STATEMENT IS FACILITY-SPECIFIC (Step Change, 21 Aug 2026)
+
+The FAQ now names the shared-facility allergens: milk, eggs, peanuts, tree nuts,
+fish, crustacean shellfish, wheat, soy, sesame. Confirmed in writing by Step
+Change. Plant-based and vegan confirmed against the formulation.
+
+**The revisit trigger is a change of manufacturer or production site — not a
+date.** Co-manufacturers change, especially scaling a first production run, and
+**a stale allergen statement fails silently**: people with allergies rely on it
+and nothing breaks until someone is hurt. It must be re-confirmed **in writing
+before** a facility change goes live, never after.
+
+The copy is deliberately unhedged. Present tense and firm is correct; softening
+a safety statement makes it worse. The dependency lives in a comment beside the
+string so the next person to edit that answer sees what it rests on.
+
+**`public/terms.html` carried the contradiction and was corrected in the same
+deploy** (Emil, 21 Aug 2026, without waiting on Cooley — leaving a live
+contradiction while waiting is the worse option). Terms had said we *had not
+confirmed what else the facility handles*; it now states the list. The
+gluten-free refusal is intact and the sunflower-butter reformulation disclosure
+was deliberately left alone.
+
+⚠️ **TWO PAGES NOW DEPEND ON ONE CONFIRMATION.** The FAQ string and the Terms
+paragraph both rest on the Step Change letter of 21 Aug 2026. Both carry a
+comment saying so. Whoever changes manufacturer must update **both** — a sweep
+of `copy.js` alone would miss the legal page, which is exactly how this
+contradiction survived until Emil asked for a pre-check.
+
+**Launch-checklist blocker #5 is closed** (21 Aug 2026, source: Step Change
+written confirmation). The checklist lives in the Zuca project on claude.ai,
+not in this repo; closure facts are logged here for Emil to move.
+
 ## ⚖️ FOR COOLEY REVIEW — two items, both added on instruction, neither to be assumed safe
 
 Emil instructed both of these on 18 Aug 2026 and asked that counsel **bless them
