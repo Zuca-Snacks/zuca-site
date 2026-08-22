@@ -39,7 +39,6 @@ export const DIETARY_OTHER_MAX = 60;
 export const NAME = {
   key: "name",
   label: "First name",
-  hint: "Optional — so our emails can say your name rather than your inbox.",
   placeholder: "Sarah",
   maxLength: 40,
   why: "Lets the launch email address a person.",
@@ -48,7 +47,7 @@ export const NAME = {
 /** Which flavor to produce first. Lowest-friction question, so it opens step 2. */
 export const FLAVOR = {
   key: "flavor",
-  label: "Which one would you reach for?",
+  label: "Which one sounds more appetizing?",
   why: "Decides the production mix of the first run.",
   options: [
     { value: "choc_rasp_salt", label: "Chocolate Raspberry Sea Salt" },

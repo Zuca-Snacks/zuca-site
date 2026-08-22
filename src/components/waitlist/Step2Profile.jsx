@@ -320,7 +320,10 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
       <Progress step={screen + 1} total={SCREENS.length} label={copy.savedNote} />
 
       <h2 className="zw-title" ref={headingRef} tabIndex={-1}>{s.title}</h2>
-      <p className="zw-body">{s.why}</p>
+      {/* Guarded: screens 1 and 3 lost their `why` on 21 Aug and an unguarded
+          <p> leaves an empty element with the body margin still applied — a
+          gap that looks like a layout bug rather than a deleted sentence. */}
+      {s.why ? <p className="zw-body">{s.why}</p> : null}
 
       <form onSubmit={advance} noValidate>
         {s.id === "product" && (

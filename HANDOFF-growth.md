@@ -118,6 +118,56 @@ Two things that live in your files, not mine:
 
 ---
 
+## 📮 NEXT: THE POSTAL ADDRESS COMES OUT (agreed 20 Aug, do 21–22 Aug)
+
+Decided by Emil on agent 1's recommendation: **ask for the address when we are
+about to write, not months ahead.** The ask converts far better with its reason
+attached and the data is fresh when it is used.
+
+**Cut:** `address_line1`, `address_line2`, `address_city`, `address_region`,
+`address_postal_code`, plus `consent_postal` and `postal_consent_text_version`.
+**Kept:** `address_country`, as a plain ungated select for launch-planning signal.
+**Existing address values are deleted**, and `consent_postal` is cleared in the
+same pass — otherwise rows keep an opt-in with nothing to post to, which is the
+exact state `mail_consent_without_address` forbids at collection time. The
+receipt keeps the historical record.
+
+### The sequence, corrected by security — step 0 is NOT optional
+
+```
+0.  SERVER   ungate address_country; widen the dropped-detector to all six
+             ignored fields                                    ← MUST BE FIRST
+1.  CLIENT   stop sending the six + consent_postal + postal_consent_text_version
+2.  VERIFY   real signup stores address_country, 200 at rung 0, no downgrade
+3.  SERVER   keep accepting all seven PERMANENTLY, ignore six, report `dropped`
+4.  DATA     delete existing address values, clear consent_postal
+```
+
+**Step 0 exists because `address_country` is itself gated on `consent_postal`**
+(`api/waitlist.js:474`). Cut the consent first and the one field we are keeping
+is silently lost — security measured it: `200 ok`, stored `null`. And their
+drop-detector watched line1, city and postal_code but not country, so it would
+not have appeared in `dropped` either.
+
+**Nothing is removed from the schema, ever.** Security's reason is the one to
+keep: `.strict()` rejects on key presence, so a payload queued offline before
+the change would 400 on replay — S24 landing on people whose connection already
+failed them once.
+
+### ⚠️ Two things that must not be rediscovered
+
+**`answered` counts `research_optin`, which renders BELOW the gate it satisfies.**
+The postal `<details>` is shown only when `answered > 0`; otherwise the person
+sees *"Answer anything above first and this opens up."* One of the nine fields
+that satisfies that test sits underneath the message. Whatever replaces that
+computation **must not inherit the same shape** — a gate whose condition can be
+met by something after it is a gate that lies about where to act.
+
+**The gate copy is deliberately unfixed.** `copy.mailGate` and the whole `else`
+branch die with the postal block, so writing better copy for it now is work that
+exists only to be undone. It renders only for someone who skipped all three
+prior screens.
+
 ## 🪜 THE LADDER HAS A FLOOR — and that is what makes a hand-maintained list safe
 
 Rungs 1 and 2 strip **keys**. They cannot fix a bad **value** in a key the
