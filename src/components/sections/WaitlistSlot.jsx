@@ -51,7 +51,11 @@ export default function WaitlistSlot({ children }) {
                 badge, the proof strip and the sticky bar. Dropping the fourth
                 removes the shift outright and is the same de-duplication the UX
                 agent applied to the hero microcopy. */}
-            <p className="z-section__lede">{sections.waitlist.body}</p>
+            {/* Guarded: the lede was deleted on 21 Aug (Emil); an unguarded <p>
+                would keep its margin as a blank gap. */}
+            {sections.waitlist.body ? (
+              <p className="z-section__lede">{sections.waitlist.body}</p>
+            ) : null}
           </div>
 
           {children}

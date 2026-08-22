@@ -292,7 +292,6 @@ export const numbers = {
 export const sections = {
   waitlist: {
     title: "Be first when the first run ships",
-    body: "The first production run is limited, and the waitlist gets it before anyone else.",
   },
   product: {
     title: "Two flavors. Same 10 grams.",
@@ -652,20 +651,17 @@ export const step2 = {
     {
       id: "product",
       title: "What would you actually eat?",
-      why: "This decides which flavor we produce first, and how much of it.",
     },
     {
       id: "value",
       title: "What's it worth to you?",
-      // States the unit, deliberately without a per-serving figure. Nobody can
-      // price a quantity they are guessing at — but a per-unit price would be
-      // an anchor, and prices were removed from the whole site on purpose.
-      why: "A 12-pack is 12 servings — 60 bites. You're setting the launch price; we haven't fixed it yet.",
+      // States the unit and nothing else. A per-unit price would be an anchor,
+      // and prices were removed from the whole site on purpose.
+      why: "50g servings (5 × 10g bites).",
     },
     {
       id: "reach",
       title: "Where would you find it?",
-      why: "This decides whether we chase shelves or sell direct.",
     },
     {
       id: "extras",
