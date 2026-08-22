@@ -190,6 +190,30 @@ This is the same shape as the merge session's `npm run lint | tail -2 && echo
 "LINT CLEAN"`, where the `&&` gated on `tail` rather than on eslint and reported
 a clean lint over a real error for two days.
 
+### The pattern, not the tool, decides what is findable (21 Aug 2026)
+
+**A clean sweep result is evidence about the pattern before it is evidence about
+the file.**
+
+The exit-code rule above says a tool can lie about whether it ran. This one says
+**a tool can run perfectly and still be blind, and you cannot tell the difference
+from the output.** It is why `ugrep` exiting 0 while scanning nothing, the compat
+checker reporting COMPATIBLE while parsing zero enums, and a suffix pattern
+`\bflavour(s|d|ing)?\b` that could never match `behavioural` are **one failure
+rather than three**.
+
+**The mitigation that worked, recorded alongside it:** assert an expected
+replacement **count** and abort before the write. Two substitutions failed on
+strings that were line-broken in the HTML source; the count mismatch stopped the
+run, so `privacy.html` stayed untouched rather than half-edited. A sweep that
+cannot verify its own coverage should at least refuse to half-apply itself.
+
+Demonstrated again during the integration of this very commit: a check written to
+confirm no British spelling reached a shipped string returned `0` — with
+`ugrep: error … exceeds complexity limits` printed immediately above it. The zero
+was the error, not the answer. Re-run in Python, the real result was 11 matches,
+0 of them user-facing. Same conclusion, but the first run had measured nothing.
+
 ### Named versus general regulations (Emil, 21 Aug 2026)
 
 **A named regulation is checkable, a general one isn't — which is exactly why it
