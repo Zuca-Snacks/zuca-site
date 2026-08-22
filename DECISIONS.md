@@ -214,6 +214,26 @@ confirm no British spelling reached a shipped string returned `0` — with
 was the error, not the answer. Re-run in Python, the real result was 11 matches,
 0 of them user-facing. Same conclusion, but the first run had measured nothing.
 
+### Deleting a string isn't the same as deleting what renders it (21 Aug 2026)
+
+**The mirror image of the previous lesson.** Then, prose was living *outside* the
+copy surface where a `copy.js` sweep could not see it — the footer location, the
+hero's nutrition figures. Now, removing prose left the component still rendering
+an **empty container with its full margin**: a visible gap that reads as a layout
+bug, and would have arrived on the visual agent's desk as one. **Same seam, both
+directions.**
+
+Both `<p>{s.why}</p>` and `<p>{sections.waitlist.body}</p>` were unguarded. Both
+are conditional now.
+
+**Verified by rendering, not by reading the guard.** `undefined ? x : null` is
+obviously safe on inspection, but the risk was never the guard — it was residual
+space from a wrapper. A headless render at 390px found the only empty elements
+occupying space are the two intentional `z-hero__fruit` decorations, and the
+waitlist section closes cleanly: `lede: absent — guard held`, no gap below the
+heading. A deletion of rendered copy should be checked in a browser, because the
+thing that goes wrong is invisible in the diff.
+
 ### Named versus general regulations (Emil, 21 Aug 2026)
 
 **A named regulation is checkable, a general one isn't — which is exactly why it
