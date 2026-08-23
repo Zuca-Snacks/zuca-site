@@ -731,7 +731,36 @@ export default async function handler(req, res) {
    * in a comment is not a control, and analytics must not be able to fail a
    * signup under any circumstance — including a bug of mine in that module.
    */
-  try {
+  /**
+   * NO event_id, NO EVENT. Unconditional, added 2026-08-22.
+   *
+   * `event_id` is deliberately absent from CORE_KEYS and MINIMAL_KEYS, so a
+   * DOWNGRADED submission arrives without one. From here those two cases are
+   * indistinguishable — the payload looks identical:
+   *
+   *   no pixel configured, so no browser Lead fired   -> a CAPI event is the
+   *                                                      only record, sending
+   *                                                      it is right
+   *   downgraded, and a browser Lead DID fire         -> sending a CAPI event
+   *                                                      with no event_id
+   *                                                      DOUBLE-COUNTS, because
+   *                                                      dedup has nothing to
+   *                                                      match on
+   *
+   * In production both env vars are set, so the first case does not occur —
+   * which makes the safe rule unconditional rather than a judgement call. An
+   * event that cannot be deduplicated is worse than no event: it inflates the
+   * conversion count and the campaign optimises on the inflated number.
+   *
+   * Logged at request time because the rate matters. This is the measurement
+   * cost of downgrades, and it is invisible unless counted.
+   */
+  if (!data.event_id) {
+    audit('meta_capi.skipped_no_event_id', {
+      handle,
+      downgraded: Boolean(data.downgraded_fields),
+    });
+  } else try {
     const capi = await sendLeadEvent({
       email: data.email,
       eventId: data.event_id,

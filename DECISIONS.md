@@ -7,6 +7,48 @@ than rediscovered from scratch.
 Each entry states what was decided, why, and **what would make us revisit**. Where a revisit trigger
 can be made mechanical it is, because a trigger nobody checks is a comment.
 
+> ⚠️ **MERGE SESSION:** this copy is stale — `main` carries a much longer version that already
+> supersedes D1–D3 below. Take `main`'s, as last time, **but carry D4 across**. It is new here and
+> exists nowhere else.
+
+---
+
+## D4 — An uncaptured single-test failure, 2026-08-22
+
+**Not a merge blocker. Recorded because dropping it would be the mistake it is about.**
+
+### What happened
+
+One run of `scripts/attack-waitlist.mjs` reported **218/219**. I did not capture which test
+failed.
+
+### The reproduction attempt, and why it failed
+
+I grepped for the failure in a **follow-up run** rather than in the invocation that produced it.
+That run passed, so the grep found nothing. Thirteen further runs — three, then ten — were all
+clean at 219/219. The failing test is unidentified and the failure is unreproduced.
+
+Candidate causes, none confirmed: the run happened moments after the file was rewritten; several
+new tests mutate `process.env` and restore it in a `finally`; one deletes `META_PIXEL_ID`. Any of
+these could interact with ordering. **All of that is speculation, which is the point** — the
+evidence needed to choose between them was thrown away by re-running.
+
+### The rule, going forward
+
+**Capture the full output of a failing run in the same invocation that produces it.** Never grep a
+follow-up run: an intermittent failure is precisely the kind that will not be there the second
+time, and re-running to "check" destroys the only evidence there was.
+
+This is the same shape as the entry about checking the tree you are actually testing. Both are a
+green result being read as information about a different run than the one that produced it.
+
+### Why it is written down rather than watched
+
+A single unexplained failure in a suite of 219 is easy to carry as a private doubt and then forget.
+Written down, it is either reproduced by someone later or it stays a known unknown — and a known
+unknown is a fair thing for a suite to have. An unrecorded one is just a suite nobody quite
+trusts, for reasons nobody can name.
+
 ---
 
 ## D1 — Consent wording ships English-only
