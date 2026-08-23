@@ -249,6 +249,22 @@ to food, established by FDA affirmation or documented expert consensus, and it
 describes conditions of use rather than blanket safety. Claiming a classification
 we do not hold is the same class as displaying an ungranted certification mark.
 
+### Instance 5 — grepping a follow-up run instead of the failing one (security, 22 Aug 2026)
+
+One run of `attack-waitlist.mjs` reported **218/219**. The failing test was never
+identified, because the search for it happened in a **later run** — which passed.
+Thirteen runs since are clean, and the evidence is gone.
+
+> **Capture the full output of a failing run in the same invocation that produces
+> it.** Never grep a follow-up run: an intermittent failure is precisely the kind
+> that will not be there the second time, and re-running to "check" destroys the
+> only evidence there was.
+
+Same shape as the rest — a green result read as information about a different run
+than the one that produced it. Recorded in full at **D4**, including the candidate
+causes, all unconfirmed. A known unknown is a fair thing for a suite to have; an
+unrecorded one is a suite nobody quite trusts for reasons nobody can name.
+
 ### The rule
 
 **Check what is actually in the tree you are testing, not what you think you put
