@@ -426,6 +426,28 @@ function normalizeText(value) {
 // eslint-disable-next-line no-control-regex -- matching control chars is the point
 const STRIPPED_CONTROLS = /[\u0001-\u0008\u000E-\u001F\u007F-\u009F]/g;
 
+/**
+ * Meta's `_fbp` / `_fbc` browser cookies.
+ *
+ * Bounded by charset and length, not parsed. Their internal format is Meta's
+ * and may change; what matters to us is that an opaque value we forward to a
+ * third party cannot carry quotes, angle brackets, whitespace or controls.
+ * `/^[A-Za-z0-9._-]+$/` covers every documented form and nothing else.
+ */
+function metaCookie() {
+  return z
+    .union([
+      z
+        .string()
+        .max(255, { message: 'too_long' })
+        .regex(/^[A-Za-z0-9._-]+$/, { message: 'illegal_chars' }),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .transform((v) => v || null);
+}
+
 function safeString(max) {
   return z
     .string()
@@ -967,6 +989,41 @@ export const waitlistSchema = z
      * would have every save rejected. ADD-class, server first.
      */
     edit_token: safeString(200).nullish().transform((v) => v || null),
+
+    /**
+     * ─── Meta Conversions API correlation, added 2026-08-22 ─────────────────
+     *
+     * TRANSPORT ONLY, like `edit_token` above. These three are read by
+     * api/waitlist.js and handed to src/lib/metaCapi.js; they are NEVER put in
+     * the record that goes to Apps Script. The sheet has a fixed header
+     * contract and `assertTargetSheet_` trips on drift, so a stray key there is
+     * not a cosmetic problem.
+     *
+     * They are in the schema because it is `.strict()`: an unknown key is a
+     * 400, so a client sending these to a server without these lines would have
+     * EVERY submission rejected — not just the ones using the feature. That is
+     * the ADD-class ordering rule, and it is why this ships and reaches
+     * production before the client emits anything.
+     *
+     * All three optional. Absent stays valid, which is the state every existing
+     * client is in.
+     */
+
+    // Deduplication key shared with the browser pixel: Meta drops the second
+    // arrival of a matching event_id. A malformed one is worse than none — it
+    // silently stops deduplicating and the same Lead is counted twice — so this
+    // is strict rather than lenient, and names itself when it fails.
+    event_id: z
+      .union([z.string().uuid({ message: 'invalid_uuid' }), z.literal(''), z.null()])
+      .optional()
+      .transform((v) => v || null),
+
+    // Meta's browser cookies. Charset-bounded rather than parsed: they are
+    // opaque to us, and the only thing we can honestly assert is that they
+    // contain nothing that could be read as markup, a separator or a control
+    // character on the way to a third party.
+    fbp: metaCookie(),
+    fbc: metaCookie(),
 
     business_enquiry: z.boolean().nullish().transform((v) => v === true),
     business_consent_text_version: safeString(64).nullish().transform((v) => v || null),
