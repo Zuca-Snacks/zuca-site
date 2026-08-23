@@ -1678,6 +1678,24 @@ await check('Error response never echoes submitted input', 'no email in body', a
   // the ideal hiding place for that: nothing breaks until the day it is
   // enforced, and then everything does at once, in production, with the change
   // that caused it weeks in the past.
+  await check('report-only CSP carries the Facebook origins', 'script/img/connect', async () => {
+    // Extended 2026-08-22, and ONLY here. Without them the violation stream
+    // fills with Facebook noise the moment the pixel ships — burying anything
+    // real — and at promotion the pixel breaks while still appearing installed.
+    const { readFileSync } = await import('node:fs');
+    const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+    const ro = cfg.headers.flatMap((h) => h.headers)
+      .find((h) => h.key.toLowerCase() === 'content-security-policy-report-only')?.value ?? '';
+    const dir = (n) => ro.split(';').map((x) => x.trim()).find((x) => x.startsWith(`${n} `)) ?? '';
+    const want = [
+      ['script-src', 'https://connect.facebook.net'],
+      ['img-src', 'https://www.facebook.com'],
+      ['connect-src', 'https://www.facebook.com'],
+    ];
+    const missing = want.filter(([d, o]) => !dir(d).includes(o)).map(([d]) => d);
+    return { pass: missing.length === 0, actual: missing.length ? `MISSING from: ${missing.join(', ')}` : 'all three present' };
+  });
+
   await check('report-only CSP carries plausible.io in BOTH directives', 'script-src + connect-src', async () => {
     const { readFileSync } = await import('node:fs');
     const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
