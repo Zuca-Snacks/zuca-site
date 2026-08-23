@@ -1707,6 +1707,64 @@ await check('Error response never echoes submitted input', 'no email in body', a
     };
   });
 
+  // ── Meta CAPI: the three transport fields, and what must never leak ─────
+  {
+    const UUID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+
+    await check('meta fields never reach the Apps Script forward', 'sheet contract intact', async () => {
+      // The sheet has a fixed header contract and assertTargetSheet_ trips on
+      // drift, so a stray key here is not cosmetic. These three are transport
+      // only — read by the endpoint, handed to metaCapi, never recorded.
+      const { captured } = await postCapturing(growthPayload({
+        event_id: UUID, fbp: 'fb.1.1700000000.123', fbc: 'fb.1.1700000000.abc',
+      }));
+      const row = captured[0] ?? {};
+      const leaked = ['event_id', 'fbp', 'fbc'].filter((k) => k in row);
+      return { pass: leaked.length === 0, actual: leaked.length ? `LEAKED: ${leaked.join(', ')}` : `${Object.keys(row).length} keys, none of the three` };
+    });
+
+    await check('a bad event_id is refused and names itself', 'invalid_uuid', async () => {
+      const r = await post(growthPayload({ event_id: 'not-a-uuid' }));
+      const hit = (r.json?.refused ?? []).find((f) => f.field === 'event_id');
+      return { pass: r.status === 400 && hit?.rule === 'invalid_uuid', actual: JSON.stringify(hit ?? r.json) };
+    });
+
+    await check('fbp/fbc reject anything outside their charset', 'illegal_chars', async () => {
+      const r = await post(growthPayload({ fbp: 'has spaces and <brackets>' }));
+      const hit = (r.json?.refused ?? []).find((f) => f.field === 'fbp');
+      return { pass: r.status === 400 && hit?.rule === 'illegal_chars', actual: JSON.stringify(hit ?? r.json) };
+    });
+
+    await check('all three absent stays valid', 'unchanged for every existing client', async () => {
+      const p = growthPayload();
+      for (const k of ['event_id', 'fbp', 'fbc']) delete p[k];
+      const v = validateWaitlist(p);
+      return { pass: v.ok, actual: v.ok ? 'accepted' : JSON.stringify(v.issues) };
+    });
+
+    await check('the raw email never leaves — hashEmail is sha256(trim+lower)', '64 hex, no @', async () => {
+      const { createHash } = await import('node:crypto');
+      const { hashEmail } = await import('../src/lib/metaCapi.js');
+      const h = hashEmail('  Person@Example.COM  ');
+      const want = createHash('sha256').update('person@example.com').digest('hex');
+      return {
+        pass: h === want && /^[0-9a-f]{64}$/.test(h) && !h.includes('@'),
+        actual: `${h.slice(0, 16)}… len=${h.length} hex=${/^[0-9a-f]{64}$/.test(h)} at=${h.includes('@')}`,
+      };
+    });
+
+    await check('CAPI unconfigured never touches the signup', '200 and skipped', async () => {
+      const savePixel = process.env.META_PIXEL_ID;
+      delete process.env.META_PIXEL_ID;
+      try {
+        const r = await post(growthPayload({ event_id: UUID }));
+        return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json?.ok)}` };
+      } finally {
+        if (savePixel !== undefined) process.env.META_PIXEL_ID = savePixel;
+      }
+    });
+  }
+
   // ── S22: role addresses behind the business basis ───────────────────────
   /**
    * Resolved from the REGISTRY, not pinned.

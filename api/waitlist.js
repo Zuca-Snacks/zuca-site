@@ -34,6 +34,7 @@ import {
 } from '../src/lib/validation.js';
 import { checkRateLimit, isDuplicate, clientIp } from '../src/lib/ratelimit.js';
 import { mintEditToken, verifyEditToken } from '../src/lib/edit-token.js';
+import { sendLeadEvent } from '../src/lib/metaCapi.js';
 
 const SHEETS_WEBHOOK_URL = process.env.SHEETS_WEBHOOK_URL;
 const SHEETS_WEBHOOK_TOKEN = process.env.SHEETS_WEBHOOK_TOKEN;
@@ -710,6 +711,55 @@ export default async function handler(req, res) {
   } catch (err) {
     audit('forward.error', { handle, reason: err.name });
     return send(res, 500, { ok: false, error: 'server' });
+  }
+
+  /**
+   * ─── Meta Conversions API ────────────────────────────────────────────────
+   *
+   * AFTER the Apps Script forward has completed, and OUTSIDE its success path.
+   * The row is already written by the time we reach here; nothing below can
+   * change the status code or the body the person receives.
+   *
+   * AWAITED, DELIBERATELY, and not fire-and-forget. This is a Vercel
+   * serverless function: the runtime may freeze the process the instant the
+   * response is flushed, so an un-awaited fetch can simply never leave the box
+   * — failing silently, intermittently, and only in production, which is the
+   * worst combination of the three. 1500ms is the price of knowing.
+   *
+   * The whole thing is wrapped and the outcome discarded. `sendLeadEvent`
+   * already promises never to throw; this catch exists because a promise made
+   * in a comment is not a control, and analytics must not be able to fail a
+   * signup under any circumstance — including a bug of mine in that module.
+   */
+  try {
+    const capi = await sendLeadEvent({
+      email: data.email,
+      eventId: data.event_id,
+      // The origin the request actually came from, plus the page the client
+      // reported. Both are already validated — the origin against
+      // ALLOWED_ORIGINS above, `page_path` by the schema — so a submitter
+      // cannot turn this into an arbitrary URL.
+      eventSourceUrl: `${req.headers.origin || 'https://www.zucasnacks.com'}${data.page_path || '/'}`,
+      headers: req.headers,
+      fbp: data.fbp,
+      fbc: data.fbc,
+    });
+    // Logged on THIS request, never at boot. A once-per-instance warning prints
+    // to an empty room and every later signup then fails in silence — the exact
+    // failure `waitlist.edit_token.unconfigured` was written to avoid.
+    if (capi.reason === 'unconfigured') {
+      audit('meta_capi.unconfigured', { handle });
+    } else if (capi.reason === 'http') {
+      audit('meta_capi.failed', { handle, status: capi.status });
+    } else if (!capi.sent) {
+      audit('meta_capi.failed', { handle, reason: capi.reason });
+    }
+  } catch (err) {
+    audit('meta_capi.failed', {
+      handle,
+      reason: 'threw',
+      detail: String(err?.message || err).slice(0, 120),
+    });
   }
 
   if (data.downgraded_fields) {
