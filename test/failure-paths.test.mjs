@@ -869,3 +869,61 @@ test('S26: the default dial country is a hint, never a silent decision', async (
   // person can change rather than a hidden assumption.
   assert.ok(DIAL_CODES.some((c) => c.code === picked), 'the default must be in the list');
 });
+
+// ─── S27: the Pixel is additive and inert without its variable ───────────────
+
+test('S27: with no VITE_META_PIXEL_ID the pixel is a complete no-op', async () => {
+  // Node has no import.meta.env at all, which is the same condition as a build
+  // with the variable unset — so this asserts the shipped disabled path.
+  const px = await import('../src/lib/metaPixel.js');
+  assert.equal(px.isPixelEnabled(), false);
+
+  const before = typeof globalThis.window?.fbq;
+  px.initMetaPixel();
+  px.trackLead('irrelevant');
+  assert.equal(typeof globalThis.window?.fbq, before, 'must not create an fbq global');
+});
+
+test('S27: event_id, fbp and fbc are omitted unless supplied', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  const base = {
+    email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
+    formRenderTs: Date.now() - 9000,
+  };
+  // ⚠️ THE SERVER SCHEMA IS .strict() AND REJECTS ON KEY PRESENCE, NOT VALUE.
+  // `event_id: null` from a build with no pixel would 400 every submission on
+  // any deploy where security's change is not live. An earlier version of
+  // Step2Profile minted the id unconditionally and would have done exactly
+  // that; the disabled-build check is what caught it.
+  const plain = mod.buildPayload(base);
+  for (const k of ['event_id', 'fbp', 'fbc']) {
+    assert.equal(k in plain, false, `${k} must be absent, not null`);
+  }
+
+  const tracked = mod.buildPayload({ ...base, meta: { event_id: 'abc-123', fbc: 'fb.1.x.click' } });
+  assert.equal(tracked.event_id, 'abc-123');
+  assert.equal(tracked.fbc, 'fb.1.x.click');
+  assert.equal('fbp' in tracked, false, 'an absent cookie stays absent rather than empty');
+});
+
+test('S27: the dedup keys are NOT at the ladder floor, deliberately', async () => {
+  const mod = await import('../src/components/waitlist/api.js');
+  // Measurement, not a precondition of the write. If a downgrade sheds them the
+  // signup still lands — losing a row to protect an analytics id would be the
+  // wrong way round. Contrast edit_token, which IS a precondition and is at the
+  // floor for that reason.
+  for (const k of ['event_id', 'fbp', 'fbc']) {
+    assert.equal(mod.CORE_KEYS.has(k), false, `${k} must not be in CORE`);
+    assert.equal(mod.MINIMAL_KEYS.has(k), false, `${k} must not be at the floor`);
+  }
+  assert.equal(mod.MINIMAL_KEYS.has('edit_token'), true, 'but edit_token still is');
+});
+
+test('S27: Plausible is untouched by the pixel', async () => {
+  const a = await import('../src/lib/analytics.js');
+  // The pixel is additive. analytics.js keeps its exports and its behaviour.
+  for (const fn of ['track', 'trackOnce', 'trackScreen', 'trackPageView']) {
+    assert.equal(typeof a[fn], 'function', `analytics.${fn} must survive`);
+  }
+  assert.ok(a.EVENTS.STEP1_SUCCESS, 'and its event map');
+});

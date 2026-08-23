@@ -153,6 +153,7 @@ export function buildPayload({
   businessEnquiry = false,
   businessConsentTextVersion = null,
   editToken = null,
+  meta = null,
   profile = {},
   formRenderTs,
   hpField = "",
@@ -187,6 +188,22 @@ export function buildPayload({
   // `edit_token: null` would be a key the pre-S23 server rejects outright —
   // .strict() refuses on presence, not on value.
   const edit = typeof editToken === "string" && editToken ? editToken : null;
+
+  // ── Meta Pixel dedup + click attribution ────────────────────────────────
+  // ⚠️ OMITTED ENTIRELY UNLESS PRESENT. `.strict()` rejects on key presence,
+  // not on value, so `event_id: null` from a client whose server predates
+  // security's change would 400 EVERY submission — not just the tracked ones.
+  // That is why this branch must not merge before theirs is live.
+  //
+  // Deliberately NOT in CORE_KEYS or MINIMAL_KEYS: these are measurement, not
+  // a precondition of the write. If the ladder sheds them the signup still
+  // lands, which is the right trade — losing a row to protect an analytics id
+  // would be the wrong way round.
+  const m = meta && typeof meta === "object" ? meta : {};
+  const metaKeys = {};
+  if (typeof m.event_id === "string" && m.event_id) metaKeys.event_id = m.event_id;
+  if (typeof m.fbp === "string" && m.fbp) metaKeys.fbp = str(m.fbp, 255);
+  if (typeof m.fbc === "string" && m.fbc) metaKeys.fbc = str(m.fbc, 255);
   const p = profile;
 
   return {
@@ -211,6 +228,7 @@ export function buildPayload({
     // Present only for a shared-inbox signup. See CORE_KEYS for why they must
     // survive every rung of the downgrade ladder.
     ...(edit ? { edit_token: edit } : {}),
+    ...metaKeys,
     ...(business
       ? {
           business_enquiry: true,
