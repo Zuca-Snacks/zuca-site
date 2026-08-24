@@ -869,3 +869,48 @@ test('S26: the default dial country is a hint, never a silent decision', async (
   // person can change rather than a hidden assumption.
   assert.ok(DIAL_CODES.some((c) => c.code === picked), 'the default must be in the list');
 });
+
+// ─── S28: 409 means two different things ─────────────────────────────────────
+
+test('S28: in_flight is not duplicate, and does not read as success', async () => {
+  const body = (error) => async () => ({
+    ok: false, status: 409, json: async () => ({ ok: false, error }),
+  });
+
+  const dup = await withFetch(body('duplicate'));
+  const d = await dup.mod.submitWaitlist(payload());
+  assert.equal(d.status, dup.mod.RESULT.DUPLICATE, 'a committed signup stays a duplicate');
+
+  const inf = await withFetch(body('in_flight'));
+  const i = await inf.mod.submitWaitlist(payload());
+  // ⚠️ THE LOCKOUT. Before this, both 409s became DUPLICATE and Step1Email
+  // advanced with "You're already one of us." — told to a first-time signer
+  // whose request had just failed, ninety seconds before a retry would have
+  // worked, with no editToken and no counted signup.
+  assert.equal(i.status, inf.mod.RESULT.IN_FLIGHT);
+  assert.notEqual(i.status, inf.mod.RESULT.DUPLICATE);
+  assert.notEqual(i.status, inf.mod.RESULT.OK, 'must never read as success');
+});
+
+test('S28: the in_flight message says "not yet", never "already"', async () => {
+  const { step1 } = await import('../src/content/copy.js');
+  const mod = await import('../src/components/waitlist/api.js');
+  const msg = step1.errors[mod.RESULT.IN_FLIGHT];
+  assert.ok(msg, 'a distinct result with no message falls through to "our end broke"');
+  assert.doesNotMatch(msg, /already/i, 'the whole bug was the word "already"');
+  assert.match(msg, /again/i, 'it must tell them to retry');
+  // And it must not be the duplicate copy under another name.
+  const { confirmation } = await import('../src/content/copy.js');
+  assert.notEqual(msg, confirmation.duplicate);
+});
+
+test('S28: an unreadable 409 body keeps the old behaviour', async () => {
+  // Conservative direction on purpose: a body we cannot parse must not become
+  // a retry prompt for someone who really is on the list. Only an explicit
+  // in_flight changes the verdict.
+  const { mod } = await withFetch(async () => ({
+    ok: false, status: 409, json: async () => { throw new Error('not json'); },
+  }));
+  const r = await mod.submitWaitlist(payload());
+  assert.equal(r.status, mod.RESULT.DUPLICATE);
+});

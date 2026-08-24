@@ -45,6 +45,19 @@ export const RESULT = {
    * actually queued it and know why it has not been delivered.
    */
   OFFLINE: "offline",
+  /**
+   * A 409 the server sends while OUR OWN earlier request is still forwarding.
+   *
+   * ⚠️ NOT A DUPLICATE, AND THE DIFFERENCE IS A LOCKOUT. `duplicate` means a
+   * row exists. `in_flight` means we do not know yet — the claim key is held
+   * for ~90s while the first request finishes. Collapsing the two told a
+   * first-time signer, whose request had just 500'd on a slow Apps Script,
+   * that they were already a member. They stop trying, ninety seconds before
+   * it would have worked, with no editToken and no counted signup.
+   *
+   * Transient, so the message must say "not yet" — never "already done".
+   */
+  IN_FLIGHT: "in_flight",
 };
 
 // ─── Payload ─────────────────────────────────────────────────────────────────
@@ -466,9 +479,18 @@ export async function drainQueue() {
  * must never be flushed with it. There is no sendBeacon in this codebase and
  * there should not be one.
  */
-function statusToResult(status) {
+/**
+ * Map a response to a result.
+ *
+ * ⚠️ 409 IS TWO DIFFERENT ANSWERS AND THE STATUS ALONE CANNOT TELL THEM APART.
+ * The body's `error` field is the only thing that distinguishes a committed
+ * signup from a request still in mid-forward, so this takes it. Anything else,
+ * including a body we could not parse, keeps the old behaviour and reads as a
+ * duplicate — the conservative direction, because that is what shipped.
+ */
+function statusToResult(status, error) {
+  if (status === 409) return error === "in_flight" ? RESULT.IN_FLIGHT : RESULT.DUPLICATE;
   if (status === 200 || status === 201 || status === 204) return RESULT.OK;
-  if (status === 409) return RESULT.DUPLICATE;
   if (status === 400 || status === 422) return RESULT.VALIDATION;
   if (status === 429) return RESULT.RATE_LIMITED;
   return RESULT.SERVER;
@@ -519,20 +541,24 @@ async function post(payload, rung = 0) {
       }
     }
 
-    const result = statusToResult(res.status);
     let position = null;
     // The credential that lets steps 2-4 UPDATE the row step 1 created. Absent
     // on a 409 and absent if the server could not mint one, so every consumer
     // has to cope with not having it — which is the pre-S23 behaviour, i.e. the
     // saves 409 and the answers are lost. It is not decoration.
     let editToken = null;
+    // Parsed BEFORE the result is decided: `error` is what separates the two
+    // meanings of 409, and reading it afterwards is how they got collapsed.
+    let error = null;
     try {
       const body = await res.json();
       if (body && typeof body.position === "number") position = body.position;
       if (body && typeof body.edit_token === "string" && body.edit_token) editToken = body.edit_token;
+      if (body && typeof body.error === "string") error = body.error;
     } catch {
       /* 204, or a body we don't need */
     }
+    const result = statusToResult(res.status, error);
     return { status: result, position, editToken, via: rung === 0 ? "api" : `api-rung${rung}` };
   } catch {
     /* A fetch that throws is TWO different failures wearing one coat, and they

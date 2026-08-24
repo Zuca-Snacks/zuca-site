@@ -39,6 +39,12 @@ let failure = null; // the last permanent failure, surfaced before confirmation
 function isPermanentFailure(status) {
   // OFFLINE is already persisted to localStorage and replayed by drainQueue,
   // so it is not a failure the person needs to see or act on.
+  // IN_FLIGHT is deliberately NOT excused here, unlike DUPLICATE and OFFLINE.
+  // On step 2 every save carries an edit token, so the server takes the update
+  // path and never claims a key — and single-flight coalescing means we never
+  // race ourselves. So an in_flight here is genuinely unexpected, and the
+  // truthful "we couldn't save these answers, try again?" is better than
+  // treating an unexplained state as success. That mistake was S23.
   return status !== RESULT.OK && status !== RESULT.DUPLICATE && status !== RESULT.OFFLINE;
 }
 
