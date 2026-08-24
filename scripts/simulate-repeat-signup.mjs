@@ -27,18 +27,42 @@
  */
 import http from 'node:http';
 
-const store = new Map();
+/**
+ * Upstash-compatible enough for the CLAIM, not just the counter.
+ *
+ * The first version implemented `SET NX` and nothing else, so `commitEmail`'s
+ * plain SET silently failed and `GET` always returned null — which made every
+ * repeat look INFLIGHT when production would call it a DUPLICATE. The harness
+ * could not express the state it was being used to check, which is the same
+ * fault that let S23 survive 200 passing tests.
+ */
+const store = new Map(); // key -> { v, expiresAt }
+const alive = (e) => e && (e.expiresAt === null || e.expiresAt > Date.now());
 const redis = http.createServer((q, r) => {
-  let b = ''; q.on('data', (c) => (b += c));
+  let b = '';
+  q.on('data', (c) => (b += c));
   q.on('end', () => {
-    const cmds = JSON.parse(b || '[]');
-    const out = cmds.map((c) => {
-      const [op, key] = c;
-      if (op !== 'SET') return { result: null };
-      if (store.has(key)) return { result: null };      // NX: already set
-      store.set(key, 1); return { result: 'OK' };
+    const out = JSON.parse(b || '[]').map((c) => {
+      const [op, key, ...rest] = c.map(String);
+      const e = store.get(key);
+      if (op === 'SET') {
+        const exAt = rest.indexOf('EX');
+        const ttl = exAt >= 0 ? Number(rest[exAt + 1]) : null;
+        if (rest.includes('NX') && alive(e)) return { result: null };
+        store.set(key, { v: rest[0], expiresAt: ttl ? Date.now() + ttl * 1000 : null });
+        return { result: 'OK' };
+      }
+      if (op === 'GET') return { result: alive(e) ? e.v : null };
+      if (op === 'TTL') return { result: alive(e) ? Math.round((e.expiresAt - Date.now()) / 1000) : -2 };
+      if (op === 'INCR') {
+        const n = (alive(e) ? Number(e.v) : 0) + 1;
+        store.set(key, { v: String(n), expiresAt: e?.expiresAt ?? null });
+        return { result: n };
+      }
+      return { result: null };
     });
-    r.setHeader('Content-Type', 'application/json'); r.end(JSON.stringify(out));
+    r.setHeader('Content-Type', 'application/json');
+    r.end(JSON.stringify(out));
   });
 });
 await new Promise((r) => redis.listen(0, '127.0.0.1', r));

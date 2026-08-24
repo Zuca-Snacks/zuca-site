@@ -214,27 +214,128 @@ export async function checkRateLimit(req, { namespace = 'waitlist' } = {}) {
  * With the durable store absent this returns false — better to accept a
  * duplicate row than to reject a genuine signup.
  */
-export async function isDuplicate(emailHash, { namespace = 'waitlist', ttlSec = 400 * 86400 } = {}) {
-  if (!DURABLE) return false;
+/**
+ * ─── A CLAIM WITH TWO LIFETIMES ──────────────────────────────────────────────
+ *
+ * This replaces `isDuplicate`, which burned the key for 400 days the moment a
+ * submission ARRIVED — before the row existed.
+ *
+ * The failure that forced this, measured in production: the Apps Script forward
+ * aborts at 8s, Apps Script is sometimes slower than that and completes the
+ * append anyway, and the handler returns 500. The visitor is told it failed,
+ * the row may or may not exist, and the key is spent either way. Their retry
+ * gets a 409 forever. Where the forward genuinely failed there is no row and no
+ * path to ever create one. Merge measured /api/count 274 -> 278: four rows from
+ * five POSTs, of which two returned 200.
+ *
+ * So the key now has two states rather than one lifetime:
+ *
+ *   INFLIGHT   ~90s, written on arrival. Long enough to block a double-submit,
+ *              far clear of the 8s abort, and it LAPSES ON ITS OWN — so a
+ *              request that never produced a row cannot lock the address out.
+ *   COMMITTED  400 days, written only after the forward actually succeeded.
+ *              This is the real duplicate.
+ *
+ * On failure or timeout the key is deliberately LEFT ALONE. Deleting it would
+ * be worse: after a timeout we cannot know whether the append landed, and
+ * deleting invites a retry that races an in-flight write.
+ *
+ * THE TRADE, ON THE RECORD: a retry after a timeout that actually landed can
+ * produce a duplicate row. A duplicate row is visible in the sheet and can be
+ * deleted. A locked-out signup is invisible and cannot be recovered by anyone —
+ * the person simply never appears. Same principle that keeps `event_id` out of
+ * CORE_KEYS: never let the bookkeeping cost the thing being booked.
+ */
 
+/** Written on arrival. Must outlast the 8s forward abort by a wide margin. */
+export const INFLIGHT_TTL_SEC = 90;
+/** Written only once a row exists. */
+export const COMMITTED_TTL_SEC = 400 * 86400;
+
+const CLAIM_KEY = (ns, h) => `seen:${ns}:${h}`;
+
+async function pipeline(commands, timeoutMs = 2000) {
+  const res = await fetch(`${UPSTASH_URL}/pipeline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(commands),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+/**
+ * Claim an address for this request.
+ *
+ *   { claimed: true }                      first arrival — proceed
+ *   { claimed: false, state: 'committed' } a row already exists — 409
+ *   { claimed: false, state: 'inflight' }  another request is mid-forward
+ *   { claimed: true, durable: false }      no Upstash: no duplicate detection,
+ *                                          same as the old behaviour
+ *
+ * SET NX and GET in one pipeline: NX is the atomic test-and-set that stops two
+ * concurrent submissions both being treated as new, and the GET tells us which
+ * state we lost to. Reading the value in a second round trip would race.
+ */
+export async function claimEmail(emailHash, { namespace = 'waitlist' } = {}) {
+  if (!DURABLE) return { claimed: true, durable: false };
+  const key = CLAIM_KEY(namespace, emailHash);
   try {
-    const res = await fetch(`${UPSTASH_URL}/pipeline`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${UPSTASH_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      // SET NX returns null when the key already exists — one atomic
-      // test-and-set, so two concurrent submissions of the same address cannot
-      // both be treated as new.
-      body: JSON.stringify([['SET', `seen:${namespace}:${emailHash}`, '1', 'NX', 'EX', String(ttlSec)]]),
-      signal: AbortSignal.timeout(2000),
-    });
-    if (!res.ok) return false;
-    const results = await res.json();
-    return results[0]?.result === null;
+    const out = await pipeline([
+      ['SET', key, 'inflight', 'NX', 'EX', String(INFLIGHT_TTL_SEC)],
+      ['GET', key],
+    ]);
+    if (!out) return { claimed: true, durable: false };
+    if (out[0]?.result === 'OK') return { claimed: true, durable: true };
+    const state = out[1]?.result === 'committed' ? 'committed' : 'inflight';
+    return { claimed: false, state, durable: true };
   } catch (err) {
-    console.error('[ratelimit] duplicate check unavailable:', err.message);
+    // Availability of the duplicate store must not decide whether someone can
+    // join a waitlist. Fail open, exactly as the old check did.
+    console.error('[ratelimit] claim unavailable:', err.message);
+    return { claimed: true, durable: false };
+  }
+}
+
+/**
+ * Promote a claim to committed. Call ONLY after the forward has succeeded.
+ *
+ * Plain SET, no NX: it overwrites this request's own `inflight` marker, which
+ * is the point. Returns false if the store was unreachable — the claim then
+ * lapses in 90s and the address can be submitted again, which is the safe
+ * direction.
+ */
+export async function commitEmail(emailHash, { namespace = 'waitlist' } = {}) {
+  if (!DURABLE) return false;
+  try {
+    const out = await pipeline([
+      ['SET', CLAIM_KEY(namespace, emailHash), 'committed', 'EX', String(COMMITTED_TTL_SEC)],
+    ]);
+    return out?.[0]?.result === 'OK';
+  } catch (err) {
+    console.error('[ratelimit] commit failed:', err.message);
     return false;
   }
 }
+
+/**
+ * Read a claim's value and REAL remaining TTL.
+ *
+ * For tests and for operators. Asserting on the TTL we intended to write proves
+ * nothing about the TTL that is actually there — which is the whole reason this
+ * bug survived: the intended lifetime and the effective one had diverged and
+ * nothing read the second.
+ */
+export async function inspectClaim(emailHash, { namespace = 'waitlist' } = {}) {
+  if (!DURABLE) return { durable: false };
+  try {
+    const key = CLAIM_KEY(namespace, emailHash);
+    const out = await pipeline([['GET', key], ['TTL', key]]);
+    if (!out) return { durable: false };
+    return { durable: true, value: out[0]?.result ?? null, ttl: out[1]?.result ?? null };
+  } catch {
+    return { durable: false };
+  }
+}
+

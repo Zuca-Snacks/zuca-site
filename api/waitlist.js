@@ -32,7 +32,7 @@ import {
   refusalBlock,
   emailHandle,
 } from '../src/lib/validation.js';
-import { checkRateLimit, isDuplicate, clientIp } from '../src/lib/ratelimit.js';
+import { checkRateLimit, claimEmail, commitEmail, clientIp } from '../src/lib/ratelimit.js';
 import { mintEditToken, verifyEditToken } from '../src/lib/edit-token.js';
 import { sendLeadEvent } from '../src/lib/metaCapi.js';
 
@@ -280,8 +280,33 @@ export default async function handler(req, res) {
    * exactly as it always has — so the change is additive and no existing
    * client is affected by it.
    */
-  const isRepeat = await isDuplicate(handle);
+  /**
+   * Claim the address for ~90s, not 400 days. See claimEmail: the long lifetime
+   * is written only once a row demonstrably exists, so a forward that timed out
+   * or failed can no longer lock someone out permanently.
+   */
+  const claim = await claimEmail(handle);
+  const isRepeat = !claim.claimed;
   const editing = isRepeat && (await verifyEditToken(data.edit_token, handle));
+
+  if (isRepeat && !editing && claim.state === 'inflight') {
+    /**
+     * Another request for this address is mid-forward RIGHT NOW — almost
+     * always a double-click, occasionally a retry inside the 90s window.
+     *
+     * Deliberately NOT `duplicate`: that word means "a row exists", and here we
+     * do not know that yet. Naming it separately keeps the permanent state and
+     * the transient one distinguishable in the logs, which is the distinction
+     * whose absence caused this bug.
+     *
+     * The client maps 409 to success, which is right for the common case: the
+     * first request is still running and will land. If it does not, the key
+     * lapses in 90 seconds and the person can simply try again — which is the
+     * whole point of the short lifetime.
+     */
+    audit('claim.in_flight', { handle });
+    return send(res, 409, { ok: false, error: 'in_flight' });
+  }
 
   if (isRepeat && !editing) {
     // No token, expired, or minted for a different row. Note that a token for
@@ -694,6 +719,21 @@ export default async function handler(req, res) {
       return send(res, 500, { ok: false, error: 'server' });
     }
 
+    /**
+     * PROMOTE THE CLAIM. Only here — after the forward returned a real success.
+     *
+     * Everything above this line has, at some point, ended in a 500 while the
+     * row existed or did not. This is the first point at which "a row exists"
+     * is a fact rather than a hope, and it is therefore the only honest place
+     * to write a 400-day key.
+     *
+     * Not awaited for correctness of the response, but awaited all the same:
+     * this is a serverless function and an un-awaited write may never leave the
+     * box. A failed commit is safe — the claim lapses and the address can be
+     * submitted again.
+     */
+    await commitEmail(handle);
+
     // Mint the edit token on the way out. Only on a CREATE: an update request
     // already proved it holds one, and re-issuing would silently extend the
     // window every time the person changed a screen — a two-hour credential
@@ -755,8 +795,28 @@ export default async function handler(req, res) {
    * Logged at request time because the rate matters. This is the measurement
    * cost of downgrades, and it is invisible unless counted.
    */
-  if (!data.event_id) {
+  /**
+   * The nil UUID counts as absent.
+   *
+   * `00000000-0000-0000-0000-000000000000` is a well-formed v4 as far as
+   * validation is concerned — Zod's `.uuid()` accepts it — and it is exactly
+   * what a FAILED generator emits when `getRandomValues` is unavailable or
+   * returns zeros, which is the fallback path older Safari takes.
+   *
+   * Its effect is the opposite of the double-count this guard exists to
+   * prevent, and worse: every Lead would carry the same id, Meta would
+   * deduplicate them all against each other, and an entire campaign would
+   * record ONE conversion. Silent under-counting rather than silent
+   * over-counting.
+   *
+   * NOT rejected at the schema. 400ing a signup to protect measurement inverts
+   * the rule the whole design rests on — the person joining the waitlist has no
+   * stake in our analytics. Skipped and logged, exactly like an absent id.
+   */
+  const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+  if (!data.event_id || data.event_id === NIL_UUID) {
     audit('meta_capi.skipped_no_event_id', {
+      nil: data.event_id === NIL_UUID || undefined,
       handle,
       downgraded: Boolean(data.downgraded_fields),
     });
