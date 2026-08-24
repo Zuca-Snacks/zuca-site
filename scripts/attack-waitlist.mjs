@@ -1783,6 +1783,66 @@ await check('Error response never echoes submitted input', 'no email in body', a
     });
   }
 
+  // ── The claim has two lifetimes, and only one of them is permanent ──────
+  // Production defect: the duplicate key was written with a 400-day TTL on
+  // ARRIVAL. The Apps Script forward aborts at 8s, Apps Script is sometimes
+  // slower and appends anyway, the handler 500s — and the address was then
+  // locked out for 400 days whether or not a row existed. Merge measured
+  // /api/count 274 -> 278: four rows from five POSTs, two of which returned 200.
+  {
+    const rl = await import('../src/lib/ratelimit.js');
+
+    await check('inflight TTL is far clear of the 8s forward abort', 'headroom', async () => {
+      // The number that matters is the RATIO, not either value: the claim must
+      // outlive an aborted forward or a double-submit slips through, and must
+      // expire fast enough that a failed one does not lock anybody out.
+      const ok = rl.INFLIGHT_TTL_SEC >= 60 && rl.INFLIGHT_TTL_SEC <= 300;
+      return { pass: ok, actual: `inflight=${rl.INFLIGHT_TTL_SEC}s vs 8s abort (${(rl.INFLIGHT_TTL_SEC / 8).toFixed(0)}x)` };
+    });
+
+    await check('committed TTL is the long one, and they differ by orders', 'two lifetimes', async () => {
+      const ratio = rl.COMMITTED_TTL_SEC / rl.INFLIGHT_TTL_SEC;
+      return {
+        pass: rl.COMMITTED_TTL_SEC > 300 * 86400 && ratio > 10000,
+        actual: `committed=${rl.COMMITTED_TTL_SEC}s inflight=${rl.INFLIGHT_TTL_SEC}s ratio=${Math.round(ratio)}x`,
+      };
+    });
+
+    await check('claim/commit exist and isDuplicate is gone', 'no dual mechanism', async () => {
+      // Leaving the old one exported invites a caller that still burns 400 days
+      // on arrival — two mechanisms for one fact, which is the defect this
+      // branch keeps finding everywhere else.
+      const has = ['claimEmail', 'commitEmail', 'inspectClaim'].filter((f) => typeof rl[f] === 'function');
+      return {
+        pass: has.length === 3 && !('isDuplicate' in rl),
+        actual: `${has.join(', ')}${'isDuplicate' in rl ? ' — isDuplicate STILL EXPORTED' : ''}`,
+      };
+    });
+
+    await check('a commit never happens before the forward succeeds', 'source order', async () => {
+      // Structural, because the runtime version needs a stalling upstream: the
+      // only commitEmail call must sit AFTER the !upstream.ok return.
+      const { readFileSync } = await import('node:fs');
+      const src = readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+      const fail = src.indexOf("audit('forward.failed'");
+      const commit = src.indexOf('await commitEmail(handle)');
+      const calls = (src.match(/commitEmail\(/g) || []).length;
+      return {
+        pass: fail > 0 && commit > fail && calls === 1,
+        actual: `commitEmail calls=${calls}, ${commit > fail ? 'after' : 'BEFORE'} the failure return`,
+      };
+    });
+  }
+
+  await check('a nil event_id is treated as absent, not rejected', 'skip, never 400', async () => {
+    // 00000000-… passes Zod's .uuid() and is exactly what a failed generator
+    // emits. Every Lead would share it, Meta would dedup them all against each
+    // other, and a campaign would record ONE conversion. Rejecting it would
+    // 400 the signup to protect measurement, which inverts the rule.
+    const r = await post(growthPayload({ event_id: '00000000-0000-0000-0000-000000000000' }));
+    return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json?.ok)}` };
+  });
+
   // ── S22: role addresses behind the business basis ───────────────────────
   /**
    * Resolved from the REGISTRY, not pinned.
