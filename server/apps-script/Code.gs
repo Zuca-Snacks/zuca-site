@@ -484,6 +484,36 @@ function ensureColumns_(sheet) {
   });
 
   if (toAppend.length) {
+    /**
+     * The ONLY write in this function, and the only reason it ever needed a
+     * lock. Taken here rather than around the whole call so that the read-only
+     * happy path — which is every request once the columns exist — does not
+     * serialise behind other requests' setup.
+     *
+     * Double-checked: the headers are re-read after acquiring, because another
+     * request may have appended the same columns while this one waited. Without
+     * that, two concurrent first-writes would append the same header twice.
+     */
+    var colLock = LockService.getScriptLock();
+    try {
+      colLock.waitLock(5000);
+    } catch (err) {
+      throw new Error('CONFIG: could not lock to add columns: ' + err.message);
+    }
+    try {
+      var fresh = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+      var freshNorm = {};
+      for (var fi = 0; fi < fresh.length; fi++) {
+        if (fresh[fi]) freshNorm[normalizeHeader_(fresh[fi])] = fi + 1;
+      }
+      toAppend = toAppend.filter(function (c) { return !freshNorm[normalizeHeader_(c)]; });
+      for (var k in freshNorm) { if (Object.prototype.hasOwnProperty.call(freshNorm, k)) byNormalized[k] = freshNorm[k]; }
+      headers = fresh;
+    } finally {
+      colLock.releaseLock();
+    }
+  }
+  if (toAppend.length) {
     // `headers.length` rather than getLastColumn(): a sheet whose last columns
     // are blank reports a shorter lastColumn and we would overwrite real data.
     var firstNew = headers.length + 1;
@@ -590,16 +620,25 @@ function updateRow_(payload) {
   var handle = String(payload.email_handle || '');
   if (!/^[0-9a-f]{12}$/.test(handle)) return json_({ ok: false, error: 'validation' });
 
+  // Setup outside the lock, for the reason set out in doPost: reads cannot
+  // corrupt anything, and openById plus two header reads is most of the cost.
+  var sheet, index;
+  try {
+    sheet = getSheet_();
+    index = ensureColumns_(sheet);
+  } catch (err) {
+    console.error('updateRow_ setup failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
+  }
+
   var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
+    lock.waitLock(5000);
   } catch (err) {
     return json_({ ok: false, error: 'server' });
   }
 
   try {
-    var sheet = getSheet_();
-    var index = ensureColumns_(sheet);
     var lastRow = sheet.getLastRow();
     if (lastRow < 2 || !index.email_handle) return json_({ ok: false, error: 'not_found' });
 
@@ -607,6 +646,31 @@ function updateRow_(payload) {
     for (var i = handles.length - 1; i >= 0; i--) {
       if (String(handles[i][0]).trim() !== handle) continue;
       var row = i + 2;
+
+      /**
+       * ─── ONE READ, ONE WRITE ────────────────────────────────────────────
+       *
+       * This loop used to call sheet.getRange(row, col).setValue() once PER
+       * FIELD. In Apps Script every such call is a round trip to the Sheets
+       * service, and round trips are the entire cost model — measured on an
+       * instrumented sheet, a step 2-4 save cost ~30 service calls against ~5
+       * for an append.
+       *
+       * At 100-250ms each that is 3-7.5 seconds before cold start, against an
+       * 8s abort in the caller. And since S23 made steps 2-4 UPDATES, the
+       * expensive path became the common one — which is why one signup timed
+       * out four consecutive times in production on 25 Aug.
+       *
+       * So the row is read once, mutated in memory, and written once. Formats
+       * travel with it in the same shape, because a batched setValues does not
+       * carry the '@' that keeps a version id or a receipt from being
+       * reinterpreted as a number or a date.
+       */
+      var lastCol = sheet.getLastColumn();
+      var rowRange = sheet.getRange(row, 1, 1, lastCol);
+      var rowValues = rowRange.getValues()[0];
+      var rowFormats = rowRange.getNumberFormats()[0];
+      var dirty = false;
 
       var granted = [];
       var refused = [];
@@ -627,7 +691,8 @@ function updateRow_(payload) {
 
         // ── consent transitions ────────────────────────────────────────────
         if (LATE_CONSENTS.hasOwnProperty(key)) {
-          var was = truthy_(sheet.getRange(row, at).getValue());
+          // Read from the row we already have, not from the sheet again.
+          var was = truthy_(rowValues[at - 1]);
           var now = incoming === true || truthy_(incoming);
           if (now && !was) {
             var vField = LATE_CONSENTS[key];
@@ -636,11 +701,14 @@ function updateRow_(payload) {
             // A consent with no record of the wording shown is not evidence of
             // anything. Refuse the flag rather than store an unprovable TRUE.
             if (!vAt || !version) { refused.push(key + ':no_version'); continue; }
-            sheet.getRange(row, at).setValue('TRUE');
-            sheet.getRange(row, vAt).setNumberFormat('@').setValue(sanitizeCell_(version, vField));
+            rowValues[at - 1] = 'TRUE';
+            rowValues[vAt - 1] = sanitizeCell_(version, vField);
+            rowFormats[vAt - 1] = '@';
+            dirty = true;
             granted.push(key);
           } else if (!now && was) {
-            sheet.getRange(row, at).setValue('FALSE');   // Art 7(3) withdrawal
+            rowValues[at - 1] = 'FALSE';   // Art 7(3) withdrawal
+            dirty = true;
             granted.push(key + ':withdrawn');
           }
           continue;
@@ -650,11 +718,26 @@ function updateRow_(payload) {
         // consent claims to rest on.
         if (vFieldNames_().indexOf(key) !== -1) continue;
 
-        sheet.getRange(row, at).setValue(sanitizeCell_(incoming, key));
+        rowValues[at - 1] = sanitizeCell_(incoming, key);
+        dirty = true;
       }
 
       if (index.consent_receipt && granted.length) {
-        mergeReceipt_(sheet, row, index.consent_receipt, payload, granted, String(payload.observed_at || ''));
+        rowValues[index.consent_receipt - 1] = mergeReceipt_(
+          rowValues[index.consent_receipt - 1],
+          payload,
+          granted,
+          String(payload.observed_at || '')
+        );
+        rowFormats[index.consent_receipt - 1] = '@';
+        dirty = true;
+      }
+
+      // Two calls, not twenty-five. Values and formats separately because the
+      // Sheets API has no single call that sets both.
+      if (dirty) {
+        rowRange.setValues([rowValues]);
+        rowRange.setNumberFormats([rowFormats]);
       }
 
       return json_({
@@ -691,15 +774,14 @@ function vFieldNames_() {
  * save — destroying the record of when the original consent was actually given,
  * which is the one thing the receipt exists to prove.
  */
-function mergeReceipt_(sheet, row, at, payload, granted, observedAt) {
-  var cell = sheet.getRange(row, at);
+function mergeReceipt_(existingText, payload, granted, observedAt) {
   var existing = {};
   try {
-    existing = JSON.parse(String(cell.getValue()) || '{}');
+    existing = JSON.parse(String(existingText || '') || '{}');
   } catch (err) {
     // An unparseable receipt is not a reason to lose the new consent, but it IS
     // a reason to say so loudly rather than overwrite the evidence silently.
-    console.error('mergeReceipt_: existing receipt unparseable on row ' + row);
+    console.error('mergeReceipt_: existing receipt unparseable, recovering');
     existing = { schema: 'zuca.consent.v4', recovered: true };
   }
   for (var i = 0; i < granted.length; i++) {
@@ -717,7 +799,7 @@ function mergeReceipt_(sheet, row, at, payload, granted, observedAt) {
       registry_match: null
     };
   }
-  cell.setNumberFormat('@').setValue(sanitizeCell_(JSON.stringify(existing), 'consent_receipt'));
+  return sanitizeCell_(JSON.stringify(existing), 'consent_receipt');
 }
 
 function confirmRow_(handle, confirmedAt) {
@@ -725,7 +807,7 @@ function confirmRow_(handle, confirmedAt) {
 
   var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
+    lock.waitLock(5000);
   } catch (err) {
     return json_({ ok: false, error: 'server' });
   }
@@ -811,16 +893,44 @@ function doPost(e) {
 
   // Serialize writes. Two concurrent appends can otherwise land on the same row
   // and one silently overwrites the other.
+  /**
+   * ─── SETUP OUTSIDE THE LOCK ──────────────────────────────────────────────
+   *
+   * Measured on an instrumented sheet: EVERY service call in this handler used
+   * to happen inside the lock — 12 on a create, 15 on an update, none outside.
+   * That includes SpreadsheetApp.openById(), which is the single most expensive
+   * call here, and two separate reads of the header row.
+   *
+   * So every request serialised its entire SETUP behind every other request's
+   * setup, when the only thing that actually needs serialising is the append
+   * itself: two concurrent creates must not compute the same next row. Reads
+   * cannot corrupt anything.
+   *
+   * That is why batching updateRow_ helped and did not cure it — the write
+   * pattern got cheaper, the serialised section did not get shorter.
+   *
+   * The index computed here stays valid under concurrency: columns are only
+   * ever APPENDED, never moved or removed, so a position read a moment ago is
+   * still that column's position. ensureColumns_ takes its own lock for the
+   * rare case where it has to add one.
+   */
+  var sheet, index;
+  try {
+    sheet = getSheet_();
+    index = ensureColumns_(sheet);
+  } catch (err) {
+    console.error('doPost setup failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
+  }
+
   var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
+    lock.waitLock(5000);
   } catch (err) {
     return json_({ ok: false, error: 'server' });
   }
 
   try {
-    var sheet = getSheet_();
-    var index = ensureColumns_(sheet);
     var utm = payload.utm || {};
 
     var values = {

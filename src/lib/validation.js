@@ -1265,33 +1265,38 @@ export function sanitizeRecord(record) {
  * still works before the env var is set — but logs the downgrade, because
  * silently weakening a privacy control is worse than not having it.
  */
-let warnedMissingPepper = false;
 
 export async function emailHandle(email) {
-  const pepper = process.env.EMAIL_HASH_PEPPER;
-  const encoder = new TextEncoder();
-  let bytes;
-
-  if (pepper) {
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(pepper),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    bytes = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(email)));
-  } else {
-    if (!warnedMissingPepper) {
-      warnedMissingPepper = true;
-      console.warn(
-        '[validation] EMAIL_HASH_PEPPER is not set. Email handles fall back to an ' +
-          'unkeyed SHA-256, which is reversible by enumeration and therefore still ' +
-          'personal data under GDPR. See SECURITY.md §5.5.'
-      );
-    }
-    bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(email)));
-  }
+  /**
+   * ─── UNKEYED SHA-256, DELIBERATELY. See DECISIONS.md D5. ─────────────────
+   *
+   * This used to branch on EMAIL_HASH_PEPPER and fall back to an unkeyed digest
+   * when it was absent — which it always was. The branch is gone rather than
+   * left dormant, because setting that variable would have been a ONE-WAY DOOR
+   * disguised as a two-second config fix: every handle in the system changes at
+   * once, and steps 2-4 would silently start creating duplicate rows for
+   * existing members, since `updateRow_` finds their row BY HANDLE.
+   *
+   * Emil's reasoning for dropping the key rather than migrating to it, and it
+   * is the right one: the sheet stores the raw address and the handle in
+   * ADJACENT COLUMNS. Against the realistic threat — someone holding the sheet
+   * — a keyed hash buys nothing at all. Its only value is against an attacker
+   * with the Upstash keyspace and nothing else, and keyspace access implies
+   * Vercel access implies everything else anyway.
+   *
+   * So the handle is what it has always actually been: a short digest that
+   * correlates two log lines about the same person. It is NOT anonymisation —
+   * a plain hash of an address is reversible by enumeration and remains
+   * personal data under Recital 26 — and SECURITY.md now says so rather than
+   * describing a control that was never running.
+   *
+   * If keyed handles are ever wanted, D5 records the path: a planned migration
+   * that rewrites the sheet column and the keyspace in one window. Never a
+   * config change.
+   */
+  const bytes = new Uint8Array(
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(email))
+  );
 
   // Truncated to 12 hex characters: enough to correlate two log lines about the
   // same person while debugging, short enough that the log is not itself a
