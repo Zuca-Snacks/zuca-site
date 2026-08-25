@@ -106,6 +106,7 @@ Exploitability = skill and access required. "Proof" = how I verified it, without
 | **S21** | **Low** | `FORBIDDEN_CHARS` blocked CR/LF/NUL and bidi overrides but not C0/C1 controls generally, so invisible junk (BEL, DEL) was accepted into every free-text field and written to the sheet | Terminal-escape and display-spoofing surface on export; no injection path — the dangerous characters were already covered | Cosmetic corruption of stored values; a sheet export piped to a terminal can emit escape sequences | Fixed 2026-08-19, client-first |
 | **S22** | **Low** | `ROLE_LOCALPARTS` rejects `office@`, `team@`, `info@`, `contact@`, `sales@`, `admin@` — while the 2026-08-17 office-snack path actively solicits workplace signups | N/A — conflicting requirements, not a vulnerability | Silent loss of exactly the B2B segment that path was built for; consent evidence from a shared mailbox is separately weak under Art 7(1) | Fixed 2026-08-19 — **approved by Emil directly** (initially relayed via Conversion; confirmed first-hand 2026-08-19). Role addresses accepted behind `business_enquiry` + verbatim business wording; row stored with `consent_marketing` FALSE so it cannot reach the personal send list |
 | **S23** | **🔴 CRITICAL — LIVE** | Multi-step form: steps 2–4 POST the accumulated profile, hit the duplicate gate, receive `409`, and the client treats 409 as success. Every answer after the email address is discarded | N/A — data loss, not a breach | **Every signup since the multi-step form deployed has lost steps 2–4.** The row looks like a person who skipped the questions; nothing distinguishes it from one who did | **OPEN — fix designed, not yet built.** See below |
+| **S25** | **🔴 CRITICAL — was live** | The duplicate key was written with a **400-day** TTL on ARRIVAL, before the row existed. The Apps Script forward aborts at 8s; Apps Script is sometimes slower and appends anyway; the handler returns 500 | N/A — availability, not a breach | The visitor is told it failed, the row may or may not exist, and the address is spent either way. Their retry gets 409 **forever**, and where the forward genuinely failed there is no row and no path to ever create one. Measured: `/api/count` 274 → 278, four rows from five POSTs of which two returned 200 | Fixed 2026-08-24 — `claimEmail`/`commitEmail`, 90s `inflight` promoted to 400d `committed` only after a successful forward |
 | **S7** | **Medium** | `mode:"no-cors"` ⇒ opaque response ⇒ **every submission reports success even when it fails** | N/A — reliability | Silent, unrecoverable loss of real signups; makes the contract's 409/429/500 responses impossible to implement | Fixed on branch |
 | **S8** | **Medium** | Duplicate detection is `localStorage`-only; also persists the user's full PII in their browser indefinitely | Trivial — incognito window | Duplicate rows inflate the counter; unnecessary PII at rest on user devices | Fixed on branch |
 | **S9** | **Medium** | **No security headers at all** — no CSP, HSTS, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `frame-ancestors` | Low — clickjacking needs a lure | Pre-order modal can be framed and overlaid; no XSS containment | Fixed on branch |
@@ -137,11 +138,20 @@ Exploitability = skill and access required. "Proof" = how I verified it, without
 **Traced 2026-08-19 from a live production signup, `email_handle 642afa8df1a1`.**
 
 ```
-Step 1   POST /api/waitlist   →  200, row appended, isDuplicate SET NX marks the handle
+Step 1   POST /api/waitlist   →  200, row appended, the address is marked
 Step 2   POST /api/waitlist   →  409 duplicate   ← client maps to success, advances
 Step 3   POST /api/waitlist   →  409 duplicate   ← same
 Step 4   POST /api/waitlist   →  409 duplicate   ← same
 ```
+
+> **The marking step above is described as it was in August 2026 and no longer works that way.**
+> `isDuplicate` wrote a single 400-day key, and it wrote it on ARRIVAL rather than after the row
+> existed — which is S25 below. It has been replaced by `claimEmail` / `commitEmail`: a short
+> `inflight` claim on arrival, promoted to a long `committed` one only once the forward has
+> actually succeeded. The S23 trace is unaffected by that change; only the sentence describing
+> *when and for how long* the address is marked was wrong, and it was wrong in the part that
+> matters — marking still happens on arrival, but it now expires by itself, and there are two
+> states rather than one.
 
 The payload never reaches Apps Script. Even if it did, `Code.gs` appends — only
 `action === 'confirm'` takes an update path — so the alternative failure would have been four
