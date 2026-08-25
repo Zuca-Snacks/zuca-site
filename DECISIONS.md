@@ -13,6 +13,66 @@ can be made mechanical it is, because a trigger nobody checks is a comment.
 
 ---
 
+## D5 — ⚠️ EMAIL_HASH_PEPPER IS UNSET. DO NOT "FIX" IT.
+
+**Recorded 2026-08-25. This is a trap, not a missing config.**
+
+Production logs the fallback warning on every request. The obvious response — set the variable —
+is a **one-way door**, and it is disguised as a two-second fix in the Vercel dashboard.
+
+### What the variable actually does
+
+`emailHandle()` returns HMAC-SHA256(email, pepper) when it is set, and plain SHA-256 when it is
+not. Twelve hex characters either way. **Every handle in the system changes the moment it is
+set.**
+
+### Everything that is keyed on the handle
+
+| | |
+|---|---|
+| Upstash claims | `seen:waitlist:<handle>` — all **156 committed keys**, including the remediation finished on 25 Aug |
+| Edit tokens | signed over the handle; every in-flight form session (2h window) |
+| Confirm tokens | same, 30-day window |
+| The sheet | the `email_handle` column on **157 rows** |
+| `updateRow_` | looks up the row **by handle** (`Code.gs:606`) |
+| `confirmRow_` | same (`Code.gs:739`) |
+
+### What setting it would actually do, in order of how bad
+
+1. **Steps 2–4 would start creating DUPLICATE ROWS, silently.** An existing member's new handle
+   matches no `email_handle`, so `updateRow_` returns `not_found` — and their claim is also gone,
+   so the endpoint treats them as new and appends. A `200`, a second row, no error anywhere.
+2. **Confirmation links stop working** for every existing row — `confirmRow_` finds nothing.
+3. **156 committed keys are orphaned**, so duplicate protection is lost for everyone already on
+   the list, while the dead keys sit there for 400 days.
+4. **In-flight form sessions lose steps 2–4** — the S23 failure mode, reintroduced.
+
+None of that announces itself. The warning it silences is the only loud thing in the picture.
+
+### The options, and what each costs
+
+| | Cost |
+|---|---|
+| **A. Leave it unset, permanently** | Handles stay reversible by enumeration, so the pseudonymisation is decorative — Recital 26. The sheet already holds the addresses, so the real exposure is **logs**: anyone holding them can confirm whether a known address is on the list. **SECURITY.md must be corrected**, because it currently documents a keyed HMAC as an active control and it is not one. A documented control that is not running is worse than an absent one. |
+| **B. Set it and accept the break** | All four consequences above, silently, on live traffic. Not defensible for the benefit. |
+| **C. Set it WITH a migration** ⭐ | Recompute every row's handle from its address, rewrite the `email_handle` column, rewrite the Upstash keys — one window, snapshot first, read every value back. Exactly the shape of the 25 Aug remediation, which worked. Only in-flight edit tokens are lost, so run it at a quiet hour. **The only option that keeps both the control and the data.** |
+| **D. Adopt unkeyed as the scheme** | Same effect as A, but delete the pepper branch so nobody can set the variable by accident. Honest, and removes the trap entirely at the cost of ever having the control. |
+
+### Recommendation
+
+**C if the pseudonymisation is worth a migration; otherwise D.** A is C's cost with none of C's
+benefit and leaves the trap armed. **B is the only one that must never happen**, and B is exactly
+what "set the missing env var" looks like from the dashboard.
+
+### ⚠️ The warning in the logs is not the problem
+
+It is a correct description of a real weakness. Silencing it by setting the variable trades a
+visible weakness for four invisible failures. **Whoever next sees that log line and reaches for
+the dashboard: read this entry first.** The variable is not missing. It is deliberately unset
+pending a decision between C and D.
+
+**Owner:** Emil. Nobody else can set it, which is the only reason this is safe to leave.
+
 ## D4 — An uncaptured single-test failure, 2026-08-22
 
 **Not a merge blocker. Recorded because dropping it would be the mistake it is about.**

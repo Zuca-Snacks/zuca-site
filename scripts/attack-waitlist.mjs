@@ -1711,6 +1711,19 @@ await check('Error response never echoes submitted input', 'no email in body', a
     return { pass: script && connect, actual: `script-src:${script ? 'yes' : 'MISSING'} connect-src:${connect ? 'yes' : 'MISSING'}` };
   });
 
+  await check('enforcing form-action allows the pixel POST', 'live block, fixed', async () => {
+    // {"evt":"csp.violation","directive":"form-action","blocked":"https://www.facebook.com/tr/"}
+    // form-action 'self' is in the ENFORCING policy, so that was a real block,
+    // not a report. Extended — the directive already existed, which is the only
+    // condition under which the enforcing policy may be touched at all.
+    const { readFileSync } = await import('node:fs');
+    const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+    const enf = cfg.headers.flatMap((h) => h.headers)
+      .find((h) => h.key.toLowerCase() === 'content-security-policy')?.value ?? '';
+    const fa = enf.split(';').map((x) => x.trim()).find((x) => x.startsWith('form-action ')) ?? '';
+    return { pass: fa.includes("'self'") && fa.includes('https://www.facebook.com'), actual: fa || '(absent)' };
+  });
+
   await check('the ENFORCED CSP was not widened by that', 'still minimal', async () => {
     // The enforced policy has no script-src at all, which is why the tag is not
     // blocked today. Adding an origin there would grant execution rights now,
@@ -1719,9 +1732,13 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
     const enforced = cfg.headers.flatMap((h) => h.headers)
       .find((h) => h.key.toLowerCase() === 'content-security-policy')?.value ?? '';
+    // Still no script-src, img-src or connect-src — those would CREATE a
+    // directive and turn a policy that blocks nothing into a whitelist. The
+    // form-action extension is the one deliberate change and is asserted above.
+    const creates = ['script-src', 'img-src', 'connect-src'].filter((d) => new RegExp(`(^|;)\\s*${d} `).test(enforced));
     return {
-      pass: !enforced.includes('plausible') && !/script-src/.test(enforced),
-      actual: enforced || '(absent)',
+      pass: creates.length === 0 && !enforced.includes('plausible'),
+      actual: creates.length ? `CREATED: ${creates.join(', ')}` : enforced,
     };
   });
 
