@@ -913,6 +913,8 @@ test('S28: an unreadable 409 body keeps the old behaviour', async () => {
   }));
   const r = await mod.submitWaitlist(payload());
   assert.equal(r.status, mod.RESULT.DUPLICATE);
+});
+
 // ─── S27: the Pixel is additive and inert without its variable ───────────────
 
 test('S27: with no VITE_META_PIXEL_ID the pixel is a complete no-op', async () => {
