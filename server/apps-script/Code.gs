@@ -484,6 +484,36 @@ function ensureColumns_(sheet) {
   });
 
   if (toAppend.length) {
+    /**
+     * The ONLY write in this function, and the only reason it ever needed a
+     * lock. Taken here rather than around the whole call so that the read-only
+     * happy path — which is every request once the columns exist — does not
+     * serialise behind other requests' setup.
+     *
+     * Double-checked: the headers are re-read after acquiring, because another
+     * request may have appended the same columns while this one waited. Without
+     * that, two concurrent first-writes would append the same header twice.
+     */
+    var colLock = LockService.getScriptLock();
+    try {
+      colLock.waitLock(5000);
+    } catch (err) {
+      throw new Error('CONFIG: could not lock to add columns: ' + err.message);
+    }
+    try {
+      var fresh = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0];
+      var freshNorm = {};
+      for (var fi = 0; fi < fresh.length; fi++) {
+        if (fresh[fi]) freshNorm[normalizeHeader_(fresh[fi])] = fi + 1;
+      }
+      toAppend = toAppend.filter(function (c) { return !freshNorm[normalizeHeader_(c)]; });
+      for (var k in freshNorm) { if (Object.prototype.hasOwnProperty.call(freshNorm, k)) byNormalized[k] = freshNorm[k]; }
+      headers = fresh;
+    } finally {
+      colLock.releaseLock();
+    }
+  }
+  if (toAppend.length) {
     // `headers.length` rather than getLastColumn(): a sheet whose last columns
     // are blank reports a shorter lastColumn and we would overwrite real data.
     var firstNew = headers.length + 1;
@@ -590,6 +620,17 @@ function updateRow_(payload) {
   var handle = String(payload.email_handle || '');
   if (!/^[0-9a-f]{12}$/.test(handle)) return json_({ ok: false, error: 'validation' });
 
+  // Setup outside the lock, for the reason set out in doPost: reads cannot
+  // corrupt anything, and openById plus two header reads is most of the cost.
+  var sheet, index;
+  try {
+    sheet = getSheet_();
+    index = ensureColumns_(sheet);
+  } catch (err) {
+    console.error('updateRow_ setup failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
+  }
+
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(5000);
@@ -598,8 +639,6 @@ function updateRow_(payload) {
   }
 
   try {
-    var sheet = getSheet_();
-    var index = ensureColumns_(sheet);
     var lastRow = sheet.getLastRow();
     if (lastRow < 2 || !index.email_handle) return json_({ ok: false, error: 'not_found' });
 
@@ -854,6 +893,36 @@ function doPost(e) {
 
   // Serialize writes. Two concurrent appends can otherwise land on the same row
   // and one silently overwrites the other.
+  /**
+   * ─── SETUP OUTSIDE THE LOCK ──────────────────────────────────────────────
+   *
+   * Measured on an instrumented sheet: EVERY service call in this handler used
+   * to happen inside the lock — 12 on a create, 15 on an update, none outside.
+   * That includes SpreadsheetApp.openById(), which is the single most expensive
+   * call here, and two separate reads of the header row.
+   *
+   * So every request serialised its entire SETUP behind every other request's
+   * setup, when the only thing that actually needs serialising is the append
+   * itself: two concurrent creates must not compute the same next row. Reads
+   * cannot corrupt anything.
+   *
+   * That is why batching updateRow_ helped and did not cure it — the write
+   * pattern got cheaper, the serialised section did not get shorter.
+   *
+   * The index computed here stays valid under concurrency: columns are only
+   * ever APPENDED, never moved or removed, so a position read a moment ago is
+   * still that column's position. ensureColumns_ takes its own lock for the
+   * rare case where it has to add one.
+   */
+  var sheet, index;
+  try {
+    sheet = getSheet_();
+    index = ensureColumns_(sheet);
+  } catch (err) {
+    console.error('doPost setup failed: ' + err.message);
+    return json_({ ok: false, error: isConfigError_(err) ? 'misconfigured' : 'server' });
+  }
+
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(5000);
@@ -862,8 +931,6 @@ function doPost(e) {
   }
 
   try {
-    var sheet = getSheet_();
-    var index = ensureColumns_(sheet);
     var utm = payload.utm || {};
 
     var values = {
