@@ -31,6 +31,7 @@ import {
 import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT } from "./api.js";
 import { queueSave, settleSaves } from "./saveQueue.js";
+import { getFbCookies, isPixelEnabled, newEventId, trackLead } from "../../lib/metaPixel.js";
 import { EVENTS, track, trackOnce, trackScreen } from "../../lib/analytics.js";
 import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
 import { detectPostalRegion } from "./region.js";
@@ -60,6 +61,12 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   // id -> element, so a blocked submit can move the person to the field that
   // is actually blocking rather than to the top of the form.
   const fieldEls = useRef({});
+  // ⚠️ FIRE-ONCE GUARD FOR Lead. A re-render, a retry after a failed settle, or
+  // the save queue pumping twice must not produce two Lead events. The shared
+  // event_id would let Meta collapse a duplicate, but that is the backstop, not
+  // the defence — relying on it means shipping a known double-fire and trusting
+  // someone else's deduplication to hide it.
+  const leadFired = useRef(false);
   const registerField = (id) => (el) => { if (el) fieldEls.current[id] = el; };
 
   const [consentCopy] = useState(marketingConsent);
@@ -126,8 +133,9 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
     [v]
   );
 
-  function payload() {
+  function payload(meta) {
     return buildPayload({
+      meta,
       email,
       consentMarketing: true,
       consentHealth,
@@ -147,15 +155,6 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
     });
   }
 
-  /**
-   * Save what we have. Never blocks the person from moving on.
-   *
-   * ⚠️ THIS SAID "UPSERT" FOR TEN DAYS AND NOTHING UPSERTED (S23). The server
-   * had no update path, so every save after step 1 was refused as a duplicate
-   * and mapped to success below. A comment naming a behaviour the system does
-   * not have is a claim, and nothing tests a claim. It upserts now, and only
-   * while `editToken` is present and unexpired.
-   */
   /**
    * Hand the save to the background and return. The screen advances now.
    *
@@ -188,9 +187,27 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
    */
   async function finishWithSaves(done) {
     setBusy(true);
+    // One id per submission, minted HERE — at the final submission and nowhere
+    // else — so the same string reaches the request body and fbq. Generated
+    // before the save so it can travel with it.
+    // ⚠️ GATED ON THE PIXEL BEING CONFIGURED, NOT MERELY ON FIRING Lead.
+    // Minting unconditionally put `event_id` in the request body of builds with
+    // no pixel at all — and `.strict()` rejects on key presence, so that would
+    // 400 EVERY submission on any deploy without the variable set. Caught by
+    // the disabled-build check, which is the whole reason for running it.
+    const eventId = isPixelEnabled() && !leadFired.current ? newEventId() : null;
+    if (eventId) queueSave(payload({ event_id: eventId, ...getFbCookies() }));
     const settled = await settleSaves();
     setBusy(false);
     if (settled.ok) {
+      // Only on a genuinely successful completion. Not on a 409, not on a
+      // validation failure, not on a step-1-only save — none of which reach
+      // here: a blocked submit returns from validateScreen(), and a failed
+      // settle falls through to the error branch below.
+      if (eventId && !leadFired.current) {
+        leadFired.current = true;
+        trackLead(eventId);
+      }
       done();
       return;
     }

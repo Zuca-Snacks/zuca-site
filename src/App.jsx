@@ -27,6 +27,7 @@ import './components/sections/sections.css';
 import { useEffect } from 'react';
 import useReveal from './hooks/useReveal.js';
 import { captureUtm, trackPageView } from './lib/analytics.js';
+import { initMetaPixel } from './lib/metaPixel.js';
 import WaitlistForm from './components/waitlist/WaitlistForm.jsx';
 
 import Header from './components/sections/Header.jsx';
@@ -48,6 +49,11 @@ export default function App() {
   useEffect(() => {
     captureUtm();
     trackPageView();
+    // Additive and independent: Plausible is untouched by this. A no-op unless
+    // VITE_META_PIXEL_ID is set, and idempotent, because strict mode invokes
+    // this effect twice in development and a second fbq('init') would register
+    // the pixel twice and double every event after it.
+    initMetaPixel();
   }, []);
 
   return (
