@@ -592,6 +592,13 @@ export const step1 = {
     // the one route we have rather than asserting a cause we can't see.
     business_hint: "We can't take that address as a personal signup. If you're asking for your workplace, tick the box below and we'll take it as a business enquiry.",
     rate_limited: "That's a lot of tries. Give it a minute and we'll take it from there.",
+    // ⚠️ MUST NOT READ AS SUCCESS, AND MUST NOT READ AS "already on the list".
+    // The server holds a claim key for ~90s while the first request forwards.
+    // A first-time signer whose request 500'd on a slow Apps Script and who
+    // retries inside that window used to be told "You're already one of us." —
+    // so they stopped, ninety seconds before it would have worked, with nothing
+    // saved. This says the true thing: not yet, and try again shortly.
+    in_flight: "Still saving your spot — give it a few seconds and try again.",
     // ⚠️ ONLY `offline` may say the address is saved. It is the only failure
     // we actually queue. `server` covers a 404, a 5xx, a timeout and an
     // unreachable endpoint — none of which stored anything, so none of which
