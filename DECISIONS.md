@@ -58,11 +58,29 @@ None of that announces itself. The warning it silences is the only loud thing in
 | **C. Set it WITH a migration** ⭐ | Recompute every row's handle from its address, rewrite the `email_handle` column, rewrite the Upstash keys — one window, snapshot first, read every value back. Exactly the shape of the 25 Aug remediation, which worked. Only in-flight edit tokens are lost, so run it at a quiet hour. **The only option that keeps both the control and the data.** |
 | **D. Adopt unkeyed as the scheme** | Same effect as A, but delete the pepper branch so nobody can set the variable by accident. Honest, and removes the trap entirely at the cost of ever having the control. |
 
-### Recommendation
+### DECIDED 2026-08-25: **D**
 
-**C if the pseudonymisation is worth a migration; otherwise D.** A is C's cost with none of C's
-benefit and leaves the trap armed. **B is the only one that must never happen**, and B is exactly
-what "set the missing env var" looks like from the dashboard.
+Emil's reasoning, and it is better than mine: **the sheet stores the raw address and the handle in
+adjacent columns.** Against the realistic threat — someone holding the sheet — the pseudonymisation
+buys *nothing*. Its only value is against an attacker with the keyspace and nothing else, and
+keyspace access implies Vercel access implies everything else.
+
+So C would spend a live migration on a decorative control, and A leaves the trap armed for the
+same cost. D is the honest option: adopt unkeyed as the scheme, **delete the branch so the variable
+cannot be set by accident**, and correct the documentation to describe what actually runs.
+
+**Done:** the pepper branch is removed from `emailHandle()`; `EMAIL_HASH_PEPPER` is marked
+do-not-reintroduce in `.env.example`; SECURITY.md §5.5 and the retention table now say *unkeyed
+SHA-256, truncated, reversible by enumeration, still personal data under Recital 26* rather than
+*keyed HMAC*. A document describing a control that was never running is worse than no document.
+
+### If Cooley later wants keyed handles
+
+**C remains the path, as a planned migration — never a config change.** Recompute every row's
+handle from its address, rewrite the `email_handle` column and the Upstash keyspace in one window,
+snapshot first, read every value back. Exactly the shape of the 25 Aug remediation, which worked.
+In-flight edit tokens are lost, so run it quiet. Reopening this is a project, and that is the
+correct size for it.
 
 ### ⚠️ The warning in the logs is not the problem
 

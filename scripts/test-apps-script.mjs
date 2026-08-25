@@ -20,11 +20,13 @@ const SOURCE = fs.readFileSync(new URL('../server/apps-script/Code.gs', import.m
 
 // ─── Mock sheet ──────────────────────────────────────────────────────────────
 
+// Cell number formats, keyed 'row,col'. Sparse: absent means default.
 function makeSheet(headerRow, dataRows = null) {
   // 137 filler rows so the tab looks like the live one. The guards refuse a
   // near-empty tab, which is the whole point of them.
   const filler = dataRows ?? Array.from({ length: 137 }, () => headerRow.map(() => ''));
   const grid = [headerRow.slice(), ...filler.map((r) => r.slice())];
+  const formats = {};   // 'row,col' -> number format; sparse, absent means default
 
   const widen = (row, n) => {
     while (row.length < n) row.push('');
@@ -68,6 +70,25 @@ function makeSheet(headerRow, dataRows = null) {
           return this;
         },
         setNumberFormat() {
+          return this;
+        },
+        // The batched update path reads and writes formats alongside values,
+        // because a setValues() does not carry the '@' that keeps a version id
+        // or a receipt from being reinterpreted. The mock lacked both, so the
+        // real code threw, updateRow_'s catch swallowed it, and four checks
+        // failed with empty cells — a harness missing an API the code uses,
+        // which is the same shape as the stub Redis that only knew SET NX.
+        getNumberFormats() {
+          const out = [];
+          for (let i = 0; i < numRows; i++) {
+            const line = [];
+            for (let j = 0; j < numCols; j++) line.push(formats[`${row + i},${col + j}`] ?? '');
+            out.push(line);
+          }
+          return out;
+        },
+        setNumberFormats(values) {
+          values.forEach((line, i) => line.forEach((v, j) => { formats[`${row + i},${col + j}`] = v; }));
           return this;
         },
       };

@@ -1425,7 +1425,7 @@ that is load-bearing. If you want letters, generate them — `node scripts/sheet
 | `referral_source` | your dropdown answer | **The exact bug this runbook is about** — the client is still sending `hearAbout` |
 | `motivation` | your answer, *only if* you ticked the health box | Empty with the box **unticked** is correct. Empty with it **ticked** is a bug |
 | `is_downgraded` | `FALSE` | `TRUE` means the client stripped fields to get the request accepted. `downgraded_fields` names them — see §1g-ter |
-| `email_handle` | 12 hex characters | Empty means `EMAIL_HASH_PEPPER` is unset in Vercel |
+| `email_handle` | 12 hex characters | Empty means the endpoint did not reach this row — the handle no longer depends on any env var. See DECISIONS.md D5 |
 | `confirmed` | `FALSE` | Correct until the confirmation link is clicked. It is never blank |
 | `Name`, `Phone`, `How They Heard` | empty | The legacy columns. Values here mean the old modal is still live |
 

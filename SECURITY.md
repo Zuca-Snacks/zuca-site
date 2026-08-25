@@ -438,8 +438,12 @@ I also changed the code in response to this. Upstash held a **plain SHA-256** of
 duplicate detection. A plain hash of an email address is not anonymous data: the set of real
 addresses is small enough to enumerate with a wordlist, which under Recital 26 makes it
 pseudonymised personal data — meaning the rate-limit store was a second copy of the mailing list,
-subject to transfer rules and erasure requests. It is now a **keyed HMAC** using a server-held
-pepper (`EMAIL_HASH_PEPPER`), which cannot be reversed without also stealing the key. Two-line
+subject to transfer rules and erasure requests. It is an **unkeyed SHA-256 digest, truncated to
+12 hex characters** — which is reversible by enumeration and therefore *still personal data*
+under Recital 26. It is a correlation aid for logs, **not** anonymisation, and this document
+described it as a keyed HMAC until 2026-08-25 when the key had in fact never been set. See
+DECISIONS.md D5 for why the key was dropped rather than adopted: the sheet holds the address and
+the handle in adjacent columns, so against anyone holding the sheet a key buys nothing. Two-line
 change, removes a processor from the scope of the list.
 
 ### 5.6 Art 27 EEA representative — do we need one before contacting EEA recipients?
@@ -525,7 +529,7 @@ retention policy, and an unjustified period is the same finding as no period at 
 | `motivation` (Art 9 health data) | **12 months**, or on withdrawal of that specific consent | Deliberately shorter than everything else: most sensitive, least necessary |
 | Consent record | Lifetime of the waitlist record **+ 12 months** | It is the evidence the processing was lawful, so it has to outlive what it justifies |
 | Server logs | **30 days** | Enough to investigate a fault or an attack. No addresses — keyed handles only |
-| Unsubscribe suppression list | **Indefinite** — keyed HMAC only | The one deliberate exception, and it is justified by Art 17(3): deleting it would defeat the objection it exists to honour |
+| Unsubscribe suppression list | **Indefinite** — truncated SHA-256 digest only | The one deliberate exception, and it is justified by Art 17(3): deleting it would defeat the objection it exists to honour |
 | Product abandoned | Everything within **90 days** | The purpose consented to would no longer exist |
 | Hard-bounced twice | **30 days** | Protects sender reputation as well as the subscriber |
 
@@ -542,7 +546,7 @@ everyone — running two clocks is how one gets missed.
    demanding extra identification purely to enable identification.
 3. In the sheet: find the address → delete the **entire row**, not just the email cell.
 4. In the ESP, once one exists: delete the contact, then add the address to the suppression list.
-   Suppression retains a keyed HMAC only.
+   Suppression retains a truncated SHA-256 digest only — see DECISIONS.md D5.
 5. Log it in a separate `dsr_log` sheet: date received, date completed, action, request type. **No
    email address in the log** — record the keyed handle. You must be able to demonstrate compliance;
    you must not keep the data you deleted in order to prove you deleted it.

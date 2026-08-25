@@ -201,7 +201,7 @@ export default async function handler(req, res) {
      * signup".
      *
      * Derived opportunistically here instead. The email may itself be the thing
-     * that failed, so this is best-effort — and it is the keyed HMAC, never the
+     * that failed, so this is best-effort — and it is the digest, never the
      * address, so a log full of rejections is still not a copy of the list.
      */
     let rejectedHandle = null;
