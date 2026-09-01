@@ -91,7 +91,7 @@ export default function StickyCta() {
           {/* WAS "10g fiber per bite" — false, and by 5x: a serving is five
               bites. Every nutrition figure is per serving. See the nutrition
               guardrail at the top of copy.js. */}
-          <strong>10g fiber per serving</strong>
+          <strong>14g fiber per serving</strong>
           <span>
             {hasCount ? `${count.toLocaleString()} ${proof.liveLabel}` : copy.countFallback}
           </span>
