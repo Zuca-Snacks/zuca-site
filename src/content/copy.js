@@ -46,6 +46,14 @@
 // EVERY nutrition figure we publish is PER SERVING, and ONE SERVING IS 5 BITES
 // (50g). 14g fiber, 180 kcal, 5g protein — all per serving, none per bite.
 //
+// SOURCE: the CONFIRMED manufacturer panel, per Emil on 25 Aug 2026. These are
+// not estimates or a working recipe — they superseded 10g fiber / 150 kcal /
+// 4g protein on that date. Recording the provenance because a published macro
+// is a claim, and the next person to change one should know whether they are
+// editing a sourced figure or a placeholder. If the recipe moves again — the
+// nut base may go almond -> sunflower, see the allergen note above — these
+// change with it and the source date moves too.
+//
 // ⚠️ NO FIGURE SHIPS WITHOUT ITS UNIT. A number with the wrong unit is not a
 // loose claim, it is a false one: "10g fiber per bite" overstates the fiber by
 // FIVE TIMES. That shipped, in the sticky bar and in three page titles, and it
@@ -281,6 +289,20 @@ export const proof = {
 export const numbers = {
   title: "What's actually in one.",
   items: [
+    /* ⚠️ "twice what the leading bars carry" IS AN UNSUPPORTED COMPARATIVE
+       CLAIM. Its basis used to be an FAQ line putting typical bars at 3-5g of
+       fiber; that answer was rewritten and the figure is now nowhere in the
+       repo, so the comparison identifies no reference food and cites no data.
+       A relative nutrient claim needs the reference identified and the
+       difference stated (21 CFR 101.13(j)); "the leading bars" identifies
+       nothing.
+       It is UNRENDERED today, so nothing is live — but it must NOT be carried
+       into the "approved wording" quarantine block as though it were approved.
+       The absolute figures do this work better and need no reference: 14g, and
+       about 50% of a daily value. Emil's own read (25 Aug) is that most bars
+       carry LESS than 3-5g, which would make the real multiple higher — but an
+       argument is not a basis, and understating is only safe while nobody
+       tightens it on an estimate. Delete the comparison or source it. */
     { value: "14g", unit: "fiber", note: "About 50% of your daily fiber per serving, and twice what the leading bars carry." },
     { value: "180", unit: "calories", note: "Plus 5g of protein, per serving." },
     { value: "5g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
