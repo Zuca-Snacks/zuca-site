@@ -59,7 +59,7 @@ const FLAVOURS = [
 // Nutrition figures on the plates carry no unit of their own, so the caption
 // below the pair states it once for all of them. Ambiguous is one careless
 // edit away from wrong — which is how "per bite" reached the sticky bar.
-const CHIP_TEXT = ['180 kcal', '4g protein'];
+const CHIP_TEXT = ['180 kcal', '5g protein'];
 
 /* The waitlist block's hand-drawn plate — the chosen treatment (Emil, 18 Aug).
    It is the SAME DEVICE the flavour artwork uses for its name plates, which is
@@ -258,7 +258,7 @@ export default function Hero() {
 
       {/* Sits in the band between the plates and the waitlist block, so the
           unit lands BELOW the numbers it qualifies rather than above them.
-          ⚠️ Not decoration: the plates read "14G FIBER", "180 KCAL" and "4G
+          ⚠️ Not decoration: the plates read "14G FIBER", "180 KCAL" and "5G
           PROTEIN" with no unit of their own, and unqualified figures beside a
           product are how "per bite" — wrong by five times — reached the sticky
           bar and three page titles. If it is ever cut again the unit has to

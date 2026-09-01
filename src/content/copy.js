@@ -44,7 +44,7 @@
 
 // ── NUTRITION FIGURES: THE UNIT IS PART OF THE CLAIM ─────────────────────────
 // EVERY nutrition figure we publish is PER SERVING, and ONE SERVING IS 5 BITES
-// (50g). 14g fiber, 180 kcal, 4g protein — all per serving, none per bite.
+// (50g). 14g fiber, 180 kcal, 5g protein — all per serving, none per bite.
 //
 // ⚠️ NO FIGURE SHIPS WITHOUT ITS UNIT. A number with the wrong unit is not a
 // loose claim, it is a false one: "10g fiber per bite" overstates the fiber by
@@ -80,7 +80,7 @@ export const nutrition = {
 // The credential appears exactly once in the hero, in the tagline.
 export const HEADLINES = {
   // A — taste first, origin second. Deliberately carries NO figures: the
-  // redesigned hero renders the 14g stamp and the 14g/180kcal/4g spec row
+  // redesigned hero renders the 14g stamp and the 14g/180kcal/5g spec row
   // directly above this line, so "10g of fiber. 150 calories." was the picture
   // and the sentence saying the same thing twice.
   //
@@ -282,8 +282,8 @@ export const numbers = {
   title: "What's actually in one.",
   items: [
     { value: "14g", unit: "fiber", note: "About 50% of your daily fiber per serving, and twice what the leading bars carry." },
-    { value: "180", unit: "calories", note: "Plus 4g of protein, per serving." },
-    { value: "4g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
+    { value: "180", unit: "calories", note: "Plus 5g of protein, per serving." },
+    { value: "5g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
   footnote: "Per serving — 5 bites (50g). No refined sugar. Contains tree nuts — almonds and pecans.",
 };
@@ -414,7 +414,7 @@ export const faq = [
     // date. It must be re-confirmed in writing BEFORE such a change goes live,
     // never after. Do not soften this copy: present tense and firm is correct,
     // and hedging a safety statement makes it worse.
-    a: "One serving is 50g: 5 × 10g bites. 14g fiber derived from whole foods, 4g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame.",
+    a: "One serving is 50g: 5 × 10g bites. 14g fiber derived from whole foods, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame.",
   },
   {
     q: "What will it cost?",

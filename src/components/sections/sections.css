@@ -334,7 +334,7 @@
    content in one overflows onto whatever is beneath. That is the fault
    audit:hero exists to catch.
    ⚠️ WHY THIS SENTENCE EXISTS AT ALL: the plates read "14G FIBER", "180 KCAL"
-   and "4G PROTEIN" with no unit of their own. Unqualified figures beside a
+   and "5G PROTEIN" with no unit of their own. Unqualified figures beside a
    product are how "per bite" — wrong by five times — reached the sticky bar and
    three page titles. If it is ever cut again, the unit has to move INTO the
    pill, not simply disappear. */
@@ -383,7 +383,7 @@
   background: var(--z-brand);
   border-radius: var(--z-radius-full);
   /* ⚠️ CLEAR OF THE CHIPS. At translateY(38%) it sat on the chip row and
-     covered the "4g protein" chip — the affordance was hiding the content it
+     covered the protein chip — the affordance was hiding the content it
      was advertising. The union box ends at the chips' baseline, so the glyph
      has to sit fully BELOW that edge. */
   transform: translateY(118%);
