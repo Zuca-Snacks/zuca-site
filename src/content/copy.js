@@ -44,7 +44,15 @@
 
 // ── NUTRITION FIGURES: THE UNIT IS PART OF THE CLAIM ─────────────────────────
 // EVERY nutrition figure we publish is PER SERVING, and ONE SERVING IS 5 BITES
-// (50g). 10g fiber, 150 kcal, 4g protein — all per serving, none per bite.
+// (50g). 14g fiber, 180 kcal, 5g protein — all per serving, none per bite.
+//
+// SOURCE: the CONFIRMED manufacturer panel, per Emil on 25 Aug 2026. These are
+// not estimates or a working recipe — they superseded 10g fiber / 150 kcal /
+// 4g protein on that date. Recording the provenance because a published macro
+// is a claim, and the next person to change one should know whether they are
+// editing a sourced figure or a placeholder. If the recipe moves again — the
+// nut base may go almond -> sunflower, see the allergen note above — these
+// change with it and the source date moves too.
 //
 // ⚠️ NO FIGURE SHIPS WITHOUT ITS UNIT. A number with the wrong unit is not a
 // loose claim, it is a false one: "10g fiber per bite" overstates the fiber by
@@ -80,7 +88,7 @@ export const nutrition = {
 // The credential appears exactly once in the hero, in the tagline.
 export const HEADLINES = {
   // A — taste first, origin second. Deliberately carries NO figures: the
-  // redesigned hero renders the 10g stamp and the 10g/150kcal/4g spec row
+  // redesigned hero renders the 14g stamp and the 14g/180kcal/5g spec row
   // directly above this line, so "10g of fiber. 150 calories." was the picture
   // and the sentence saying the same thing twice.
   //
@@ -135,7 +143,7 @@ export const HEADLINES = {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Two flavors, no refined sugar, and about 40% of your daily fiber in a serving.",
+      "Two flavors, no refined sugar, and about 50% of your daily fiber in a serving.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -143,15 +151,15 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "10g of fiber and 150 calories per serving, no refined sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
+      "14g of fiber and 180 calories per serving, no refined sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
   c: {
     id: "c",
-    headline: "95% of Americans don't get enough fiber. This is 10 grams of it, and it tastes like dessert.",
+    headline: "95% of Americans don't get enough fiber. This is 14 grams of it, and it tastes like dessert.",
     subhead:
-      "150 calories per serving. No refined sugar. Made from apple pulp a juicery was about to throw away.",
+      "180 calories per serving. No refined sugar. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
@@ -281,9 +289,23 @@ export const proof = {
 export const numbers = {
   title: "What's actually in one.",
   items: [
-    { value: "10g", unit: "fiber", note: "About 40% of your daily fiber per serving, and twice what the leading bars carry." },
-    { value: "150", unit: "calories", note: "Plus 4g of protein, per serving." },
-    { value: "4g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
+    /* ⚠️ "twice what the leading bars carry" IS AN UNSUPPORTED COMPARATIVE
+       CLAIM. Its basis used to be an FAQ line putting typical bars at 3-5g of
+       fiber; that answer was rewritten and the figure is now nowhere in the
+       repo, so the comparison identifies no reference food and cites no data.
+       A relative nutrient claim needs the reference identified and the
+       difference stated (21 CFR 101.13(j)); "the leading bars" identifies
+       nothing.
+       It is UNRENDERED today, so nothing is live — but it must NOT be carried
+       into the "approved wording" quarantine block as though it were approved.
+       The absolute figures do this work better and need no reference: 14g, and
+       about 50% of a daily value. Emil's own read (25 Aug) is that most bars
+       carry LESS than 3-5g, which would make the real multiple higher — but an
+       argument is not a basis, and understating is only safe while nobody
+       tightens it on an estimate. Delete the comparison or source it. */
+    { value: "14g", unit: "fiber", note: "About 50% of your daily fiber per serving, and twice what the leading bars carry." },
+    { value: "180", unit: "calories", note: "Plus 5g of protein, per serving." },
+    { value: "5g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
   footnote: "Per serving — 5 bites (50g). No refined sugar. Contains tree nuts — almonds and pecans.",
 };
@@ -414,7 +436,7 @@ export const faq = [
     // date. It must be re-confirmed in writing BEFORE such a change goes live,
     // never after. Do not soften this copy: present tense and firm is correct,
     // and hedging a safety statement makes it worse.
-    a: "One serving is 50g: 5 × 10g bites. 10g fiber derived from whole foods, 4g protein, and 150 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame.",
+    a: "One serving is 50g: 5 × 10g bites. 14g fiber derived from whole foods, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame.",
   },
   {
     q: "What will it cost?",
@@ -751,5 +773,5 @@ export const confirmation = {
   shareCopied: "Link copied.",
   shareCopyCta: "Copy link",
   shareCopyFailed: "Couldn't copy — your browser blocked it. Try the address bar instead.",
-  shareText: "Zuca: 10g of fiber and 150 calories per serving, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
+  shareText: "Zuca: 14g of fiber and 180 calories per serving, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
 };
