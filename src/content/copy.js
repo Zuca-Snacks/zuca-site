@@ -73,6 +73,15 @@
 // FIVE TIMES. That shipped, in the sticky bar and in three page titles, and it
 // is the most overstated claim the site has ever carried.
 //
+// ⚠️ AND NO FIGURE SHIPS WITH A SOURCE. Where the fiber comes from is NOT a
+// settled fact while the formulation is in progress, so it is not stated.
+// "14g fiber derived from whole foods" was removed on 8 Sep 2026 (Emil), and
+// "from fruit" / "just fruit" / "from whole foods" must not replace it. Two
+// share strings that joined the figure to the apple pulp in one sentence were
+// split in the same pass, so the upcycling story stands on its own rather than
+// as an explanation of the number. Keep the story; do not let it explain a
+// macro. Re-confirm before launch — see NEXT_STEPS.md.
+//
 // A number with NO unit is not safe either — it is one careless edit away from
 // acquiring the wrong one, which is exactly how "in one bite" got into a
 // headline subhead. Attach the unit at the point the figure is written, never
@@ -418,6 +427,23 @@ export const founders = [
   },
 ];
 
+/* The question asks "what's in it" and this is the honest answer while the
+   recipe is still moving (Emil, 8 Sep 2026). Deliberately NOT a source list:
+   the formulation is unfinished, and a list published now would go stale
+   silently — which is the same failure mode as a stale allergen statement, and
+   the reason the fiber-sourcing claims came out of this answer in the same pass.
+
+   ⚠️ It also cannot go stale on its own terms. It points at the pack panel,
+   which is the legally accurate artefact and stays accurate whatever the recipe
+   does. Do not "improve" it by naming ingredients until the formulation is
+   final — see the pre-launch list in NEXT_STEPS.md.
+
+   A real list here needs no guard; a PLACEHOLDER does. Any future placeholder
+   must contain the string PLACEHOLDER_DO_NOT_SHIP, which scripts/audit-copy.mjs
+   fails the build on. */
+const INGREDIENTS =
+  'The recipe is still being finalised, so the full ingredient list will be on the pack. That panel is the one to rely on.';
+
 // ─── Objection-handling FAQ ──────────────────────────────────────────────────
 // Ordered by what actually stops a purchase, not by what's easiest to answer.
 export const faq = [
@@ -464,7 +490,18 @@ export const faq = [
     // intention is not a fact and a reader cannot tell them apart.
     // Certified oats alone would still NOT permit a gluten-free claim while the
     // shared-facility constraint stands. See DECISIONS.md.
-    a: "One serving is 50g: 5 × 10g bites. 14g fiber derived from whole foods, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten.",
+    //
+    // ⚠️ THE QUESTION ASKS TWO THINGS AND THIS ANSWERED ONE. It says "what's in
+    // it" and then gave macros, diet descriptors and allergens — never the
+    // ingredients. It now opens with the ingredients answer (see INGREDIENTS).
+    //
+    // ⚠️ NO SOURCING CLAIM FOR THE FIBER. "14g fiber derived from whole foods"
+    // was removed on 8 Sep 2026: the formulation is still in progress, so where
+    // the fiber comes from is not a settled fact and must not be asserted.
+    // Do not reintroduce it in any form — "from whole foods", "from fruit",
+    // "just fruit". The figure ships without a source, which is correct while
+    // the recipe moves.
+    a: `${INGREDIENTS} One serving is 50g: 5 × 10g bites. 14g fiber, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten.`,
   },
   {
     q: "What will it cost?",
@@ -801,5 +838,5 @@ export const confirmation = {
   shareCopied: "Link copied.",
   shareCopyCta: "Copy link",
   shareCopyFailed: "Couldn't copy — your browser blocked it. Try the address bar instead.",
-  shareText: "Zuca: 14g of fiber and 180 calories per serving, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
+  shareText: "Zuca: 14g of fiber and 180 calories per serving. Made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
 };
