@@ -82,6 +82,45 @@ function pillIn(xa, xb) {
   return pill;
 }
 
+/* PHOTO FRAME — the black rounded tile under the chips, which the live photo is
+   overlaid onto so the card and the modal show the same file.
+
+   Measured geometrically rather than by component search, because on the BERRY
+   side the tile's border and the chips' outline are one connected black region
+   (on the maple side they are separate). A flood fill from inside the tile
+   therefore escapes upward through the chips and the badge and returns a box
+   spanning most of the artwork — verified, it returns y 1..602.
+
+   left/right come from a probe row deep inside the tile, below everything else.
+   bottom is the lowest black pixel in the tile's centre column, found scanning
+   UP from the bottom of the image — the centre column passes through the
+   photograph, so scanning down would stop at the first non-black photo pixel.
+   top is the highest row whose black run is CONTAINED WITHIN the tile's own
+   x-bounds. The chips above are wider than the tile, so a row belonging to them
+   spills past those bounds and is rejected. That containment test is the whole
+   trick, and it is what separates the two on the berry side. */
+function photoIn(xa, xb) {
+  const probe = Math.round(H * 0.72);
+  let left = null, right = null;
+  for (let x = xa; x < xb; x++) if (isBlack(at(x, probe))) { if (left === null) left = x; right = x; }
+  if (left === null) return null;
+
+  const cx = Math.round((left + right) / 2);
+  let bottom = null;
+  for (let y = H - 1; y > probe; y--) if (isBlack(at(cx, y))) { bottom = y; break; }
+  if (bottom === null) return null;
+
+  let top = probe;
+  for (let y = probe; y >= 0; y--) {
+    let s = null, e = null;
+    for (let x = xa; x < xb; x++) if (isBlack(at(x, y))) { if (s === null) s = x; e = x; }
+    if (s === null) break;                     // clear gap above the tile (maple)
+    if (s < left - 2 || e > right + 2) break;  // this row is the chips, not the tile (berry)
+    top = y;
+  }
+  return { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+}
+
 const pct = (b) => ({
   left: +((100 * b.x) / W).toFixed(2),
   top: +((100 * b.y) / H).toFixed(2),
@@ -96,8 +135,8 @@ const white = components(isWhite, 800).filter((b) => b.w > W * 0.06 && b.h < H *
 const half = (arr, left) => arr.filter((b) => (b.x + b.w / 2 < mid) === left).sort((a, b) => a.x - b.x);
 
 const plates = {
-  berry: { name: half(cream, true)[0], pill: pillIn(0, mid), chips: half(white, true).slice(0, 2) },
-  maple: { name: half(cream, false)[0], pill: pillIn(mid, W), chips: half(white, false).slice(0, 2) },
+  berry: { name: half(cream, true)[0], pill: pillIn(0, mid), chips: half(white, true).slice(0, 2), photo: photoIn(0, mid) },
+  maple: { name: half(cream, false)[0], pill: pillIn(mid, W), chips: half(white, false).slice(0, 2), photo: photoIn(mid, W) },
 };
 
 /* EMPTY-PLATE CHECK: a 9-point grid inside a plate returns one colour if empty. */
@@ -114,7 +153,12 @@ const result = { image: { w: W, h: H } };
 console.log(`--- hero-flavours.png (${W}x${H}) ---`);
 for (const [tone, p] of Object.entries(plates)) {
   const entries = [['name', p.name], ['pill', p.pill], ['chip1', p.chips[0]], ['chip2', p.chips[1]]];
-  result[tone] = { name: pct(p.name), pill: pct(p.pill), chips: p.chips.map(pct) };
+  result[tone] = { name: pct(p.name), pill: pct(p.pill), chips: p.chips.map(pct), photo: pct(p.photo) };
+  console.log(
+    `  ${tone} photo  ${String(p.photo.x).padStart(4)},${String(p.photo.y).padStart(3)} ${p.photo.w}x${p.photo.h} ` +
+    `-> L${pct(p.photo).left} T${pct(p.photo).top} W${pct(p.photo).width} H${pct(p.photo).height} ` +
+    `aspect ${(p.photo.w / p.photo.h).toFixed(3)}`
+  );
   for (const [label, r] of entries) {
     const cols = emptyCheck(r);
     const ok = cols.length === 1;

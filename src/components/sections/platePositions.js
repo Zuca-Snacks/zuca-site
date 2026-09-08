@@ -8,6 +8,12 @@
  * drift apart in CSS — that alignment problem is gone at the source. All eight
  * targets are measured in one pass and are relative to this single file.
  *
+ * `photo` is the black rounded tile each flavour's photograph sits in. The live
+ * <picture> is positioned onto that rectangle so the card and the flavour modal
+ * show the SAME derivative and cannot drift apart. Measured geometrically, not
+ * by component search — on the berry side the tile's border and the chips'
+ * outline are one connected black region. See scripts/measure-plates.mjs.
+ *
  * `ink` is the artwork's true horizontal extent, which is NOT the file edges.
  * The capture block below the artwork is sized to it so the email field shares
  * a column with the flavours rather than with the transparent padding.
@@ -48,7 +54,13 @@ export const PLATES = {
         "width": 17.73,
         "height": 6.71
       }
-    ]
+    ],
+    "photo": {
+      "left": 14.12,
+      "top": 43.37,
+      "width": 22.33,
+      "height": 46.5
+    }
   },
   "maple": {
     "name": {
@@ -76,7 +88,13 @@ export const PLATES = {
         "width": 18.39,
         "height": 7
       }
-    ]
+    ],
+    "photo": {
+      "left": 66.75,
+      "top": 44.86,
+      "width": 22.99,
+      "height": 45.16
+    }
   },
   "ink": {
     "left": 0,

@@ -228,6 +228,49 @@ export default function Hero() {
           const P = PLATES[f.tone];
           return (
             <figure className="z-hero__product" data-tone={f.tone} key={f.tone} aria-label={f.name}>
+              {/* THE LIVE PHOTOGRAPH, laid over the one baked into the artwork.
+                  Same derivatives the flavour modal uses, so the card and the
+                  modal cannot drift apart — a reshoot updates both in one run,
+                  with no Canva round trip.
+
+                  ⚠️ FIRST CHILD ON PURPOSE. The "+" glyph is translateY(118%),
+                  which lands it ON this photo (measured: glyph ~y379-457 in
+                  artwork coordinates, frame y291-602). Painting the photo before
+                  the button keeps the affordance on top of it. The button's own
+                  hit box is the union of the name/pill/chip rectangles, which
+                  ends at 42.78% — above this frame's 43.37% — so the tap target
+                  is untouched either way.
+
+                  ⚠️ object-fit: COVER here, CONTAIN in the modal below. That is
+                  deliberate. The card is a glance and the product should fill
+                  its frame, which is what the baked photograph did; the modal is
+                  where the whole cluster with no bite cut is the right
+                  composition (Emil, 8 Sep). One file, two framings.
+
+                  alt="" — the flavour name is already real text on the plate
+                  directly above, and the modal carries the descriptive alt. */}
+              <picture>
+                <source
+                  type="image/avif"
+                  srcSet={`/images/${f.detail.slug}-360.avif 360w, /images/${f.detail.slug}-640.avif 640w`}
+                  sizes="23vw"
+                />
+                <source
+                  type="image/webp"
+                  srcSet={`/images/${f.detail.slug}-360.webp 360w, /images/${f.detail.slug}-640.webp 640w`}
+                  sizes="23vw"
+                />
+                <img
+                  className="z-hero__card-photo"
+                  style={box(P.photo)}
+                  src={`/images/${f.detail.slug}-360.webp`}
+                  width="640"
+                  height="640"
+                  alt=""
+                  decoding="async"
+                />
+              </picture>
+
               <figcaption className="z-hero__plate-name" style={box(P.name)}>
                 {f.name}
               </figcaption>

@@ -37,6 +37,27 @@
           imagesrcset="/images/hero-flavours-420.avif 420w, /images/hero-flavours-780.avif 780w, /images/hero-flavours-1218.avif 1218w"
           imagesizes="100vw" />
 
+    <!--
+      The two flavour PHOTOGRAPHS are now live <img>s laid over the artwork's
+      baked tiles, not part of the artwork, so they are separate requests that
+      the preload scanner cannot see either — same reason as above.
+
+      ⚠️ NO fetchpriority HERE, DELIBERATELY. The artwork above is still the
+      measured LCP element at 390, 430 and desktop — the photos are far smaller
+      on screen and never win it. A second high-priority image would compete
+      with the real LCP element for the same early bandwidth, which is the
+      failure the note above describes. This preload exists only so the photos
+      start downloading before the bundle mounts and discovers them, not to
+      outrank anything. Measured: LCP unchanged (390: 164ms -> 160ms).
+
+      ⚠️ These mirror Hero.jsx's <picture>, `sizes` included. Change them in the
+      same commit or the browser fetches a file nobody uses and loses the real
+      LCP — see the warning above, which is describing this exact hazard.
+    -->
+    <link rel="preload" as="image" type="image/avif"
+          imagesrcset="/images/flavor-chocolate-raspberry-360.avif 360w, /images/flavor-chocolate-raspberry-640.avif 640w"
+          imagesizes="23vw" />
+
     <meta name="theme-color" content="#FDE0B4" />
 
     <!--

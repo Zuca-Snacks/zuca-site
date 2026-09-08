@@ -273,6 +273,42 @@
   pointer-events: none;
 }
 
+/* The live photograph, laid onto the black tile the artwork already draws.
+   Positioned from the SAME measured percentages as the plates, so it tracks a
+   re-exported artwork instead of drifting off it.
+
+   ⚠️ cover HERE, contain IN THE MODAL — deliberately different, not an
+   oversight. The card is a glance and the product should FILL its frame, which
+   is what the baked photograph did and what this has to preserve (Emil, 8 Sep).
+   The modal is where the whole cluster with no bite cut is the right
+   composition, so .z-hero__flavour-photo keeps contain. Same file, two framings,
+   each matched to what its surface is for.
+
+   The frame is portrait (0.872 berry, 0.924 maple) and the derivative is square,
+   so cover crops ~5% off each side. On the raspberry that is mostly the black
+   padding added to keep the rosette whole; it clips ~1.5% into the cluster.
+
+   ⚠️ THE RADIUS IS NOT DECORATION, IT IS OCCLUSION CONTROL. Without it this
+   overlay is a hard-edged square that paints black over the botanicals sitting
+   in the artwork's rounded corners — caught by the before/after pixel diff,
+   which showed square corners against the artwork's rounded ones. Measured from
+   the artwork: ~80px on a 1218px-wide file = 6.6% of its width, hence cqw, so
+   it tracks the artwork at every viewport. The baked black frame underneath
+   still draws the visible border ring; this only covers the OLD photograph
+   inside it.
+
+   pointer-events stay off (inherited from .z-hero__product) so the "+" button,
+   which is painted after this and overlaps it, keeps every tap. */
+.z-hero__card-photo {
+  position: absolute;
+  margin: 0;
+  display: block;
+  object-fit: cover;
+  background: #000;
+  border-radius: 6.6cqw;
+  pointer-events: none;
+}
+
 /* Every overlay shares this: centred in its measured rectangle, in the display
    face, never intercepting a tap. */
 .z-hero__plate-name,
@@ -1091,7 +1127,7 @@
 .z-founder__portrait img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .z-founder__monogram {
