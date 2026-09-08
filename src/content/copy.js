@@ -427,22 +427,28 @@ export const founders = [
   },
 ];
 
-/* The question asks "what's in it" and this is the honest answer while the
-   recipe is still moving (Emil, 8 Sep 2026). Deliberately NOT a source list:
-   the formulation is unfinished, and a list published now would go stale
-   silently — which is the same failure mode as a stale allergen statement, and
-   the reason the fiber-sourcing claims came out of this answer in the same pass.
+/* The question asks "what's in it", and this is the whole answer to that half:
+   a pointer to the pack panel, at the END of the answer (Emil, 8 Sep 2026).
 
-   ⚠️ It also cannot go stale on its own terms. It points at the pack panel,
-   which is the legally accurate artefact and stays accurate whatever the recipe
-   does. Do not "improve" it by naming ingredients until the formulation is
-   final — see the pre-launch list in NEXT_STEPS.md.
+   ⚠️ IT SAYS NOTHING ABOUT THE RECIPE'S STATE. An earlier version opened with
+   "The recipe is still being finalised, so..." and was removed: telling a
+   customer the formulation is unfinished is an internal fact, it invites the
+   question of what might change, and it dates the sentence — it would need
+   removing again the day the recipe is signed off. This wording does not.
+
+   Deliberately NOT a source list. The formulation is still moving, so a list
+   published now would go stale silently, which is the same failure mode as a
+   stale allergen statement and the reason the fiber-sourcing claims came out of
+   this answer in the same pass. The pack panel is the legally accurate artefact
+   and stays accurate whatever the recipe does.
+
+   Do not "improve" this by naming ingredients until the formulation is final —
+   see the pre-launch list in NEXT_STEPS.md.
 
    A real list here needs no guard; a PLACEHOLDER does. Any future placeholder
    must contain the string PLACEHOLDER_DO_NOT_SHIP, which scripts/audit-copy.mjs
    fails the build on. */
-const INGREDIENTS =
-  'The recipe is still being finalised, so the full ingredient list will be on the pack. That panel is the one to rely on.';
+const INGREDIENTS = 'The full ingredient list will be on the pack.';
 
 // ─── Objection-handling FAQ ──────────────────────────────────────────────────
 // Ordered by what actually stops a purchase, not by what's easiest to answer.
@@ -493,7 +499,9 @@ export const faq = [
     //
     // ⚠️ THE QUESTION ASKS TWO THINGS AND THIS ANSWERED ONE. It says "what's in
     // it" and then gave macros, diet descriptors and allergens — never the
-    // ingredients. It now opens with the ingredients answer (see INGREDIENTS).
+    // ingredients. The answer now CLOSES with the ingredients half (INGREDIENTS
+    // above), so the allergen sentences stay where a reader scanning for them
+    // expects and the pack pointer is the last thing said.
     //
     // ⚠️ NO SOURCING CLAIM FOR THE FIBER. "14g fiber derived from whole foods"
     // was removed on 8 Sep 2026: the formulation is still in progress, so where
@@ -501,7 +509,7 @@ export const faq = [
     // Do not reintroduce it in any form — "from whole foods", "from fruit",
     // "just fruit". The figure ships without a source, which is correct while
     // the recipe moves.
-    a: `${INGREDIENTS} One serving is 50g: 5 × 10g bites. 14g fiber, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten.`,
+    a: `One serving is 50g: 5 × 10g bites. 14g fiber, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten. ${INGREDIENTS}`,
   },
   {
     q: "What will it cost?",
