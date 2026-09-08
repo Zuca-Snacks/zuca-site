@@ -17,17 +17,23 @@ I went through `~/Desktop/Zuca Photos` before speccing anything. Findings:
 `PRE-ORDER NOW` and "physician-formulated". Nothing there is usable, and nothing
 should be mined from it.
 
-**The ingredients shot (`IMG_2053`) cannot ship in any crop.** Two independent
-problems: it shows Kirkland/Costco retail packaging — third-party trademarks on
-a commercial page — and it visibly shows **rolled oats**.
+**The ingredients shot (`IMG_2053`) cannot ship in any crop.** It shows
+Kirkland/Costco retail packaging — third-party trademarks on a commercial page.
+It also shows rolled oats, which **used** to be a second, independent blocker
+and no longer is (see below). The trademark problem alone is still fatal.
 
-> ⚠️ **The allergen blocker is not only a copy problem.** `copy.js` has a
-> blocking TODO because only tree nuts are confirmed; gluten/oats, dairy in the
-> Chocolate Raspberry, and shared-facility cross-contact are not. **A photograph
-> showing an unconfirmed allergen asserts it in pixels exactly as copy would in
-> words.** Ingredient photography is therefore gated on the *same* confirmation
-> as the allergen panel. This was not obvious to anyone, including me, until the
-> photo turned up with oats in it.
+> ⚠️ **The allergen blocker is not only a copy problem.** **A photograph showing
+> an unconfirmed allergen asserts it in pixels exactly as copy would in words.**
+> Ingredient photography is gated on the *same* confirmation as the allergen
+> panel. This was not obvious to anyone, including me, until a photo turned up
+> with oats in it.
+>
+> **✅ OATS ARE NO LONGER UNCONFIRMED (Emil, 8 Sep 2026.)** They are a confirmed
+> ingredient in both flavours, and the site now states plainly that they are not
+> certified gluten-free. **Photography may show oats.** The gate itself is
+> unchanged and still binds for what remains unconfirmed — dairy in the
+> Chocolate Raspberry. Shared-facility cross-contact was confirmed on
+> 21 Aug 2026 and is stated on both pages. See DECISIONS.md, 8 Sep 2026.
 
 **Every process photo is a domestic-kitchen snapshot** — disposable foil catering
 trays on a coffee table or a patterned rug. A tight crop fixes one photo in
@@ -52,8 +58,8 @@ from the asset alone.
 | **Upcycled Certified™ mark** | **Zuca is pursuing this designation, not holding it.** Displaying a certification mark that has not been granted is a false certification claim — worse than the health-claim problems fixed on 16 Aug, because it is unambiguous and it is the certifier's mark to enforce. Do not place it anywhere until the designation is actually granted. |
 | **Stanford Demo Day photographs** | Identifiable faces need written permission for commercial use — but the sharper problem is that **photographs of physicians beside a fiber product imply clinical endorsement**, which is exactly the claim removed from the copy on 16 Aug. A picture makes that claim more effectively than a sentence does. Not usable *even with consent* unless Cooley says otherwise. |
 | **Vituity Health Symposium photographs** | Same. Physicians eating the product, with testimonial quotes. Endorsement framing by image. |
-| **Kitchen development photos** | Kirkland/Costco retail packaging (third-party trademarks) and a visible bag of **oats** — an allergen we have not confirmed. |
-| **Process strip, step 4 panel** | Stock photography, not Zuca's, and one quadrant shows a grain reading as oats. |
+| **Kitchen development photos** | Kirkland/Costco retail packaging (third-party trademarks). ~~and a visible bag of **oats** — an allergen we have not confirmed~~ — the oats half is **retired 8 Sep 2026**; the trademark half still blocks it on its own. |
+| **Process strip, step 4 panel** | Stock photography, not Zuca's. ~~and one quadrant shows a grain reading as oats~~ — the oats half is **retired 8 Sep 2026**; it is still not Zuca's product, which blocks it on its own. |
 | **Process strip, step 1 (foil pan)** | Disposable foil catering pan as the dominant object; contradicts the 21 CFR 117 sentence in the FAQ. Replaced with a genuine juice-bar collection shot. |
 
 **The general rule these share:** an image asserts a claim as effectively as a
@@ -78,8 +84,11 @@ information that cannot be recovered.
 **Rules that apply to every frame** — each one falls out of a real defect found
 above, not a preference:
 
-1. **No unconfirmed allergen visible.** Tree nuts only. No oats, no grain, no
-   dairy. Same gate as the allergen copy.
+1. **No unconfirmed allergen visible.** Same gate as the allergen copy — which
+   means the list moves as confirmations land, and it has. **Oats and grain are
+   now allowed** (confirmed ingredient, 8 Sep 2026, stated on the site as not
+   certified gluten-free). **Dairy is still not**, in any frame. Tree nuts are
+   confirmed and always were.
 2. **No third-party trademarks or retail packaging.**
 3. **No domestic-kitchen context** — no foil catering trays, coffee tables or
    patterned rugs. The picture must not contradict the manufacturing sentence.

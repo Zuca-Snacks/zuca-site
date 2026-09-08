@@ -5,12 +5,19 @@
    Run:  node scripts/gen-images.mjs
    Out:  public/images/<name>-<width>.<fmt>
 
+   A job's `src` is resolved inside public/ by default. Set `root: true` and the
+   path is taken from the repo root instead — which is how the flavour masters
+   live in art-src/ rather than public/, so the half-megabyte originals are
+   never copied into the deploy. Same rule as ART below; the difference is that
+   these are PHOTOGRAPHY and keep the photographic encoder settings.
+
    Art-direction notes baked in below:
    - The hero shows BOTH flavours as 1:1 crops, so the flavour crops double as
      the hero images. The old single-photo hero-bites 4:5 and 16:9 jobs were
      removed when the hero became product-forward; nothing referenced them.
-   - maple-pecan.jpg was shot in a foil catering tray. The crop deliberately
-     cuts the tray rim out of frame so the bites read as product, not catering.
+   - Both flavour photos were RESHOT on 8 Sep 2026 and the crops rewritten with
+     them; the tray-rim note that used to sit here described the retired August
+     maple shot and no longer applies to anything in this file.
    ========================================================================== */
 
 import sharp from 'sharp';
@@ -24,20 +31,31 @@ mkdirSync(OUT, { recursive: true });
 const JOBS = [
   {
     name: 'flavor-chocolate-raspberry',
-    /* ⚠️ GRADED, not the camera original — which is preserved beside it as
-       chocolate-raspberry-original.jpg and is what to go back to.
-       The hero artwork bakes in a DIFFERENT, warmer shot of the same product,
-       and side by side the two read as different products (Emil, 18 Aug). The
-       artwork cannot be edited here, and its tile is only 271x307 — 42% of what
-       this panel needs at 3x — so it cannot be used in both directions either.
-       This grade (saturation x1.35, brightness x0.82) lands the photo on the
-       hero tile's measured values: sat 71.2% vs 70.7%, lightness 38.7% vs 38.6%.
-       ⚠️ It grades the REAL PHOTOGRAPH toward the ARTWORK. If the artwork's tile
-       was itself styled, this makes the product look more vivid than the camera
-       saw it. The clean fix is one file in both places — see HANDOFF-ux.md. */
-    src: 'chocolate-raspberry.jpg',
-    // Inset from the right and bottom edges, where the tray/wrapper is visible.
-    extract: { left: 30, top: 30, width: 900, height: 900 },
+    /* RESHOT 8 Sep 2026. Supersedes the August photo entirely, which closes the
+       grading episode recorded here before: that shot was colour-graded toward
+       the hero tile on 18 Aug and Emil reverted it, because grading a real
+       product photo toward artwork makes the food look more vivid on the site
+       than it does in the box. That rule still stands and applies to this file
+       too — NOTHING here may be graded toward the artwork. The retired camera
+       original is kept as art-src/chocolate-raspberry-original.jpg; it is the
+       old photo's reference, not this one's.
+
+       CROP, measured rather than eyeballed. The bites form a seven-bite rosette
+       on a field measured at exactly rgb(0,0,0). Subject bounding box spans the
+       full frame width (x 0..1121) and y 54..1259 — so it is 1206px tall inside
+       a frame only 1122px wide, and any full-width square crop would slice 84px
+       off the cluster and flatten the top and bottom bites.
+
+       This site's established crop judgement is to cut BACKGROUND and PROPS,
+       never the product — the old crops cut a foil tray rim, not a bite. So
+       rather than clip, the whole cluster is taken and padded out to square
+       with the background colour sampled from the file itself — measured at
+       exactly rgb(0,0,0) in all four corners, so the pad is seamless and no
+       bite is cut. */
+    root: true,
+    src: 'art-src/raspberry-bites.jpg',
+    extract: { left: 0, top: 54, width: 1122, height: 1206 },
+    pad: { r: 0, g: 0, b: 0 },
     widths: [360, 640],
   },
 
@@ -56,9 +74,17 @@ const JOBS = [
      source tiles are ~240px and CANNOT be enlarged. They are generated at 240
      only and displayed small. Ask Emil for the camera originals to serve these
      at the same density as the rest of the strip.
-     Step 4 of that strip was deliberately NOT imported: it is stock imagery,
-     not Zuca's, and one panel shows a grain that reads as oats — an allergen we
-     have not confirmed.
+     Step 4 of that strip was deliberately NOT imported. TWO reasons were given
+     and only ONE of them still holds:
+       ✅ STILL BLOCKING — it is stock imagery, not Zuca's.
+       ❌ RETIRED 8 Sep 2026 — "one panel shows a grain that reads as oats, an
+          allergen we have not confirmed." Oats are now a CONFIRMED ingredient in
+          both flavours and the site states plainly that they are not certified
+          gluten-free. The concern was never that oats look wrong; it was that
+          the copy was silent, and it no longer is. Photography may show oats.
+          See DECISIONS.md, 8 Sep 2026.
+     So the oats objection must not be raised again against Zuca's own
+     photography — but stock imagery is still not Zuca's product.
      Step 1 was imported and then WITHDRAWN: the pulp sits in a disposable foil
      catering pan, which the reshoot rules forbid because the FAQ asserts
      21 CFR 117 manufacturing. Do not re-add it from the strip.
@@ -104,15 +130,6 @@ const JOBS = [
     extract: { left: 180, top: 520, width: 1180, height: 1180 },
     widths: [320, 560],
   },
-  {
-    name: 'process-raspberry-powder',
-    src: 'process-raspberry-powder.jpg',
-    // Pushed right and down: the tray's ridged wall runs down the left edge and
-    // across the top, and the bare tray floor is exposed in the lower right.
-    // This window is the largest square of pure powder in the frame.
-    extract: { left: 320, top: 430, width: 1020, height: 1020 },
-    widths: [320, 560],
-  },
   /* Founder portraits, extracted from the credentials artwork Emil sent. These
      replace the monogram placeholders — real faces are the highest-trust
      element the founders section can carry. */
@@ -130,9 +147,20 @@ const JOBS = [
   },
   {
     name: 'flavor-maple-pecan',
-    src: 'maple-pecan.jpg',
-    // Crops out the foil tray rim (left edge + bottom) and the wood backdrop.
-    extract: { left: 170, top: 80, width: 790, height: 790 },
+    /* RESHOT 8 Sep 2026, replacing the foil-catering-tray shot. There is no
+       tray and no wood backdrop left to crop out.
+
+       CROP. Unlike the raspberry photo this one bleeds off all four edges —
+       measured subject bounding box is y 32..1401 in a 1402px frame — so there
+       is no whole cluster to preserve and the only real choice is which
+       vertical window. Three were rendered and compared at the delivered size:
+       top=0 leaves dead black wedges in the upper corners, top=280 crops in far
+       enough to lose the rosette structure, and top=140 fills the frame edge to
+       edge with the pecan-halved feature bite in the middle. 140 is also the
+       geometric centre, but it was chosen by that comparison, not defaulted to. */
+    root: true,
+    src: 'art-src/maple-pecan-bites.jpg',
+    extract: { left: 0, top: 140, width: 1122, height: 1122 },
     widths: [360, 640],
   },
 ];
@@ -196,9 +224,25 @@ for (const job of JOBS) {
   for (const w of job.widths) {
     for (const { ext, fn } of FORMATS) {
       const file = join(OUT, `${job.name}-${w}.${ext}`);
-      const pipeline = sharp(join(SRC, job.src))
-        .extract(job.extract)
-        .resize({ width: w, withoutEnlargement: true });
+      /* `root` sources come from the repo root (art-src/), so a master never
+         has to sit in public/ just to be reachable. */
+      const pipeline = sharp(job.root ? job.src : join(SRC, job.src))
+        .extract(job.extract);
+      /* `pad` letterboxes the crop into a SQUARE of the target width using a
+         background colour sampled from the source, so a subject that does not
+         fit a 1:1 frame is kept whole instead of being sliced.
+
+         ⚠️ It is done with fit:'contain' on the resize, NOT with sharp's
+         .extend(). sharp applies .extend() AFTER the resize and in source
+         pixels, so a 42px pad on a 1206px master stayed 42px on a 360px
+         derivative and produced 444x387 — not square, and not the aspect ratio
+         the markup reserves space for. fit:'contain' pads in OUTPUT pixels and
+         is exact at every width. */
+      pipeline.resize(
+        job.pad
+          ? { width: w, height: w, fit: 'contain', background: job.pad, withoutEnlargement: true }
+          : { width: w, withoutEnlargement: true }
+      );
       const info = await fn(pipeline).toFile(file);
       report.push({
         file: file.replace('public/', '/'),
@@ -247,8 +291,63 @@ for (const job of ART) {
   }
 }
 
+/* ── Social share card (og:image) ──────────────────────────────────────────────
+   Until 8 Sep 2026 the site had NO og:image at all, so every shared link — every
+   paid click that got forwarded, every Slack and iMessage paste — rendered as a
+   text-only card.
+
+   Composed here rather than exported from Canva so it cannot go stale against
+   the product photography: it is built from the SAME two flavour crops the
+   modals use, so a reshoot updates the share card in the same run.
+
+   1200x630 is the size every unfurler crops toward, and JPEG is the format with
+   no support gaps (several unfurlers still do not take AVIF or WebP). Deliberately
+   NO TEXT baked in: the title and description tags carry the words, they are
+   already claim-checked, and text rendered into an image cannot be corrected
+   without a re-export or read by a screen reader.
+   ⚠️ og:image must be an ABSOLUTE url — a relative path silently yields no
+   image on most platforms. See index.html. */
+const OG = { w: 1200, h: 630, tile: 460, gap: 60, bg: { r: 253, g: 224, b: 180 } };
+{
+  const left = Math.round((OG.w - (OG.tile * 2 + OG.gap)) / 2);
+  const top = Math.round((OG.h - OG.tile) / 2);
+  const radius = 36;
+  const mask = Buffer.from(
+    `<svg width="${OG.tile}" height="${OG.tile}"><rect width="${OG.tile}" height="${OG.tile}" rx="${radius}" ry="${radius}" fill="#fff"/></svg>`
+  );
+  const tiles = await Promise.all(
+    ['flavor-chocolate-raspberry', 'flavor-maple-pecan'].map((slug) =>
+      sharp(join(OUT, `${slug}-640.jpg`))
+        .resize(OG.tile, OG.tile)
+        .composite([{ input: mask, blend: 'dest-in' }])
+        .png()
+        .toBuffer()
+    )
+  );
+  const file = join(OUT, 'og-card-1200.jpg');
+  const info = await sharp({
+    create: { width: OG.w, height: OG.h, channels: 3, background: OG.bg },
+  })
+    .composite([
+      { input: tiles[0], left, top },
+      { input: tiles[1], left: left + OG.tile + OG.gap, top },
+    ])
+    .jpeg({ quality: 82, progressive: true, mozjpeg: true })
+    .toFile(file);
+  report.push({
+    file: file.replace('public/', '/'),
+    w: info.width,
+    h: info.height,
+    kb: +(info.size / 1024).toFixed(1),
+  });
+}
+
 console.table(report);
-// The LCP element is the left-hand hero product. Keep the preload in
-// index.html pointed at this exact slug and sizes.
-const lcp = report.filter((r) => r.file.includes('flavor-chocolate-raspberry'));
-console.log('LCP candidates:', JSON.stringify(lcp));
+/* The LCP element is the hero artwork, not a flavour photo. This used to filter
+   on flavor-chocolate-raspberry and tell you to keep index.html's preload
+   pointed at "this exact slug" — but the two flavour stacks were merged into one
+   hero-flavours artwork on 17 Aug and the preload has pointed there ever since,
+   so the instruction contradicted the markup it described. The flavour photos
+   only load when a modal is opened and cannot be LCP candidates at all. */
+const lcp = report.filter((r) => r.file.includes('hero-flavours'));
+console.log('LCP candidates (must match the preload in index.html):', JSON.stringify(lcp));
