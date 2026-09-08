@@ -40,7 +40,7 @@ const FLAVOURS = [
     name: 'Chocolate Raspberry Sea Salt',
     detail: {
       slug: 'flavor-chocolate-raspberry',
-      alt: 'Zuca chocolate raspberry sea salt bites, coated in freeze-dried raspberry powder.',
+      alt: 'Seven Zuca chocolate raspberry sea salt bites arranged in a rosette on a black background, each thickly coated in deep red freeze-dried raspberry powder.',
       body:
         'Tart raspberry against dark cocoa, finished with enough sea salt to keep it from being a dessert you get bored of.',
     },
@@ -50,7 +50,14 @@ const FLAVOURS = [
     name: 'Maple Pecan',
     detail: {
       slug: 'flavor-maple-pecan',
-      alt: 'Zuca maple pecan bites, rolled in toasted pecan and maple.',
+      /* The 8 Sep photo shows ROLLED OATS plainly on every bite, so the alt
+         text says so — a screen reader user should get what a sighted user
+         gets. This was raised as a blocker when the photo landed, because oats
+         were an unconfirmed allergen; Emil confirmed the same day that oats ARE
+         an ingredient in both flavours and are NOT certified gluten-free, and
+         the site now says so wherever the allergen statement appears. The photo
+         and the copy agree. See DECISIONS.md, 8 Sep 2026. */
+      alt: 'A close stack of Zuca maple pecan bites filling the frame on a black background, their surfaces studded with pecan halves and rolled oats.',
       body: 'Toasted pecan and real maple. Warm, nutty, and gently sweet rather than sugary.',
     },
   },
@@ -287,16 +294,41 @@ export default function Hero() {
             role="group"
             aria-label={f.name}
           >
+            {/* `sizes` was "(min-width: 35em) 320px, 68vw", which claimed this
+                photo was 265px wide on a 390px phone. Measured, it renders
+                between 97px and 233px depending mostly on viewport HEIGHT — it
+                is sized by the hero's fr rows, not by viewport width — and it
+                is 118.6px on a 390x844 phone. The old value overstated it by
+                more than 2x, so 2x devices fetched the 640 file (45.1 KB) where
+                the 360 file (16.8 KB) covers them.
+
+                `sizes` can only test WIDTH, so these two bands are honest UPPER
+                BOUNDS rather than a formula:
+                  below 34em — 150px, against a measured max of 144px (480px
+                    wide) and 132.8px on a 430x932 phone;
+                  at/above 34em — 190px, against a measured max of 186.2px
+                    (1280x700) and 183.3px (560-640 wide).
+                The 34em break is where the panel jumps from ~144px to ~183px;
+                a single 150px bound left 560-767px viewports asking for 360px
+                when they needed 367px, which is how this comment's first draft
+                was wrong.
+
+                Deliberately NOT tightened further. Under-requesting shows up as
+                a soft product photo, which is a worse trade than a few KB, and
+                the box grows with viewport height beyond what any width query
+                can see (233px at 430x1200 — past even the 640 derivative at 3x).
+                3x phones still resolve to the 640 file because they genuinely
+                need ~356-430px. */}
             <picture>
               <source
                 type="image/avif"
                 srcSet={`/images/${f.detail.slug}-360.avif 360w, /images/${f.detail.slug}-640.avif 640w`}
-                sizes="(min-width: 35em) 320px, 68vw"
+                sizes="(min-width: 34em) 190px, 150px"
               />
               <source
                 type="image/webp"
                 srcSet={`/images/${f.detail.slug}-360.webp 360w, /images/${f.detail.slug}-640.webp 640w`}
-                sizes="(min-width: 35em) 320px, 68vw"
+                sizes="(min-width: 34em) 190px, 150px"
               />
               <img
                 className="z-hero__flavour-photo"

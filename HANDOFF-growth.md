@@ -1448,11 +1448,15 @@ with that, tell me and I'll drop it — but then an offline submit is simply los
    fixed by the frozen contract.
 3. **Allergens: publish only what is certain.** Both flavors contain tree nuts —
    almonds and pecans — and that is stated plainly in the three-number block
-   footnote and in full in the FAQ. **Nothing else is published.** Gluten/oats
-   status, dairy in the Chocolate Raspberry Sea Salt, and shared-facility
-   cross-contact are all absent by design, pending written confirmation from
-   Step Change Innovations. The allergen FAQ ends with "We're not publishing a
-   guess."
+   footnote and in full in the FAQ. **Publish only what is confirmed in
+   writing** — the list has grown twice since this was written, and both
+   additions are now live: shared-facility cross-contact (Step Change,
+   21 Aug 2026), and **oats, a confirmed ingredient in both flavours which are
+   NOT certified gluten-free** (Emil, 8 Sep 2026 — verbatim wording, revisit
+   trigger is a change of oat supplier, never lead the switch).
+   **Dairy in the Chocolate Raspberry Sea Salt remains absent by design**,
+   pending written confirmation. The allergen FAQ ends with "We're not
+   publishing a guess." See DECISIONS.md.
 
    ⚠️ **There is a BLOCKING TODO at the top of `src/content/copy.js`** listing
    exactly what is unconfirmed. **Do not add any of those items, and do not

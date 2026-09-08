@@ -68,6 +68,64 @@ each appears in both `copy.js` and `dist/terms.html`; they agree.
 
 ---
 
+## ⚠️ ZUCA CONTAINS OATS, NOT CERTIFIED GLUTEN-FREE (Emil, 8 Sep 2026)
+
+**Oats are a confirmed ingredient in ALL products** — both flavours, not a
+per-flavour fact like the nut base. **They are currently NOT certified
+gluten-free.**
+
+This is the customer-facing sentence, used **verbatim** everywhere the allergen
+statement appears:
+
+> Zuca contains oats, which are not certified gluten-free. It isn't suitable if
+> you avoid gluten.
+
+It ships in the FAQ answer (`src/content/copy.js`) and in `public/terms.html`,
+which are the two places the allergen statement renders. The same sentence is
+also carried on the dead `numbers.footnote` block in `copy.js`, so that reviving
+it cannot resurrect an allergen statement that is missing half the facts.
+
+### Revisit trigger
+
+**A change of oat supplier — not a date.** The copy must be re-confirmed in
+writing **before** any change goes live, and it **must never lead the switch**.
+The page does not get to describe a supply chain we do not have yet.
+
+Deliberately the same shape as the facility statement above, and for the same
+reason: a stale allergen statement fails silently. Someone avoiding gluten reads
+"isn't suitable", believes it, and nothing breaks until the sentence stops being
+true and nobody notices.
+
+State the present tense only. **No forward-looking language about switching
+suppliers or seeking certification belongs in customer copy** — an intention is
+not a fact, and a reader cannot tell the difference.
+
+### Certified oats alone would NOT permit a gluten-free claim
+
+The facility constraint is separate and **unchanged**: Zuca is made in a plant
+that also processes wheat, and a gluten-free recipe on a shared line is not a
+gluten-free product. Sourcing certified gluten-free oats would remove **one of
+two** blockers, not both.
+
+**Never claim gluten-free** therefore stands exactly as it did, and this entry
+does not weaken it. That rule is unchanged.
+
+### What this retires
+
+Two rules existed only because oats were an *unconfirmed* ingredient — the
+concern was asserting an allergen in pixels that we could not stand behind:
+
+- the **"grain that reads as oats" blocker** in `scripts/gen-images.mjs`, which
+  kept Step 4 of the process strip out of the repo;
+- the **photo do-not-use rule** that shared its reasoning.
+
+Both are **retired as of 8 Sep 2026**. Photography may show oats, because oats
+are in the product and the copy now says so. The blocker was never about the
+image looking wrong; it was about the copy being silent, and the copy is no
+longer silent.
+
+---
+
 ## ⚠️ MEASURING A BRANCH: use three dots, never two (19 Aug 2026)
 
 **This has now cost three sessions in one week.** It is not a subtle bug; it is

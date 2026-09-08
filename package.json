@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "audit:hero": "node scripts/audit-hero-rows.mjs",
-    "build": "node scripts/build-consent-registry.mjs && vite build",
+    "build": "node scripts/build-consent-registry.mjs && vite build && node scripts/audit-copy.mjs",
     "build:consent": "node scripts/build-consent-registry.mjs",
     "dev": "vite",
     "lint": "eslint .",
@@ -21,7 +21,8 @@
     "security:test": "node scripts/attack-waitlist.mjs",
     "security:test:sheet": "node scripts/test-apps-script.mjs",
     "test": "node --test test/*.test.mjs",
-    "testdrive": "node scripts/testdrive.mjs"
+    "testdrive": "node scripts/testdrive.mjs",
+    "audit:copy": "node scripts/audit-copy.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

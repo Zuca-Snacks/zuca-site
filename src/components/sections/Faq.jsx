@@ -5,9 +5,12 @@
  * Copy is growth's (src/content/copy.js) and is claim-checked there:
  *   - No price figure anywhere. The waitlist measures willingness to pay via
  *     price_band in step 2, and a number on this page anchors that answer.
- *   - The allergen answer states tree nuts only. Gluten, dairy and shared-
- *     facility cross-contact are NOT confirmed in writing yet and must not be
- *     added here — see the blocking TODO at the top of copy.js.
+ *   - The allergen answer states tree nuts, the shared-facility list (confirmed
+ *     21 Aug 2026) and oats/not-certified-gluten-free (confirmed 8 Sep 2026).
+ *     DAIRY in the Chocolate Raspberry is the one thing still unconfirmed and
+ *     must not be added here — see the guardrail at the top of copy.js. The
+ *     oats sentence is Emil's exact wording: do not reword it, and add no
+ *     forward-looking language about certification. See DECISIONS.md.
  *
  * The <details> markup growth shipped is replaced by the UX Accordion, which
  * this page already uses; `onOpen` preserves growth's faq_open event.

@@ -21,15 +21,29 @@
 // rather than the shared one we have now. Do not build anything — pills,
 // filters, segments, email cohorts — that assumes this panel is permanent.
 //
-// ❌ NEVER CLAIM GLUTEN-FREE. Unconfirmed, and a separate question from the
-// recipe: a gluten-free recipe made on a shared line is not a gluten-free
-// product. The `gluten_free` chip in fields.js is the USER describing their
-// diet; it is not evidence about Zuca and must never be read as such.
+// ❌ NEVER CLAIM GLUTEN-FREE. This is now settled in BOTH directions and the
+// rule is unchanged — if anything it is firmer than when it was only a caution:
+//   1. OATS ARE A CONFIRMED INGREDIENT in both flavours and are NOT certified
+//      gluten-free (Emil, 8 Sep 2026). The site states this plainly.
+//   2. Separately, a gluten-free recipe made on a shared line is not a
+//      gluten-free product, and this one is made in a plant that also processes
+//      wheat.
+// Certified oats alone would remove ONE of those two blockers, not both, so
+// even that would not unlock the claim. The `gluten_free` chip in fields.js is
+// the USER describing their diet; it is not evidence about Zuca and must never
+// be read as such.
 //
-// Also still unconfirmed and therefore unstated: dairy in the Chocolate
-// Raspberry Sea Salt, and shared-facility cross-contact. Do not add either,
-// and do not soften the "We're not publishing a guess" line in the allergen
-// FAQ, until confirmation exists in writing.
+// The oats wording is Emil's exact sentence and is used VERBATIM wherever the
+// allergen statement appears. Its revisit trigger is A CHANGE OF OAT SUPPLIER,
+// not a date; re-confirm in writing BEFORE any change goes live, and never let
+// the copy lead the switch. No forward-looking language about certification.
+//
+// Still unconfirmed and therefore unstated: dairy in the Chocolate Raspberry
+// Sea Salt. Do not add it, and do not soften the "We're not publishing a guess"
+// line in the allergen FAQ, until confirmation exists in writing.
+// (Shared-facility cross-contact WAS unconfirmed when this note was written; it
+// was confirmed in writing by Step Change on 21 Aug 2026 and is now stated in
+// both the FAQ and terms.html. This paragraph said otherwise until 8 Sep.)
 
 // ── PRICING — NO FIGURES OF ANY KIND ON THIS PAGE ────────────────────────────
 // This applies to BOTH directions:
@@ -58,6 +72,15 @@
 // loose claim, it is a false one: "10g fiber per bite" overstates the fiber by
 // FIVE TIMES. That shipped, in the sticky bar and in three page titles, and it
 // is the most overstated claim the site has ever carried.
+//
+// ⚠️ AND NO FIGURE SHIPS WITH A SOURCE. Where the fiber comes from is NOT a
+// settled fact while the formulation is in progress, so it is not stated.
+// "14g fiber derived from whole foods" was removed on 8 Sep 2026 (Emil), and
+// "from fruit" / "just fruit" / "from whole foods" must not replace it. Two
+// share strings that joined the figure to the apple pulp in one sentence were
+// split in the same pass, so the upcycling story stands on its own rather than
+// as an explanation of the number. Keep the story; do not let it explain a
+// macro. Re-confirm before launch — see NEXT_STEPS.md.
 //
 // A number with NO unit is not safe either — it is one careless edit away from
 // acquiring the wrong one, which is exactly how "in one bite" got into a
@@ -307,7 +330,11 @@ export const numbers = {
     { value: "180", unit: "calories", note: "Plus 5g of protein, per serving." },
     { value: "5g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
-  footnote: "Per serving — 5 bites (50g). No refined sugar. Contains tree nuts — almonds and pecans.",
+  /* ⚠️ This block does not render (verified: 0 occurrences in the production
+     bundle) — but it IS an allergen statement, so it carries the oats sentence
+     too. Reviving it must not resurrect an allergen statement that is missing
+     half the facts. See DECISIONS.md, 8 Sep 2026. */
+  footnote: "Per serving — 5 bites (50g). No refined sugar. Contains tree nuts — almonds and pecans. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten.",
 };
 
 // ─── Section headers ─────────────────────────────────────────────────────────
@@ -316,7 +343,7 @@ export const sections = {
     title: "Be first when the first run ships",
   },
   product: {
-    title: "Two flavors. Same 10 grams.",
+    title: "Two flavors. Same 14 grams.",
     body: "Developed with input from 10+ physicians across 7 specialties, and cooked by someone who spent his twenties in a two-Michelin-star kitchen.",
   },
   founders: {
@@ -344,7 +371,7 @@ export const sections = {
 export const introLines = [
   "A Michelin-trained chef and a Stanford physician,",
   "turning what juiceries throw away",
-  "into 10 grams of fiber.",
+  "into 14 grams of fiber.",
 ];
 
 // ─── Founder credentials ─────────────────────────────────────────────────────
@@ -400,6 +427,29 @@ export const founders = [
   },
 ];
 
+/* The question asks "what's in it", and this is the whole answer to that half:
+   a pointer to the pack panel, at the END of the answer (Emil, 8 Sep 2026).
+
+   ⚠️ IT SAYS NOTHING ABOUT THE RECIPE'S STATE. An earlier version opened with
+   "The recipe is still being finalised, so..." and was removed: telling a
+   customer the formulation is unfinished is an internal fact, it invites the
+   question of what might change, and it dates the sentence — it would need
+   removing again the day the recipe is signed off. This wording does not.
+
+   Deliberately NOT a source list. The formulation is still moving, so a list
+   published now would go stale silently, which is the same failure mode as a
+   stale allergen statement and the reason the fiber-sourcing claims came out of
+   this answer in the same pass. The pack panel is the legally accurate artefact
+   and stays accurate whatever the recipe does.
+
+   Do not "improve" this by naming ingredients until the formulation is final —
+   see the pre-launch list in NEXT_STEPS.md.
+
+   A real list here needs no guard; a PLACEHOLDER does. Any future placeholder
+   must contain the string PLACEHOLDER_DO_NOT_SHIP, which scripts/audit-copy.mjs
+   fails the build on. */
+const INGREDIENTS = 'The full ingredient list will be on the pack.';
+
 // ─── Objection-handling FAQ ──────────────────────────────────────────────────
 // Ordered by what actually stops a purchase, not by what's easiest to answer.
 export const faq = [
@@ -436,7 +486,30 @@ export const faq = [
     // date. It must be re-confirmed in writing BEFORE such a change goes live,
     // never after. Do not soften this copy: present tense and firm is correct,
     // and hedging a safety statement makes it worse.
-    a: "One serving is 50g: 5 × 10g bites. 14g fiber derived from whole foods, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame.",
+    //
+    // ⚠️ OATS — CONFIRMED INGREDIENT IN BOTH FLAVOURS, NOT CERTIFIED
+    // GLUTEN-FREE (Emil, 8 Sep 2026). The two sentences about oats are Emil's
+    // exact wording and are used verbatim here and in public/terms.html. Its
+    // revisit trigger is A CHANGE OF OAT SUPPLIER, not a date, re-confirmed in
+    // writing BEFORE any change goes live — and the copy must never lead the
+    // switch. No forward-looking language about certification belongs here: an
+    // intention is not a fact and a reader cannot tell them apart.
+    // Certified oats alone would still NOT permit a gluten-free claim while the
+    // shared-facility constraint stands. See DECISIONS.md.
+    //
+    // ⚠️ THE QUESTION ASKS TWO THINGS AND THIS ANSWERED ONE. It says "what's in
+    // it" and then gave macros, diet descriptors and allergens — never the
+    // ingredients. The answer now CLOSES with the ingredients half (INGREDIENTS
+    // above), so the allergen sentences stay where a reader scanning for them
+    // expects and the pack pointer is the last thing said.
+    //
+    // ⚠️ NO SOURCING CLAIM FOR THE FIBER. "14g fiber derived from whole foods"
+    // was removed on 8 Sep 2026: the formulation is still in progress, so where
+    // the fiber comes from is not a settled fact and must not be asserted.
+    // Do not reintroduce it in any form — "from whole foods", "from fruit",
+    // "just fruit". The figure ships without a source, which is correct while
+    // the recipe moves.
+    a: `One serving is 50g: 5 × 10g bites. 14g fiber, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten. ${INGREDIENTS}`,
   },
   {
     q: "What will it cost?",
@@ -773,5 +846,5 @@ export const confirmation = {
   shareCopied: "Link copied.",
   shareCopyCta: "Copy link",
   shareCopyFailed: "Couldn't copy — your browser blocked it. Try the address bar instead.",
-  shareText: "Zuca: 14g of fiber and 180 calories per serving, made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
+  shareText: "Zuca: 14g of fiber and 180 calories per serving. Made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
 };

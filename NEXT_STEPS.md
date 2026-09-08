@@ -166,3 +166,24 @@ published to GitHub.
 Auto-deploys on merge to `main`?  ______________
 Production branch: ______________
 Live URL it deploys to: ______________
+
+---
+
+## ⚠️ BEFORE LAUNCH — claims to re-confirm against the final spec
+
+Started 8 Sep 2026. These are things that are **true or defensible today** but
+rest on a formulation that is still moving. None of them blocks shipping now.
+Each one must be checked against the finished spec before launch, and the check
+is a written confirmation, not a recollection.
+
+| # | Claim | Where it renders | Why it is on this list |
+|---|---|---|---|
+| 1 | **"Plant-based, vegan"** | Allergen FAQ answer (`src/content/copy.js`) | Confirmed against the formulation by Step Change on 21 Aug 2026, and it holds today — soluble corn fiber is vegan (Emil, 8 Sep 2026). But the formulation is still in progress, so re-confirm against the **final** spec. A vegan claim is acted on by both vegans and people with dairy allergies, which puts it on the same footing as an allergen statement. |
+| 2 | **The ingredient answer** | Allergen FAQ answer | Currently points at the pack panel rather than listing ingredients, which is deliberate and cannot go stale. When the recipe is final, decide whether to publish the list here. Do **not** publish it earlier. |
+| 3 | **Fiber has no stated source** | Allergen FAQ answer | "14g fiber derived from whole foods" was removed on 8 Sep 2026 because where the fiber comes from is not settled. If you ever want a source back, it needs the final spec first — and see the note in `copy.js` before rewording it. |
+
+Related items already recorded elsewhere, not repeated here: the oats /
+gluten-free statement and its oat-supplier revisit trigger (`DECISIONS.md`), the
+shared-facility allergen list and its manufacturer revisit trigger
+(`DECISIONS.md`), and the `[TO BE INSERTED BEFORE LAUNCH]` legal placeholders in
+`public/privacy.html` (`HANDOFF-sec.md`).
