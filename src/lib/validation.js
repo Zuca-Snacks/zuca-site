@@ -617,6 +617,7 @@ export const REFUSAL_BLOCK = {
   mail_consent_without_address: 'postal',
   sms_consent_without_phone: 'sms',
   medication_without_health_consent: 'health',
+  health_consent_without_version: 'health',
   consent_wording_omits_medication: 'health',
   // `consent_wording_omits_business:<gaps>` carries its gaps after a colon, so
   // it is matched by prefix rather than equality.
@@ -1155,6 +1156,41 @@ export const waitlistSchema = z
       });
     } else if (isRole && !d.business_enquiry) {
       ctx.addIssue({ code: 'custom', path: ['email'], message: 'role_address' });
+    }
+
+    /**
+     * Art 7(1): we must be able to DEMONSTRATE consent. Storing an Art 9 answer
+     * against a consent with no record of the wording shown is not a
+     * demonstration of anything.
+     *
+     * Every other consent already had its companion enforced — SMS needs a
+     * phone, postal needs an address, the business basis needs its wording.
+     * Health needed nothing, so `consent_health: true` plus a motivation plus a
+     * missing version was ACCEPTED and STORED, silently, with a 200.
+     *
+     * ─── Why it fires on the DATA, not on the flag ──────────────────────────
+     *
+     * Ticking the box and answering nothing stores nothing — the endpoint gates
+     * on `data.consent_health ? data.motivation : null` — so there is no
+     * evidence to produce and nothing to refuse. Requiring the version whenever
+     * the box is ticked would reject a payload that stores no health data at
+     * all, which is a 400 bought for nothing.
+     *
+     * This is a REMOVE-class tightening, so it was checked against the deployed
+     * client before shipping rather than after: `healthCopy.version` resolves
+     * from the registry and is always present, so no live payload can trip it.
+     * The state it refuses is reachable only from a wiring mistake — which is
+     * exactly what a two-screen rewrite is most likely to introduce, and why
+     * this lands while that work is in flight rather than after it.
+     */
+    const storesHealthData =
+      (d.motivation ?? []).length > 0 || (d.dietary ?? []).length > 0 || d.dietary_other || d.motivation_other;
+    if (d.consent_health && storesHealthData && !d.motivation_consent_text_version) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motivation_consent_text_version'],
+        message: 'health_consent_without_version',
+      });
     }
 
     const wantsMedication = (d.motivation ?? []).some((v) => MEDICATION_MOTIVATIONS.has(v));

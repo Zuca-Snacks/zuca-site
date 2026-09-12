@@ -79,13 +79,16 @@
   ],
   "functions": {
     "api/waitlist.js": {
-      "maxDuration": 15
+      "maxDuration": 60
     },
     "api/count.js": {
-      "maxDuration": 10
+      "maxDuration": 30
     },
     "api/csp-report.js": {
       "maxDuration": 5
+    },
+    "api/confirm.js": {
+      "maxDuration": 60
     }
   }
 }

@@ -707,7 +707,33 @@ export default async function handler(req, res) {
         // that did not happen.
         observed_at: new Date().toISOString(),
       }),
-      signal: AbortSignal.timeout(8000),
+      /**
+       * 25s, raised from 8s during the 11 Sep outage.
+       *
+       * MEASURED against the live deployment rather than guessed: Apps Script's
+       * doGet — which is only openById + assertTargetSheet_ + getLastRow, the
+       * CHEAPEST path it has — takes 3.1-4.0s. doPost does all of that plus
+       * ensureColumns_, plus the lock, plus the write. So 8s was never a
+       * generous budget; it was roughly twice the cost of the read alone.
+       *
+       * The failure this caused is the worst shape available: Apps Script
+       * COMPLETES THE WRITE and we abort waiting for the answer, so the row
+       * lands and the person is told their signup failed. The count went
+       * 298 -> 305 while users saw errors.
+       *
+       * The budget this sits inside:
+       *
+       *   maxDuration        60s   the platform ceiling for this function
+       *   forward abort      25s   here
+       *   + CAPI             1.5s
+       *   + claim + commit   ~4s    (2s each, Upstash)
+       *   worst case        ~31s   leaving 29s of headroom under maxDuration
+       *
+       * 25s is slow for a person to wait and it is enormously better than
+       * being told a successful signup failed. The real fix is the Sheet
+       * leaving the request path — see MIGRATION-PLAN.md.
+       */
+      signal: AbortSignal.timeout(25000),
       // Unlike the browser call this replaces, we can actually read the
       // response — which is the whole reason the silent-failure bug (S7) goes
       // away. Apps Script answers with a 302 to googleusercontent; follow it.
