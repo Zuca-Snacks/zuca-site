@@ -247,7 +247,32 @@ export async function checkRateLimit(req, { namespace = 'waitlist' } = {}) {
  * CORE_KEYS: never let the bookkeeping cost the thing being booked.
  */
 
-/** Written on arrival. Must outlast the 8s forward abort by a wide margin. */
+/**
+ * Written on arrival. 90s.
+ *
+ * ─── THE INVARIANT, restated 2026-09-11 when the abort moved 8s -> 25s ──────
+ *
+ * The comparison that matters is NOT the TTL against the forward abort. It is
+ * the TTL against `maxDuration`, the platform ceiling on the whole function:
+ *
+ *   INFLIGHT_TTL_SEC (90s)  >  maxDuration for api/waitlist.js (60s)
+ *
+ * Because that holds, a claim CANNOT expire while the request that wrote it is
+ * still running — under any internal timing, including a request that burns the
+ * full platform budget. If it could, a retry arriving late would find no claim,
+ * be treated as new, and write a second row for one person.
+ *
+ * Comparing against the forward abort alone would have been the weaker check:
+ * the forward is only part of the request, and the abort is a number we change.
+ * maxDuration is the number nothing can exceed.
+ *
+ * Headroom at the current settings: worst realistic request ~31s (25s forward +
+ * 1.5s CAPI + ~4s Upstash + overhead), so the claim outlives it roughly 3x, and
+ * outlives even a maxed-out 60s function by 30s.
+ *
+ * ⚠️ RAISING maxDuration ABOVE 90 WOULD BREAK THIS. If api/waitlist.js ever
+ * needs longer than 90s, this TTL moves first and by more.
+ */
 export const INFLIGHT_TTL_SEC = 90;
 /** Written only once a row exists. */
 export const COMMITTED_TTL_SEC = 400 * 86400;

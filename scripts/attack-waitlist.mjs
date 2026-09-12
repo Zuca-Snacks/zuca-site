@@ -289,7 +289,10 @@ await check('consent_marketing:"true" (string) rejected', '400 validation', asyn
 // The max-3 cap was removed 2026-08-19. "Choose up to 3" makes someone rank
 // reasons they hold equally, and the answer comes back a ranking artefact.
 await check('New motivation values accepted (fullness, whole_foods)', '200', async () => {
-  const r = await post(goodPayload({ consent_health: true, motivation: ['fullness', 'whole_foods'] }));
+  // Carries a version: as of 2026-09-11 an Art 9 answer without one is refused
+    // (health_consent_without_version). This fixture modelled a state the server
+    // should never have accepted, and the new rule caught it.
+    const r = await post(goodPayload({ consent_health: true, motivation: ['fullness', 'whole_foods'], motivation_consent_text_version: '2026-08-15.health.a' }));
   return { pass: r.status === 200, actual: String(r.status) };
 });
 // The medication value is accepted ONLY behind a consent whose wording names
@@ -604,7 +607,7 @@ await check('Spoofed X-Forwarded-For does not reset the limiter', 'still 429', a
   });
   await check('motivation kept when consent_health is true', 'stored', async () => {
     const { validateWaitlist } = await import('../src/lib/validation.js');
-    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, consent_health: true, motivation: ['gut_health'] });
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, consent_health: true, motivation: ['gut_health'], motivation_consent_text_version: '2026-08-15.health.a' });
     const stored = v.ok && v.data.consent_health ? v.data.motivation : null;
     return { pass: Array.isArray(stored) && stored[0] === 'gut_health', actual: JSON.stringify(stored) };
   });
@@ -626,7 +629,7 @@ await check('Spoofed X-Forwarded-For does not reset the limiter', 'still 429', a
     return { pass: v.ok && v.data.email === 'person@gmail.com', actual: JSON.stringify(v.data?.email ?? v.issues) };
   });
   await check('Duplicate motivation values collapsed', 'deduplicated', async () => {
-    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, consent_health: true, motivation: ['energy', 'energy'] });
+    const v = validateWaitlist({ email: 'a@gmail.com', consent_marketing: true, consent_health: true, motivation: ['energy', 'energy'], motivation_consent_text_version: '2026-08-15.health.a' });
     return { pass: v.ok && v.data.motivation.length === 1, actual: JSON.stringify(v.data?.motivation ?? v.issues) };
   });
 }
@@ -1809,12 +1812,46 @@ await check('Error response never echoes submitted input', 'no email in body', a
   {
     const rl = await import('../src/lib/ratelimit.js');
 
-    await check('inflight TTL is far clear of the 8s forward abort', 'headroom', async () => {
+    await check('inflight TTL outlives the whole function, not just the forward', 'TTL > maxDuration', async () => {
+      // The real invariant. A claim must not expire while the request that
+      // wrote it is still running, or a late retry is treated as new and writes
+      // a second row. Comparing against the forward abort is the weaker check:
+      // the forward is one part of the request, and the abort is a number we
+      // change — maxDuration is the number nothing can exceed.
+      const { readFileSync } = await import('node:fs');
+      const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+      const maxDur = cfg.functions?.['api/waitlist.js']?.maxDuration;
+      return {
+        pass: Number.isFinite(maxDur) && rl.INFLIGHT_TTL_SEC > maxDur,
+        actual: `INFLIGHT_TTL=${rl.INFLIGHT_TTL_SEC}s vs maxDuration=${maxDur}s`,
+      };
+    });
+
+    await check('the forward abort fits inside maxDuration with headroom', 'budget holds', async () => {
+      // 8s was raised to 25s on 11 Sep because Apps Script's cheapest path
+      // measured 3.1-4.0s live. The abort must still leave room for CAPI, the
+      // claim commit and the response inside maxDuration.
+      const { readFileSync } = await import('node:fs');
+      const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+      const maxDur = cfg.functions?.['api/waitlist.js']?.maxDuration;
+      const src = readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+      const abortMs = Number(src.match(/AbortSignal\.timeout\((\d+)\)/)?.[1]);
+      const overheadS = 8; // CAPI 1.5s + claim 2s + commit 2s + slack
+      return {
+        pass: abortMs / 1000 + overheadS < maxDur,
+        actual: `abort=${abortMs / 1000}s + ~${overheadS}s overhead vs maxDuration=${maxDur}s`,
+      };
+    });
+
+    await check('inflight TTL is far clear of the forward abort', 'headroom', async () => {
       // The number that matters is the RATIO, not either value: the claim must
       // outlive an aborted forward or a double-submit slips through, and must
       // expire fast enough that a failed one does not lock anybody out.
-      const ok = rl.INFLIGHT_TTL_SEC >= 60 && rl.INFLIGHT_TTL_SEC <= 300;
-      return { pass: ok, actual: `inflight=${rl.INFLIGHT_TTL_SEC}s vs 8s abort (${(rl.INFLIGHT_TTL_SEC / 8).toFixed(0)}x)` };
+      const { readFileSync } = await import('node:fs');
+      const src = readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+      const abortS = Number(src.match(/AbortSignal\.timeout\((\d+)\)/)?.[1]) / 1000;
+      const ok = rl.INFLIGHT_TTL_SEC >= 60 && rl.INFLIGHT_TTL_SEC <= 300 && rl.INFLIGHT_TTL_SEC > abortS * 2;
+      return { pass: ok, actual: `inflight=${rl.INFLIGHT_TTL_SEC}s vs ${abortS}s abort (${(rl.INFLIGHT_TTL_SEC / abortS).toFixed(1)}x)` };
     });
 
     await check('committed TTL is the long one, and they differ by orders', 'two lifetimes', async () => {
@@ -1859,6 +1896,73 @@ await check('Error response never echoes submitted input', 'no email in body', a
     const r = await post(growthPayload({ event_id: '00000000-0000-0000-0000-000000000000' }));
     return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json?.ok)}` };
   });
+
+  // ── The two-screen form: health consent, and old clients ────────────────
+  {
+    const { CONSENT_TEXTS, consentCoversMedication } = await import('../src/lib/validation.js');
+    const medV = Object.keys(CONSENT_TEXTS).find((k) => consentCoversMedication(CONSENT_TEXTS[k]?.text));
+    const plainV = Object.keys(CONSENT_TEXTS).find(
+      (k) => CONSENT_TEXTS[k]?.purpose === 'health' && !consentCoversMedication(CONSENT_TEXTS[k]?.text)
+    );
+
+    await check('health granted + an answer + NO version is refused', 'Art 7(1)', async () => {
+      // Every other consent enforced its companion; health enforced nothing, so
+      // an Art 9 answer could be STORED against a consent with no record of the
+      // wording shown — a 200, silently, with nothing to demonstrate later.
+      const v = validateWaitlist(growthPayload({ consent_health: true, motivation: ['gut_health'], motivation_consent_text_version: null }));
+      const i = v.ok ? null : v.issues.find((x) => x.path === 'motivation_consent_text_version');
+      return { pass: !v.ok && i?.rule === 'health_consent_without_version', actual: v.ok ? 'ACCEPTED' : JSON.stringify(i) };
+    });
+
+    await check('health granted with NOTHING answered is still fine', 'no data, no evidence owed', async () => {
+      // Ticking the box and answering nothing stores nothing, so there is no
+      // evidence to produce. Firing on the flag rather than the data would be a
+      // 400 bought for nothing.
+      const v = validateWaitlist(growthPayload({ consent_health: true, motivation: null, dietary: null, motivation_other: null, dietary_other: null, motivation_consent_text_version: null }));
+      return { pass: v.ok, actual: v.ok ? 'ACCEPTED' : JSON.stringify(v.issues) };
+    });
+
+    await check('declining health skips the question, never the ladder', '200, not 400', async () => {
+      // S24's shape was a value present without its consent -> 400 -> descent.
+      // Declining health with a motivation still in the payload must NOT 400:
+      // it is dropped and reported, which is the S24 lesson applied here.
+      const r = await post(growthPayload({ consent_health: false, motivation: ['gut_health'], motivation_consent_text_version: null }));
+      return { pass: r.status === 200, actual: `${r.status} dropped=${JSON.stringify(r.json?.dropped)}` };
+    });
+
+    await check('a medication answer without health consent names its block', 'health', async () => {
+      // The one state that DOES 400. With no HEALTH_BLOCK rung in the client the
+      // descent walks every rung to MINIMAL — `block` is what lets it shed the
+      // health block instead of the whole profile.
+      const r = await post(growthPayload({ consent_health: false, motivation: ['glp1_medication'], motivation_consent_text_version: null }));
+      const hit = (r.json?.refused ?? []).find((f) => f.block === 'health');
+      return { pass: r.status === 400 && Boolean(hit), actual: JSON.stringify(r.json?.refused ?? r.json) };
+    });
+
+    await check('medication answer still needs wording that names medication', 'unchanged', async () => {
+      const v = validateWaitlist(growthPayload({ consent_health: true, motivation: ['glp1_medication'], motivation_consent_text_version: plainV }));
+      return { pass: !v.ok, actual: v.ok ? 'ACCEPTED — gate lost' : 'refused' };
+    });
+
+    await check('AN OLD CACHED CLIENT still gets 200', 'no regression', async () => {
+      // Emil's stated worry. The four fields leave the client but STAY in the
+      // schema, so a browser holding a cached bundle keeps working. If this ever
+      // fails, someone deleted them from the schema instead of the client.
+      const r = await post(growthPayload({
+        flavor: 'both', price_band: 'other', price_band_other: '40 kr',
+        quantity_band: 'srv_3_5', is_clinician: false,
+        consent_health: true, motivation: ['gut_health'], motivation_consent_text_version: medV,
+      }));
+      return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json?.ok)}` };
+    });
+
+    await check('and the two-screen shape, four fields absent, also 200', 'forward-compatible', async () => {
+      const p = growthPayload({ consent_health: true, motivation: ['gut_health'], motivation_consent_text_version: medV });
+      for (const k of ['flavor', 'price_band', 'price_band_other', 'quantity_band', 'is_clinician']) delete p[k];
+      const r = await post(p);
+      return { pass: r.status === 200, actual: `${r.status} ${JSON.stringify(r.json?.ok)}` };
+    });
+  }
 
   // ── S22: role addresses behind the business basis ───────────────────────
   /**

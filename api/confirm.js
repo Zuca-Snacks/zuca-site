@@ -143,7 +143,12 @@ export default async function handler(req, res) {
         confirmed_at: new Date().toISOString(),
         token: SHEETS_WEBHOOK_TOKEN,
       }),
-      signal: AbortSignal.timeout(8000),
+      // 25s, matching the waitlist forward. confirmRow_ reads the whole
+      // email_handle column and then writes, so it is at LEAST as slow as a
+      // create — 8s here was the same trap, just on a path nothing exercises
+      // yet because Resend is unwired. Fixing only the endpoint that happened
+      // to be on fire would leave the identical bug armed behind it.
+      signal: AbortSignal.timeout(25000),
       redirect: 'follow',
     });
     if (!upstream.ok) throw new Error(`upstream ${upstream.status}`);

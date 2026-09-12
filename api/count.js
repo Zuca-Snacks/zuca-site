@@ -68,7 +68,11 @@ export default async function handler(req, res) {
 
   try {
     const upstream = await fetch(SHEETS_WEBHOOK_URL, {
-      signal: AbortSignal.timeout(5000),
+      // 15s, raised from 5s. Measured end-to-end against production during the
+      // 11 Sep outage: 3.5s, 5.2s, 3.5s — the middle one EXCEEDED its own 5s
+      // abort. This endpoint has been failing intermittently and nobody noticed,
+      // because a failed count renders as no counter rather than as an error.
+      signal: AbortSignal.timeout(15000),
       redirect: 'follow',
     });
     const data = await upstream.json();

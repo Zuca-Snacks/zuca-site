@@ -733,6 +733,123 @@ business wording (`46acf5e` then `789ffdb`). Checked rather than assumed, becaus
 pair is exactly where a restored string gets lost: the wording there is byte-identical to this
 branch. No action needed — recorded so nobody re-checks it.
 
+## 1p → Two-screen form: consent review · **Conversion, BEFORE merge**
+
+Reviewed 2026-09-11 against the running code, not from the description. Server-side changes are
+already in; **two items below are in your files and are not done.**
+
+### ⚠️ ① You must add a `HEALTH_BLOCK` rung. This one is yours.
+
+There is no health rung in `LADDER`, and `motivation` / `consent_health` are in `CORE_KEYS` but
+not `MINIMAL_KEYS`. So a health refusal descends:
+
+```
+SERVER_KNOWN            still carries motivation  -> 400
+minus POSTAL_BLOCK      still carries motivation  -> 400
+minus POSTAL+SMS        still carries motivation  -> 400
+CORE_KEYS               still carries motivation  -> 400
+MINIMAL_KEYS            motivation dropped        -> 200, EVERY profile answer gone
+```
+
+**One health error strips the submission to email + marketing consent.** Add alongside the
+existing two:
+
+```js
+const HEALTH_BLOCK = new Set([
+  "consent_health", "motivation", "motivation_other",
+  "motivation_consent_text_version", "dietary", "dietary_other",
+]);
+```
+
+and a rung that sheds it, ordered cheapest-loss-first as you already do. The server now returns
+`block: "health"` on every health refusal, so a targeted descent (T2) can use it directly.
+
+### ⚠️ ② `security:compat` will REFUSE to pass unless the dead key-set entries go too
+
+Simulated it. Removing the four fields from `buildPayload` while leaving the key sets alone:
+
+```
+⚠ COVERAGE FAILURE
+   SERVER_KNOWN_KEYS lists keys buildPayload never emits:
+   quantity_band, price_band_other — one of the two readings is wrong
+```
+
+`flavor`, `price_band`, `is_clinician` are in `CORE_KEYS`; `quantity_band` and
+`price_band_other` in `SERVER_KNOWN_KEYS`. **Remove the dead entries in the same commit.**
+
+### ③ The line that currently prevents S24 — protect it in the rewrite
+
+`buildPayload` line ~218, `motivation: health ? arr(...) : null`. That unconditional null **at the
+payload boundary** is why a medication answer can never reach the server without its consent, and
+it is why this has never bitten. Clearing state in the UI on untick is the second defence; this is
+the one that actually holds.
+
+**A two-screen rewrite restructures exactly this function.** If one line survives the refactor
+unchanged, make it that one.
+
+### ④ Verified: declining health skips the question only
+
+```
+health declined, no motivation                       ACCEPTED
+health declined, motivation:null                     ACCEPTED
+health declined, motivation present (non-medication) ACCEPTED  -> dropped:["motivation"], 200
+health declined, motivation has glp1_medication      REJECTED  medication_without_health_consent
+```
+
+Only the last 400s, and ③ is what keeps it unreachable.
+
+### ⑤ Inline consent is a sound Art 9 basis — what the wording needs
+
+Placement is fine and arguably better than a separate screen: Art 7(2) wants the consent
+clearly distinguishable and intelligible, and inline keeps the thing consented to visible beside
+it. Requirements are unchanged: **a separate unticked box**, never bundled with marketing consent
+(Recital 43 — bundling invalidates), specific, and withdrawable as easily as given (Art 7(3)).
+
+**If `glp1_medication` survives into the shortened list**, the wording MUST match
+`consentCoversMedication` — `/\bmedicat|\bGLP-?\s?1\b/i` — or every medication answer is a 400.
+If you drop that option, the plain health wording passes.
+
+### ⑥ NEW SERVER RULE — `health_consent_without_version`
+
+Art 7(1) requires that consent be demonstrable. Health was the only consent with no companion requirement, so an
+Art 9 answer could be stored against a consent with no record of the wording shown — a silent
+200. Now refused:
+
+```
+consent_health + an answer + NO version   ->  400  health_consent_without_version  (block: health)
+consent_health + NOTHING answered         ->  200  (stores nothing, owes no evidence)
+```
+
+It fires on **the data, not the flag**. Checked against the deployed client before shipping:
+`healthCopy.version` always resolves from the registry, so no live payload can trip it. **Keep
+sending the version whenever you send an answer.**
+
+### ⑦ Saves, claims and the edit token
+
+One create + one update instead of one + three. **Claim lifecycle unchanged** — the create claims
+`inflight` and commits on success; updates do not re-claim. Fewer updates means less Apps Script
+load, which is the thing currently timing out. The edit token is strictly better off: 2h,
+non-renewing, and a two-screen form is far less likely to straddle expiry.
+
+**One tradeoff to know about:** risk concentrates. Four saves meant a failure lost one screen;
+one update means a failure loses all of step 2. Nothing is unrecoverable — payloads are
+full-accumulated and the retry path holds — but the exposure per failed request goes up, and
+failed requests are exactly what is currently going wrong.
+
+### ⑧ Old cached clients — Emil's stated worry, verified both ways
+
+The four fields leave the client but **stay in the schema and in `COLUMNS`**, so a browser
+holding a cached bundle keeps working:
+
+```
+old cached client, all four fields present   200
+old cached client, health declined           200
+two-screen shape, all four absent            200
+```
+
+Both are pinned as tests. **If `AN OLD CACHED CLIENT still gets 200` ever fails, someone deleted
+the fields from the schema instead of from the client** — the one change that would break them.
+
 ## 0-TOMORROW-A0 → ⚠️ Conversion's address sequence has TWO defects. Checked, not read.
 
 They sent the sequence for review before starting. Run against the real endpoint, steps 1–2 do
