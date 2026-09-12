@@ -36,6 +36,77 @@ for the whole engagement and should not be moved or deleted.
 
 ---
 
+## THE QUESTIONNAIRE SHORTENING REMOVED FOURTEEN FIELDS, NOT FIVE (11 Sep 2026)
+
+`growth/shorten-questionnaire` (merged at `eaf5b64`) is described as "one screen,
+eight questions". The payload it stopped sending is wider than that reads.
+
+### There is no separate address-removal commit — it landed here
+
+Measured before and after the merge by building a payload from each side and
+diffing the key sets: **40 keys before, 26 after, 14 removed, none added.**
+
+```
+the five the shortening is named for      the nine from the 20 Aug postal removal
+  flavor                                    zip
+  is_clinician                              consent_postal
+  price_band                                postal_consent_text_version
+  price_band_other                          address_line1   address_line2
+  quantity_band                             address_city    address_region
+                                            address_postal_code
+                                            address_country
+```
+
+**Do not go looking for a postal-removal commit of its own.** The decision was
+taken on 20 Aug and the code change rode in with the questionnaire work three
+weeks later. Searching the log for it finds nothing and invites the conclusion
+that it was dropped.
+
+This is a REMOVE-class change and it landed **client-first**, which is the
+correct order: the server still accepts all fourteen, so no submission in flight
+can be refused by it.
+
+### `motivation_consent_text_version` is now sent unconditionally
+
+The client-side guard is gone. `src/components/waitlist/api.js:251` read
+
+```js
+motivation_consent_text_version: health ? motivationConsentTextVersion || null : null,
+```
+
+and now reads
+
+```js
+motivation_consent_text_version: motivationConsentTextVersion || null,
+```
+
+**`api/waitlist.js:621` is the only thing left standing between us and recording
+a consent wording for a consent that was never given:**
+
+```js
+motivation_consent_text_version: data.consent_health ? healthConsent.version : null,
+```
+
+Verified at the merge, both directions, against the real handler:
+
+```
+consent_health FALSE  ->  client sent "2026-08-19.health-medication.a"  ->  STORED null
+consent_health TRUE   ->  client sent "2026-08-19.health-medication.a"  ->  STORED "2026-08-19.health-medication.a"
+```
+
+**This is deliberate and it is what makes Art 7(1) demonstrable** — the server
+derives the evidence from the consent it actually received, rather than trusting
+a client to have paired them correctly. A client can now be wrong about this
+without the record being wrong.
+
+**The consequence to carry forward: that server line is load-bearing alone.**
+Relaxing it, moving it, or making it conditional on anything else is not a
+cosmetic change — it is the removal of the only remaining check. Two independent
+guards became one on purpose; nobody should later remove the one that is left on
+the grounds that "the client handles it", because the client explicitly does not.
+
+---
+
 ## ⚠️ THE ALLERGEN STATEMENT IS FACILITY-SPECIFIC (Step Change, 21 Aug 2026)
 
 The FAQ and `public/terms.html` both name the shared-facility allergens: **milk,
