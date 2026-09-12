@@ -15,7 +15,7 @@
 //     is ticked. Never the reverse: collecting first and asking after is
 //     cheaper on layout and is not consent.
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Button from "../ui/Button.jsx";
 import Input from "../ui/Input.jsx";
 import Field from "../ui/Field.jsx";
@@ -24,21 +24,18 @@ import Select from "../ui/Select.jsx";
 import { ChipMultiGroup, ChipRadioGroup } from "./chipGroups.jsx";
 import { OtherInput, Progress } from "../ui/index.js";
 import {
-  ADDRESS, CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, FLAVOR, INTENT,
-  IS_CLINICIAN, MOTIVATION, NAME, OFFICE_INTEREST, otherMaxFor, PHONE, PRICE_BAND,
-  QUANTITY_BAND, REFERRAL_SOURCE, RESEARCH_OPTIN,
+  CHANNEL, COMPANY_HEADCOUNT, COMPANY_NAME, DIETARY, INTENT,
+  MOTIVATION, NAME, OFFICE_INTEREST, otherMaxFor, PHONE,
+  REFERRAL_SOURCE, RESEARCH_OPTIN,
 } from "./fields.js";
 import { step2 as copy } from "../../content/copy.js";
 import { buildPayload, RESULT } from "./api.js";
 import { queueSave, settleSaves } from "./saveQueue.js";
 import { getFbCookies, isPixelEnabled, newEventId, trackLead } from "../../lib/metaPixel.js";
-import { EVENTS, track, trackOnce, trackScreen } from "../../lib/analytics.js";
-import { marketingConsent, motivationConsent, postalConsent, smsConsent } from "./consent.js";
-import { detectPostalRegion } from "./region.js";
-import { COUNTRY_OPTIONS } from "./countries.js";
+import { EVENTS, track, trackOnce } from "../../lib/analytics.js";
+import { marketingConsent, motivationConsent, smsConsent } from "./consent.js";
 import { assemblePhone, DIAL_CODES, defaultDialCountry } from "./phone.js";
 
-const SCREENS = copy.screens;
 
 // Matches the server's rule exactly. Being laxer here does not help anyone: it
 // just moves the rejection from an inline message to a 400 that discards the
@@ -46,7 +43,6 @@ const SCREENS = copy.screens;
 
 export default function Step2Profile({ email, editToken = null, formRenderTs, onDone, onSkip, onName }) {
   const uid = useId();
-  const [screen, setScreen] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -72,8 +68,6 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   const [consentCopy] = useState(marketingConsent);
   const [healthCopy] = useState(motivationConsent);
   const [smsCopy] = useState(smsConsent);
-  const [postalCopy] = useState(postalConsent);
-  const [postalRegion] = useState(detectPostalRegion);
 
   // One flat bag. Screens read and write slices of it; the payload builder is
   // the only place that knows the wire shape.
@@ -96,7 +90,6 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
 
   const [consentHealth, setConsentHealth] = useState(false);
   const [consentSms, setConsentSms] = useState(false);
-  const [consentPostal, setConsentPostal] = useState(false);
 
   // Fingerprint of the last record the server accepted. Moving Back and forward
   // again re-submitted a byte-identical payload, which the rate limiter
@@ -106,14 +99,43 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   const touched = useRef(new Set());
   const headingRef = useRef(null);
 
+  /**
+   * Seconds the current save has been running. Drives the escalating message
+   * and nothing else — the save itself is unaffected by this.
+   *
+   * The interval exists only while `busy`, and is cleared on the way out, so a
+   * component that unmounts mid-save leaves no timer behind.
+   */
+  const [savingFor, setSavingFor] = useState(0);
   useEffect(() => {
-    trackOnce(EVENTS.STEP2_VIEW, { postal_region: postalRegion });
-  }, [postalRegion]);
+    // Reset happens where the save STARTS, not here: setting state
+    // synchronously inside an effect cascades renders, and the counter only
+    // needs to be right while it is on screen.
+    if (!busy) return undefined;
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      setSavingFor(Math.floor((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [busy]);
 
+  /**
+   * The two halves of the number this shortening exists to move.
+   *
+   * `step2_reached` fires once when this screen mounts; `step2_completed` once
+   * when it is successfully submitted. Their ratio IS the drop-off, and there
+   * was no way to compute it before: STEP2_SUBMIT was declared in analytics.js
+   * and never fired anywhere, so the completion half did not exist. The
+   * comparison therefore starts from this deploy — there is no baseline to
+   * compare against, only a line drawn from here.
+   *
+   * Names carry no custom properties, so both work on Plausible's free tier.
+   * Each must be added as a GOAL in the dashboard or it will not appear.
+   */
   useEffect(() => {
-    trackScreen(EVENTS.STEP2_SCREEN_VIEW, screen, { screen: SCREENS[screen].id });
-    if (screen > 0) headingRef.current?.focus();
-  }, [screen]);
+    trackOnce(EVENTS.STEP2_REACHED);
+    trackOnce(EVENTS.STEP2_VIEW);
+  }, []);
 
   /** One event per field, first touch only. Enum values only, never free text. */
   function note(key, value) {
@@ -125,13 +147,6 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   }
 
   /** Answers given so far. Gates the address ask and reports completeness. */
-  const answered = useMemo(
-    () =>
-      [v.flavor, v.quantity_band, v.intent, v.price_band, v.referral_source,
-       v.is_clinician, v.office_interest, v.research_optin]
-        .filter((x) => x !== null && x !== "").length + (v.channel.length ? 1 : 0),
-    [v]
-  );
 
   function payload(meta) {
     return buildPayload({
@@ -140,11 +155,9 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
       consentMarketing: true,
       consentHealth,
       consentSms,
-      consentPostal,
       consentTextVersion: consentCopy.version,
       motivationConsentTextVersion: healthCopy.version,
       smsConsentTextVersion: smsCopy.version,
-      postalConsentTextVersion: postalCopy.version,
       formRenderTs,
       // Without this every save is a duplicate, and `save()` maps duplicates to
       // success — so the answers vanish and the screen advances. That was S23.
@@ -185,7 +198,8 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
    * not. So the last step blocks until everything queued has settled, and a
    * permanent failure stops the confirmation rather than decorating it.
    */
-  async function finishWithSaves(done) {
+  async function finishWithSaves(done, completed) {
+    setSavingFor(0);
     setBusy(true);
     // One id per submission, minted HERE — at the final submission and nowhere
     // else — so the same string reaches the request body and fbq. Generated
@@ -208,6 +222,12 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
         leadFired.current = true;
         trackLead(eventId);
       }
+      // ⚠️ THE COMPLETION HALF OF THE DROP-OFF NUMBER, and it fires HERE for
+      // the same reason Lead does: only after a save the server accepted, and
+      // only on the finish path. Firing it when submit was pressed would count
+      // a discarded record as a completion — the S23 shape, in the measurement
+      // rather than the data.
+      if (completed) trackOnce(EVENTS.STEP2_COMPLETED);
       done();
       return;
     }
@@ -230,9 +250,8 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
    * `id` must match the Field id so the person can be moved to it.
    */
   function screenRules() {
-    const id = SCREENS[screen].id;
     const rules = [];
-    if (id === "extras") {
+    {
       // Ticked "text me" and gave nothing. buildPayload now silently drops the
       // consent in this state (S24: a consent with no datum is refused by the
       // server), so without this the opt-in disappears with no explanation.
@@ -287,38 +306,27 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
   async function advance(e) {
     e.preventDefault();
     if (!validateScreen()) return;
+    // ONE save, at the end. There is no advance left to save on, and a debounce
+    // or section-completion save was deliberately NOT added: the email is
+    // already banked by step 1, partial profile answers are the least valuable
+    // thing collected here, and more requests is the wrong direction against a
+    // backend that times out on real users.
     save();
-    trackScreen(EVENTS.STEP2_SCREEN_ADVANCE, screen, { screen: SCREENS[screen].id, answered });
-    if (screen + 1 < SCREENS.length) setScreen(screen + 1);
-    else await finishWithSaves(onDone);
+    await finishWithSaves(onDone, true);
   }
 
-  /** Leave the whole flow. Deliberately the quieter of the two exits. */
+  /** Leave without finishing. Deliberately the quieter of the two exits. */
   async function finish() {
-    trackOnce(EVENTS.STEP2_SKIP, { answered, screen: SCREENS[screen].id });
-    // Leaving early still waits for whatever is in flight. Someone who answered
-    // two screens and then exits must not lose them to a request we abandoned.
-    await finishWithSaves(onSkip);
-  }
-
-  /**
-   * Skip THIS screen only. The previous single control did what `finish` does,
-   * from the position where a next-question skip belongs — so anyone who used
-   * it never saw screens 3 or 4. Two exits, and the loud one advances.
-   */
-  async function skipScreen() {
-    trackScreen(EVENTS.STEP2_SCREEN_SKIP, screen, { screen: SCREENS[screen].id, answered });
-    // Still saves: a screen skipped after two were answered must not lose them.
-    save();
-    if (screen + 1 < SCREENS.length) setScreen(screen + 1);
-    else await finishWithSaves(onDone);
+    trackOnce(EVENTS.STEP2_SKIP);
+    // Leaving early still waits for whatever is in flight, so an answer already
+    // queued is not lost to a request we walked away from.
+    await finishWithSaves(onSkip, false);
   }
 
   function optin(name, on) {
     track(EVENTS.STEP2_OPTIN, { optin: name, granted: on ? 1 : 0 });
   }
 
-  const s = SCREENS[screen];
   // `id` is REQUIRED by ui/OtherInput — it derives the character-counter's id
   // from it for aria-describedby. Omitting it produced a live reference to
   // "undefined-count", which points at nothing: the counter is rendered but a
@@ -334,274 +342,187 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
 
   return (
     <div className="zw-card zw-card--tall">
-      <Progress step={screen + 1} total={SCREENS.length} label={copy.savedNote} />
+      {/* No progress bar: one screen has nothing to be part-way through, and
+          a 1-of-1 bar is a widget pretending there is more to come. The note
+          stands on its own. */}
+      <p className="zw-fine">{copy.savedNote}</p>
 
-      <h2 className="zw-title" ref={headingRef} tabIndex={-1}>{s.title}</h2>
-      {/* Guarded: screens 1 and 3 lost their `why` on 21 Aug and an unguarded
-          <p> leaves an empty element with the body margin still applied — a
-          gap that looks like a layout bug rather than a deleted sentence. */}
-      {s.why ? <p className="zw-body">{s.why}</p> : null}
+      <h2 className="zw-title" ref={headingRef} tabIndex={-1}>{copy.title}</h2>
 
       <form onSubmit={advance} noValidate>
-        {s.id === "product" && (
-          <>
-            {/* First, and deliberately: the lowest-effort question in the flow.
-                Opening with an easy one lifts completion on everything after
-                it. `optional` is not decoration — the privacy policy promises
-                only email and consent are required. */}
-            <Field
-              id={`name-${uid}`} label={NAME.label} optional hint={NAME.hint}
-            >
+        {/* ONE SCREEN, EIGHT QUESTIONS, IN THIS ORDER (Emil, 11 Sep 2026).
+            Four screens collapsed to one. Flavour, price band, servings per
+            month and clinician are gone from the form, and the postal block
+            with them — decided 20 Aug, shipped here. */}
+
+        {/* 1 — Name. Deliberately first: the lowest-effort question in the
+            flow, and opening with an easy one lifts completion on everything
+            after it. `optional` is not decoration — the privacy policy
+            promises only email and consent are required. */}
+        <Field id={`name-${uid}`} label={NAME.label} optional hint={NAME.hint}>
+          {(props) => (
+            <Input
+              {...props} type="text" autoComplete="given-name"
+              maxLength={NAME.maxLength} placeholder={NAME.placeholder}
+              value={v.name}
+              onChange={(e) => { set({ name: e.target.value }); onName?.(e.target.value); }}
+            />
+          )}
+        </Field>
+
+        {/* 2 — Where they would buy it. */}
+        <ChipMultiGroup
+          legend={CHANNEL.label} options={CHANNEL.options} values={v.channel}
+          other={otherProps(CHANNEL, v.channel_other, "channel_other")}
+          onChange={(x) => {
+            set({ channel: x, ...(x.includes("other") ? {} : { channel_other: "" }) });
+            if (x.length) note(CHANNEL.key, x[0]);
+          }}
+        />
+
+        {/* 3 — How they heard about us. */}
+        <ChipRadioGroup
+          legend={REFERRAL_SOURCE.label} name="referral_source" options={REFERRAL_SOURCE.options}
+          value={v.referral_source}
+          other={otherProps(REFERRAL_SOURCE, v.referral_source_other, "referral_source_other")}
+          onChange={(x) => {
+            set({ referral_source: x, ...(x === "other" ? {} : { referral_source_other: "" }) });
+            if (x) note(REFERRAL_SOURCE.key, x);
+          }}
+        />
+
+        {/* 4 — Office. Company details appear only once there is interest. */}
+        <ChipRadioGroup
+          legend={OFFICE_INTEREST.label} name="office_interest" options={OFFICE_INTEREST.options}
+          value={v.office_interest}
+          onChange={(x) => { set({ office_interest: x }); if (x) note(OFFICE_INTEREST.key, x); }}
+        />
+        {(v.office_interest === "yes" || v.office_interest === "maybe") && (
+          <div className="zw-nested">
+            <Field id={`co-${uid}`} label={COMPANY_NAME.label} optional>
               {(props) => (
                 <Input
-                  {...props} type="text" autoComplete="given-name"
-                  maxLength={NAME.maxLength} placeholder={NAME.placeholder}
-                  value={v.name}
-                  onChange={(e) => { set({ name: e.target.value }); onName?.(e.target.value); }}
+                  {...props} type="text" autoComplete="organization"
+                  maxLength={COMPANY_NAME.maxLength} placeholder={COMPANY_NAME.placeholder}
+                  value={v.company} onChange={(e) => set({ company: e.target.value })}
                 />
               )}
             </Field>
             <ChipRadioGroup
-              legend={FLAVOR.label} name="flavor" options={FLAVOR.options} value={v.flavor}
-              onChange={(x) => { set({ flavor: x }); if (x) note(FLAVOR.key, x); }}
+              legend={COMPANY_HEADCOUNT.label} name="headcount"
+              options={COMPANY_HEADCOUNT.options} value={v.headcount}
+              onChange={(x) => { set({ headcount: x }); if (x) note(COMPANY_HEADCOUNT.key, x); }}
             />
-            <ChipRadioGroup
-              legend={QUANTITY_BAND.label} name="quantity_band" options={QUANTITY_BAND.options}
-              hint={QUANTITY_BAND.hint}
-              value={v.quantity_band}
-              onChange={(x) => { set({ quantity_band: x }); if (x) note(QUANTITY_BAND.key, x); }}
-            />
-          </>
+          </div>
         )}
 
-        {s.id === "value" && (
-          <>
-            <ChipRadioGroup
-              legend={INTENT.label} name="intent" options={INTENT.options} value={v.intent}
-              onChange={(x) => { set({ intent: x }); if (x) note(INTENT.key, x); }}
-            />
-            <ChipRadioGroup
-              legend={PRICE_BAND.label} name="price_band" options={PRICE_BAND.options}
-              value={v.price_band}
-              other={otherProps(PRICE_BAND, v.price_band_other, "price_band_other")}
-              onChange={(x) => {
-                set({ price_band: x, ...(x === "other" ? {} : { price_band_other: "" }) });
-                if (x) note(PRICE_BAND.key, x);
+        {/* 5 — How ready they are. */}
+        <ChipRadioGroup
+          legend={INTENT.label} name="intent" options={INTENT.options} value={v.intent}
+          onChange={(x) => { set({ intent: x }); if (x) note(INTENT.key, x); }}
+        />
+
+        {/* 6 — Art 9 health data, behind its own consent.
+            ⚠️ THE CONSENT GATES THIS SECTION AND NOTHING ELSE. Declining it, or
+            collapsing the disclosure, clears motivation and dietary and touches
+            no other answer — the S24 failure designed out rather than patched.
+            `dietary` stays deliberately: it is the only field recording who
+            declared gluten-free, and we now ship a product with uncertified
+            oats, so that segment must be pullable before launch emails. */}
+        <details
+          className="zw-disclosure"
+          onToggle={(e) => {
+            if (e.currentTarget.open) track(EVENTS.STEP2_MOTIVATION_OPEN);
+            else { setConsentHealth(false); set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" }); }
+          }}
+        >
+          <summary>{copy.motivationDisclosure}</summary>
+          <div className="zw-disclosure-body">
+            <Checkbox
+              id={`health-${uid}`}
+              className="zw-consent--separate"
+              checked={consentHealth}
+              label={healthCopy.text}
+              onChange={(e) => { const on = e.target.checked;
+                setConsentHealth(on); optin("health", on);
+                if (!on) set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" });
               }}
             />
-          </>
-        )}
-
-        {s.id === "reach" && (
-          <>
             <ChipMultiGroup
-              legend={CHANNEL.label} options={CHANNEL.options} values={v.channel}
-              other={otherProps(CHANNEL, v.channel_other, "channel_other")}
+              legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
+              disabled={!consentHealth}
+              other={otherProps(MOTIVATION, v.motivation_other, "motivation_other")}
               onChange={(x) => {
-                set({ channel: x, ...(x.includes("other") ? {} : { channel_other: "" }) });
-                if (x.length) note(CHANNEL.key, x[0]);
+                set({ motivation: x, ...(x.includes("other") ? {} : { motivation_other: "" }) });
+                if (x.length) note(MOTIVATION.key);
               }}
             />
-            <ChipRadioGroup
-              legend={REFERRAL_SOURCE.label} name="referral_source" options={REFERRAL_SOURCE.options}
-              value={v.referral_source}
-              other={otherProps(REFERRAL_SOURCE, v.referral_source_other, "referral_source_other")}
+            <ChipMultiGroup
+              legend={DIETARY.label} options={DIETARY.options} values={v.dietary}
+              disabled={!consentHealth}
+              other={otherProps(DIETARY, v.dietary_other, "dietary_other")}
               onChange={(x) => {
-                set({ referral_source: x, ...(x === "other" ? {} : { referral_source_other: "" }) });
-                if (x) note(REFERRAL_SOURCE.key, x);
+                set({ dietary: x, ...(x.includes("other") ? {} : { dietary_other: "" }) });
+                if (x.length) note(DIETARY.key);
               }}
             />
-            <ChipRadioGroup
-              legend={IS_CLINICIAN.label} name="is_clinician" options={IS_CLINICIAN.options}
-              value={v.is_clinician}
-              onChange={(x) => { set({ is_clinician: x }); if (x !== null) note(IS_CLINICIAN.key, x); }}
+          </div>
+        </details>
+
+        {/* 7 — SMS. Express written consent, its own box, phone disabled until
+            the box is ticked. */}
+        <details
+          className="zw-disclosure"
+          onToggle={(e) => { if (!e.currentTarget.open) { setConsentSms(false); set({ phone: "" }); setPhoneError(""); } }}
+        >
+          <summary>{copy.smsDisclosure}</summary>
+          <div className="zw-disclosure-body">
+            <Checkbox
+              id={`sms-${uid}`}
+              className="zw-consent--separate"
+              checked={consentSms}
+              label={smsCopy.text}
+              onChange={(e) => { const on = e.target.checked; setConsentSms(on); optin("sms", on); if (!on) { set({ phone: "" }); setPhoneError(""); } }}
             />
-          </>
-        )}
-
-        {s.id === "extras" && (
-          <>
-            {/* Health — Art 9. One opt-in covering both questions, named in the
-                wording, with both chip groups disabled until it is ticked. */}
-            <details
-              className="zw-disclosure"
-              onToggle={(e) => {
-                if (e.currentTarget.open) track(EVENTS.STEP2_MOTIVATION_OPEN);
-                else { setConsentHealth(false); set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" }); }
-              }}
-            >
-              <summary>{copy.motivationDisclosure}</summary>
-              <div className="zw-disclosure-body">
-                <Checkbox
-                  id={`health-${uid}`}
-                  className="zw-consent--separate"
-                  checked={consentHealth}
-                  label={healthCopy.text}
-                  onChange={(e) => { const on = e.target.checked;
-                    setConsentHealth(on); optin("health", on);
-                    if (!on) set({ motivation: [], motivation_other: "", dietary: [], dietary_other: "" });
-                  }}
-                />
-                <ChipMultiGroup
-                  legend={MOTIVATION.label} options={MOTIVATION.options} values={v.motivation}
-                  disabled={!consentHealth}
-                  other={otherProps(MOTIVATION, v.motivation_other, "motivation_other")}
-                  onChange={(x) => {
-                    set({ motivation: x, ...(x.includes("other") ? {} : { motivation_other: "" }) });
-                    if (x.length) note(MOTIVATION.key);
-                  }}
-                />
-                <ChipMultiGroup
-                  legend={DIETARY.label} options={DIETARY.options} values={v.dietary}
-                  disabled={!consentHealth}
-                  other={otherProps(DIETARY, v.dietary_other, "dietary_other")}
-                  onChange={(x) => {
-                    set({ dietary: x, ...(x.includes("other") ? {} : { dietary_other: "" }) });
-                    if (x.length) note(DIETARY.key);
-                  }}
-                />
-              </div>
-            </details>
-
-            {/* Office. Company details appear only once there is interest. */}
-            <ChipRadioGroup
-              legend={OFFICE_INTEREST.label} name="office_interest" options={OFFICE_INTEREST.options}
-              value={v.office_interest}
-              onChange={(x) => { set({ office_interest: x }); if (x) note(OFFICE_INTEREST.key, x); }}
-            />
-            {(v.office_interest === "yes" || v.office_interest === "maybe") && (
-              <div className="zw-nested">
-                <Field id={`co-${uid}`} label={COMPANY_NAME.label} optional>
-                  {(props) => (
-                    <Input
-                      {...props} type="text" autoComplete="organization"
-                      maxLength={COMPANY_NAME.maxLength} placeholder={COMPANY_NAME.placeholder}
-                      value={v.company} onChange={(e) => set({ company: e.target.value })}
-                    />
-                  )}
-                </Field>
-                <ChipRadioGroup
-                  legend={COMPANY_HEADCOUNT.label} name="headcount"
-                  options={COMPANY_HEADCOUNT.options} value={v.headcount}
-                  onChange={(x) => { set({ headcount: x }); if (x) note(COMPANY_HEADCOUNT.key, x); }}
-                />
-              </div>
-            )}
-
-            {/* SMS — express written consent, its own box, phone disabled until ticked. */}
-            <details
-              className="zw-disclosure"
-              onToggle={(e) => { if (!e.currentTarget.open) { setConsentSms(false); set({ phone: "" }); setPhoneError(""); } }}
-            >
-              <summary>{copy.smsDisclosure}</summary>
-              <div className="zw-disclosure-body">
-                <Checkbox
-                  id={`sms-${uid}`}
-                  className="zw-consent--separate"
-                  checked={consentSms}
-                  label={smsCopy.text}
-                  onChange={(e) => { const on = e.target.checked; setConsentSms(on); optin("sms", on); if (!on) { set({ phone: "" }); setPhoneError(""); } }}
-                />
-                <Field id={`ph-${uid}`} label={PHONE.label} optional error={phoneError} hint={PHONE.hint || undefined}>
-                  {(props) => (
-                    /* The dial code is a CONTROL, not a placeholder hint. The
-                       requirement is stated by the interface instead of being
-                       enforced after the press — which is how a real person
-                       met a dead button and left. */
-                    <div className="zw-phone-row">
-                      <Select
-                        aria-label="Country code"
-                        className="zw-dial"
-                        value={dialCountry}
-                        disabled={!consentSms}
-                        options={DIAL_CODES.map((c) => ({ value: c.code, label: `${c.code} +${c.dial}` }))}
-                        onChange={(e) => {
-                          setDialCountry(e.target.value);
-                          if (phoneError) setPhoneError("");
-                          if (blockedMsg) setBlockedMsg("");
-                        }}
-                      />
-                      <Input
-                        {...props} type="tel" inputMode="tel" autoComplete="tel"
-                        maxLength={PHONE.maxLength} placeholder={PHONE.placeholder}
-                        value={v.phone} disabled={!consentSms}
-                        ref={registerField(`ph-${uid}`)}
-                        onBlur={validateOnBlur}
-                        onChange={(e) => { set({ phone: e.target.value }); if (phoneError) setPhoneError(""); if (blockedMsg) setBlockedMsg(""); }}
-                      />
-                    </div>
-                  )}
-                </Field>
-              </div>
-            </details>
-
-            {/* Postal — its own opt-in, and only offered once they have told us
-                something else. Asking a stranger for their address as the
-                opening move is how you lose the stranger. */}
-            {answered > 0 ? (
-              <details
-                className="zw-disclosure"
-                onToggle={(e) => {
-                  if (!e.currentTarget.open) {
-                    setConsentPostal(false);
-                    set({ address_line1: "", address_line2: "", address_city: "", address_region: "", address_postal_code: "", address_country: "" });
-                  }
-                }}
-              >
-                <summary>{copy.mailDisclosure}</summary>
-                <div className="zw-disclosure-body">
-                  <Checkbox
-                    id={`mail-${uid}`}
-                    className="zw-consent--separate"
-                    checked={consentPostal}
-                    label={postalCopy.text}
-                    onChange={(e) => { const on = e.target.checked; setConsentPostal(on); optin("postal", on); }}
+            <Field id={`ph-${uid}`} label={PHONE.label} optional error={phoneError} hint={PHONE.hint || undefined}>
+              {(props) => (
+                /* The dial code is a CONTROL, not a placeholder hint. The
+                   requirement is stated by the interface instead of being
+                   enforced after the press — which is how a real person met a
+                   dead button and left. */
+                <div className="zw-phone-row">
+                  <Select
+                    aria-label="Country code"
+                    className="zw-dial"
+                    value={dialCountry}
+                    disabled={!consentSms}
+                    options={DIAL_CODES.map((c) => ({ value: c.code, label: `${c.code} +${c.dial}` }))}
+                    onChange={(e) => {
+                      setDialCountry(e.target.value);
+                      if (phoneError) setPhoneError("");
+                      if (blockedMsg) setBlockedMsg("");
+                    }}
                   />
-                  <fieldset className="zw-field" disabled={!consentPostal}>
-                    <legend className="zw-sr">Postal address</legend>
-                    {/* aria-live so a screen-reader user learns the fields went
-                        live, rather than discovering it by tabbing into them. */}
-                    {!consentPostal ? (
-                      <p className="zw-note" aria-live="polite">{copy.mailLocked}</p>
-                    ) : null}
-                    {ADDRESS.fields.map((f) => (
-                      <Field key={f.key} id={`${f.key}-${uid}`} label={f.label} optional>
-                        {(props) =>
-                          f.select ? (
-                            /* ui/Select renders from an `options` PROP and
-                               ignores children. Passing <option> children gave
-                               it an empty list — the control existed and had
-                               nothing to open. Same shape as the `show` prop:
-                               a contract assumed rather than read. */
-                            <Select
-                              {...props} autoComplete={f.autoComplete} value={v[f.key]}
-                              options={COUNTRY_OPTIONS} placeholder="Select a country"
-                              onChange={(e) => set({ [f.key]: e.target.value })}
-                            />
-                          ) : (
-                            <Input
-                              {...props} type="text" autoComplete={f.autoComplete}
-                              maxLength={f.maxLength} value={v[f.key]}
-                              onChange={(e) => set({ [f.key]: e.target.value })}
-                            />
-                          )
-                        }
-                      </Field>
-                    ))}
-                  </fieldset>
+                  <Input
+                    {...props} type="tel" inputMode="tel" autoComplete="tel"
+                    maxLength={PHONE.maxLength} placeholder={PHONE.placeholder}
+                    value={v.phone} disabled={!consentSms}
+                    ref={registerField(`ph-${uid}`)}
+                    onBlur={validateOnBlur}
+                    onChange={(e) => { set({ phone: e.target.value }); if (phoneError) setPhoneError(""); if (blockedMsg) setBlockedMsg(""); }}
+                  />
                 </div>
-              </details>
-            ) : (
-              <p className="zw-note">{copy.mailGate}</p>
-            )}
+              )}
+            </Field>
+          </div>
+        </details>
 
-            <ChipRadioGroup
-              legend={RESEARCH_OPTIN.label} name="research_optin" options={RESEARCH_OPTIN.options}
-              value={v.research_optin}
-              onChange={(x) => { set({ research_optin: x }); if (x !== null) note(RESEARCH_OPTIN.key, x); }}
-            />
-          </>
-        )}
+        {/* 8 — Research. */}
+        <ChipRadioGroup
+          legend={RESEARCH_OPTIN.label} name="research_optin" options={RESEARCH_OPTIN.options}
+          value={v.research_optin}
+          onChange={(x) => { set({ research_optin: x }); if (x !== null) note(RESEARCH_OPTIN.key, x); }}
+        />
 
         <span className="zw-error" role="alert" aria-live="assertive">{error}</span>
 
@@ -609,17 +530,32 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
             screen reader hears it even though the visual error is elsewhere. */}
         <p className="zw-error" role="alert" aria-live="assertive">{blockedMsg}</p>
 
+        {/* Visible progress for a wait that can legitimately reach 25s. The bar
+            is indeterminate on purpose: we cannot know how far along an Apps
+            Script forward is, and a bar that pretends to know is worse than one
+            that only says "still moving".
+            role="status" so the escalating text is announced without stealing
+            focus from the button the person just pressed. */}
+        {busy && (
+          <div className="zw-saving" role="status" aria-live="polite">
+            <span className="zw-saving-bar" aria-hidden="true" />
+            <span className="zw-saving-text">
+              {savingFor >= 14 ? copy.saving.late : savingFor >= 6 ? copy.saving.slow : copy.saving.early}
+            </span>
+          </div>
+        )}
+
         <div className="zw-actions">
-          <Button type="submit" variant="primary" disabled={busy} busy={busy} busyLabel={copy.nextBusy}>
-            {screen + 1 < SCREENS.length ? copy.next : copy.finish}
+          {/* ⚠️ `loading`, NOT `busy`. ui/Button destructures `loading` and
+              spreads everything else onto the DOM node, so `busy`/`busyLabel`
+              reached the <button> as unknown attributes: no spinner, no
+              aria-busy, and a greyed-out control wearing its original label for
+              up to 25 seconds. Disabled it was; working it did not look. Step 1
+              had it right and step 2 did not, which is why only one of them
+              looked frozen. */}
+          <Button type="submit" variant="primary" disabled={busy} loading={busy}>
+            {busy ? copy.nextBusy : copy.finish}
           </Button>
-          {/* Skip THIS screen and move on. On the last screen there is nothing
-              to skip TO, so it is hidden there and the exit below stands alone. */}
-          {screen + 1 < SCREENS.length && (
-          <Button type="button" variant="ghost" onClick={skipScreen} disabled={busy}>
-            {copy.skipScreen}
-          </Button>
-          )}
 
           {/* ⚠️ type="button" IS LOAD-BEARING on both of these. ui/Button sets no
               default type, so HTML's default of "submit" applies — inside this
@@ -628,11 +564,6 @@ export default function Step2Profile({ email, editToken = null, formRenderTs, on
               stand-in defaulted to type="button", so the swap changed the
               default silently, exactly like the `show` prop did.
               Ghost, not primary: a retreat never wears the CTA colour. */}
-          {screen > 0 && (
-            <Button type="button" variant="ghost" onClick={() => setScreen(screen - 1)} disabled={busy}>
-              {copy.back}
-            </Button>
-          )}
           {/* The full exit, on UX's `quiet` weight — shipped for exactly this.
               Three controls need three weights: primary Continue, ghost skip
               that advances, quiet exit that leaves. On ghost the skip and the

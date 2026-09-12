@@ -730,10 +730,6 @@ export const step2 = {
   body: "Seven quick taps. It decides which flavor we produce first and what we charge — and it moves you up the list for the first run.",
   cta: "Save my answers",
   ctaBusy: "Saving…",
-  // Two exits, deliberately different weights. The per-screen skip advances;
-  // the full exit leaves. Previously one control did the second thing from the
-  // first one's position, so anyone who used it never saw screens 3 and 4.
-  skipScreen: "Skip this one",
   exit: "Finish — just the email is fine",
   // The health-motivation opt-in is deliberately separate from the marketing
   // consent. It is never bundled and never pre-checked.
@@ -742,50 +738,39 @@ export const step2 = {
   // The health question sits behind a disclosure so it costs nothing to anyone
   // who doesn't want it. The consent box stays INSIDE and ABOVE the chips —
   // consent before collection, never the reverse.
-  motivationDisclosure: "Want to help shape what we make?",
+  // The section's question, not a container label. "Want to help shape what we
+  // make?" wrote to no field at all — it was a <details> summary wrapping the
+  // consent, the motivation chips AND the dietary chips. Naming the question
+  // makes what is behind the fold predictable before opening it.
+  motivationDisclosure: "Why does fiber matter to you?",
 
-  // ── Screens ────────────────────────────────────────────────────────────────
-  // Grouped cards, not a wall. Each screen states what its answers DECIDE —
-  // people finish a form when they can see the lever they are pulling, and
-  // "which flavour we make first" is a lever in a way that "help us improve" is
-  // not. Each screen saves on advance, so leaving at screen 3 keeps 1 and 2.
-  screens: [
-    {
-      id: "product",
-      title: "What would you actually eat?",
-    },
-    {
-      id: "value",
-      title: "What's it worth to you?",
-      // States the unit and nothing else. A per-unit price would be an anchor,
-      // and prices were removed from the whole site on purpose.
-      why: "50g servings (5 × 10g bites).",
-    },
-    {
-      id: "reach",
-      title: "Where would you find it?",
-    },
-    {
-      id: "extras",
-      title: "A few optional extras",
-      why: "All opt-in, all skippable. Nothing here is needed to hold your spot.",
-    },
-  ],
-  next: "Continue",
   nextBusy: "Saving…",
-  back: "Back",
+
+  /**
+   * ⚠️ THE FORWARD TIMEOUT IS 25 SECONDS AND THIS IS THE ONLY SAVE.
+   * Four screens became one, so everything rides on a single request that can
+   * legitimately take most of a minute's quarter. A static "Saving…" for that
+   * long does not read as working, it reads as broken — and someone who hits
+   * back or refresh at second 18 loses the answers that were about to land.
+   *
+   * So the message escalates rather than repeating. Each step tells the truth
+   * about a longer wait, and the last one names the thing not to do. `late`
+   * must arrive BEFORE the moment people give up, not at the timeout.
+   */
+  saving: {
+    early: "Saving your answers…",
+    slow: "Still saving — this one can take a few seconds.",
+    late: "Nearly there — please don't refresh. Your answers are still going through.",
+  },
   finish: "Done",
-  savedNote: "Saved as you go — you can stop anywhere.",
+  // ⚠️ THE OLD LINE SAID "Saved as you go — you can stop anywhere." and that
+  // stopped being true on 11 Sep: four screens became one, so there is exactly
+  // one save, at the end. Nothing between the top of this screen and the button
+  // is banked. The email IS already safe, which is the half worth saying.
+  savedNote: "Your email's already saved. This part takes about a minute.",
 
   officeName: "Company",
-  smsDisclosure: "Want launch texts too?",
-  mailDisclosure: "Want us to be able to send you something?",
-  mailGate: "Answer anything above first and this opens up.",
-  // A disabled fieldset reads as LOCKED, and locked and broken look identical
-  // from the outside. UX can make it look deliberate; only copy can say what
-  // to do about it. Names the control and the direction, because "tick the
-  // consent" is useless if you cannot see which one.
-  mailLocked: "Tick the box above to fill this in.",
+  smsDisclosure: "Want text updates?",
 };
 
 // ─── Confirmation ────────────────────────────────────────────────────────────
