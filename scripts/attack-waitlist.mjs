@@ -1812,12 +1812,46 @@ await check('Error response never echoes submitted input', 'no email in body', a
   {
     const rl = await import('../src/lib/ratelimit.js');
 
-    await check('inflight TTL is far clear of the 8s forward abort', 'headroom', async () => {
+    await check('inflight TTL outlives the whole function, not just the forward', 'TTL > maxDuration', async () => {
+      // The real invariant. A claim must not expire while the request that
+      // wrote it is still running, or a late retry is treated as new and writes
+      // a second row. Comparing against the forward abort is the weaker check:
+      // the forward is one part of the request, and the abort is a number we
+      // change — maxDuration is the number nothing can exceed.
+      const { readFileSync } = await import('node:fs');
+      const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+      const maxDur = cfg.functions?.['api/waitlist.js']?.maxDuration;
+      return {
+        pass: Number.isFinite(maxDur) && rl.INFLIGHT_TTL_SEC > maxDur,
+        actual: `INFLIGHT_TTL=${rl.INFLIGHT_TTL_SEC}s vs maxDuration=${maxDur}s`,
+      };
+    });
+
+    await check('the forward abort fits inside maxDuration with headroom', 'budget holds', async () => {
+      // 8s was raised to 25s on 11 Sep because Apps Script's cheapest path
+      // measured 3.1-4.0s live. The abort must still leave room for CAPI, the
+      // claim commit and the response inside maxDuration.
+      const { readFileSync } = await import('node:fs');
+      const cfg = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+      const maxDur = cfg.functions?.['api/waitlist.js']?.maxDuration;
+      const src = readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+      const abortMs = Number(src.match(/AbortSignal\.timeout\((\d+)\)/)?.[1]);
+      const overheadS = 8; // CAPI 1.5s + claim 2s + commit 2s + slack
+      return {
+        pass: abortMs / 1000 + overheadS < maxDur,
+        actual: `abort=${abortMs / 1000}s + ~${overheadS}s overhead vs maxDuration=${maxDur}s`,
+      };
+    });
+
+    await check('inflight TTL is far clear of the forward abort', 'headroom', async () => {
       // The number that matters is the RATIO, not either value: the claim must
       // outlive an aborted forward or a double-submit slips through, and must
       // expire fast enough that a failed one does not lock anybody out.
-      const ok = rl.INFLIGHT_TTL_SEC >= 60 && rl.INFLIGHT_TTL_SEC <= 300;
-      return { pass: ok, actual: `inflight=${rl.INFLIGHT_TTL_SEC}s vs 8s abort (${(rl.INFLIGHT_TTL_SEC / 8).toFixed(0)}x)` };
+      const { readFileSync } = await import('node:fs');
+      const src = readFileSync(new URL('../api/waitlist.js', import.meta.url), 'utf8');
+      const abortS = Number(src.match(/AbortSignal\.timeout\((\d+)\)/)?.[1]) / 1000;
+      const ok = rl.INFLIGHT_TTL_SEC >= 60 && rl.INFLIGHT_TTL_SEC <= 300 && rl.INFLIGHT_TTL_SEC > abortS * 2;
+      return { pass: ok, actual: `inflight=${rl.INFLIGHT_TTL_SEC}s vs ${abortS}s abort (${(rl.INFLIGHT_TTL_SEC / abortS).toFixed(1)}x)` };
     });
 
     await check('committed TTL is the long one, and they differ by orders', 'two lifetimes', async () => {
