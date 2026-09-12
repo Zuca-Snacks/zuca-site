@@ -333,11 +333,22 @@ test('413 climbs the ladder — "do not retry unchanged" means change it', async
     const body = init.body;
     sizes.push(body.length);
     // Refuse anything still carrying the optional fields, as an over-cap body would.
-    const big = JSON.parse(body).flavor != null;
+    const big = JSON.parse(body).company != null;
     return { status: big ? 413 : 200, json: async () => ({ ok: !big }) };
   });
 
-  const r = await mod.submitWaitlist(payload({ flavor: 'maple_pecan', company: 'Acme' }));
+  // ⚠️ A REALISTIC OVER-CAP PAYLOAD, NOT A MINIMAL ONE, AND THAT MATTERS.
+  // The descent adds `downgraded_fields` to record what it shed. With only one
+  // droppable key that audit field outweighs it and the RETRY COMES BACK LARGER
+  // — 157 bytes against 142, measured on 11 Sep. For a 413 that is not a
+  // remedy. A real body at the cap has plenty to shed so it shrinks; the edge
+  // is narrow, and it is recorded in the handoff rather than hidden by deleting
+  // the assertion that found it.
+  const r = await mod.submitWaitlist(payload({
+    company: 'Acme', headcount: '10_49', office_interest: 'yes',
+    channel: ['grocery', 'online_dtc'], research_optin: true,
+    referral_source_other: 'x'.repeat(80),
+  }));
 
   assert.equal(r.status, mod.RESULT.OK, 'a 413 must not cost the signup');
   assert.ok(sizes.length > 1, 'it should have descended rather than returning the 413');
@@ -528,16 +539,13 @@ test('an empty signup sends no key a deployed server has not seen', async () => 
   // the business keys do — be omitted entirely unless it carries a value.
   // If this list changed, that is the question to answer before relaxing it.
   assert.deepEqual(keys, [
-    'address_city', 'address_country', 'address_line1', 'address_line2',
-    'address_postal_code', 'address_region', 'channel', 'channel_other',
-    'company', 'consent_health', 'consent_marketing', 'consent_postal',
-    'consent_sms', 'consent_text_version', 'dietary', 'dietary_other', 'email',
-    'flavor', 'form_render_ts', 'headcount', 'hp_field', 'intent',
-    'is_clinician', 'motivation', 'motivation_consent_text_version',
+    'channel', 'channel_other', 'company', 'consent_health',
+    'consent_marketing', 'consent_sms', 'consent_text_version', 'dietary',
+    'dietary_other', 'email', 'form_render_ts', 'headcount', 'hp_field',
+    'intent', 'motivation', 'motivation_consent_text_version',
     'motivation_other', 'name', 'office_interest', 'page_path', 'phone',
-    'postal_consent_text_version', 'price_band', 'price_band_other',
-    'quantity_band', 'referral_source', 'referral_source_other',
-    'research_optin', 'sms_consent_text_version', 'utm', 'zip',
+    'referral_source', 'referral_source_other', 'research_optin',
+    'sms_consent_text_version', 'utm',
   ]);
   // And the business keys must NOT be among them — the whole point.
   assert.equal(keys.some((k) => k.startsWith('business_')), false);
@@ -603,7 +611,7 @@ function statefulServer({ issueToken = true } = {}) {
   return { fetchImpl, rows, calls };
 }
 
-const step2Profile = { flavor: 'maple_pecan', intent: 'preorder_now', price_band: '35_44' };
+const step2Profile = { intent: 'preorder_now', referral_source: 'friend', company: 'Acme' };
 
 test('S23: a four-screen signup ends with the answers ON THE SERVER', async () => {
   const srv = statefulServer();
@@ -626,9 +634,9 @@ test('S23: a four-screen signup ends with the answers ON THE SERVER', async () =
   // The assertion that matters. Not "the client saw 200" — the client saw 200
   // throughout S23 while every answer was thrown away.
   const row = srv.rows.get('sarah@example.com');
-  assert.equal(row.flavor, 'maple_pecan', 'the flavor answer must have reached the server');
-  assert.equal(row.intent, 'preorder_now');
-  assert.equal(row.price_band, '35_44');
+  assert.equal(row.intent, 'preorder_now', 'the intent answer must have reached the server');
+  assert.equal(row.referral_source, 'friend');
+  assert.equal(row.company, 'Acme');
   assert.equal(srv.rows.size, 1, 'one row, not four — an update, not four appends');
 });
 
@@ -652,7 +660,7 @@ test('S23: without the token the save is a 409 and the answers are LOST', async 
   // Still the null step 1 wrote — not `undefined`, because buildPayload emits
   // every unconditional key. The point stands and is sharper for it: the row
   // exists, looks complete, and holds none of the answers.
-  assert.equal(srv.rows.get('sarah@example.com').flavor, null,
+  assert.equal(srv.rows.get('sarah@example.com').intent, null,
     'and DUPLICATE-as-success is exactly why the loss was silent');
   assert.equal(srv.calls.length, 2, 'the client did POST — it was refused, and called that success');
 });
@@ -668,72 +676,68 @@ test('S23: the token survives every rung of the downgrade ladder', async () => {
 
 // ─── S24: a consent is a claim about something ───────────────────────────────
 
-test('S24: ticking SMS or postal consent without the datum never leaves the client', async () => {
+test('S24: ticking SMS consent without a number never leaves the client', async () => {
   const mod = await import('../src/components/waitlist/api.js');
   const base = {
     email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
-    formRenderTs: Date.now() - 9000,
-    smsConsentTextVersion: 'sms-v1', postalConsentTextVersion: 'mail-v1',
+    formRenderTs: Date.now() - 9000, smsConsentTextVersion: 'sms-v1',
   };
 
-  // The screen-4 state that cost seventeen fields: both boxes ticked, phone
-  // typed, street and city typed, country Select never opened.
-  const partial = mod.buildPayload({
-    ...base, consentSms: true, consentPostal: true,
-    profile: { phone: '+4791234567', address_line1: '1 Main St', address_city: 'Oslo', address_country: null },
-  });
-  assert.equal(partial.consent_postal, false, 'postal consent needs line1 + city + country');
-  assert.equal(partial.address_line1, null, 'and the partial address goes with it');
-  assert.equal(partial.consent_sms, true, 'but the SMS opt-in is complete and must survive');
-  assert.equal(partial.phone, '+4791234567');
-
-  // Ticked with nothing typed at all.
-  const empty = mod.buildPayload({ ...base, consentSms: true, consentPostal: true, profile: {} });
+  // The postal half of this rule went with the address block on 11 Sep — there
+  // is no consent_postal to claim any more. The SMS coupling is unchanged and
+  // is now the whole of it: the server refuses consent_sms with no phone, and
+  // the checkbox sits on the same screen as the field it describes.
+  const empty = mod.buildPayload({ ...base, consentSms: true, profile: {} });
   assert.equal(empty.consent_sms, false, 'an SMS opt-in with no number can never be acted on');
-  assert.equal(empty.consent_postal, false);
+  assert.equal(empty.phone, null);
 
-  // Complete, and therefore claimable.
-  const full = mod.buildPayload({
-    ...base, consentSms: true, consentPostal: true,
-    profile: { phone: '+4791234567', address_line1: '1 Main St', address_city: 'Oslo', address_country: 'NO' },
-  });
+  const full = mod.buildPayload({ ...base, consentSms: true, profile: { phone: '+4791234567' } });
   assert.equal(full.consent_sms, true);
-  assert.equal(full.consent_postal, true);
+  assert.equal(full.phone, '+4791234567');
+
+  assert.equal('consent_postal' in full, false, 'the postal keys are no longer emitted at all');
+  assert.equal('address_line1' in full, false);
 });
 
-test('S24: a refused coupled block does not cost the fields it has nothing to do with', async () => {
+test('S24: a refused block does not cost the fields it has nothing to do with', async () => {
   const seen = [];
   const { mod } = await withFetch(async (_u, opts) => {
     const body = JSON.parse(opts.body);
     seen.push(body);
-    // A server that refuses the postal block and accepts everything else — the
-    // real rule, and the trigger the ladder has to survive gracefully.
-    if (body.consent_postal) return { ok: false, status: 400, json: async () => ({ ok: false, error: 'validation' }) };
+    // A server that refuses the HEALTH block and accepts everything else. This
+    // is the one block the server actually names (`block: "health"`), so it is
+    // the rung we are not guessing about — and the rung that keeps a health
+    // refusal from walking all five and landing at MINIMAL with every profile
+    // answer gone.
+    if (body.consent_health) return { ok: false, status: 400, json: async () => ({ ok: false, error: 'validation' }) };
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   });
 
   const r = await mod.submitWaitlist(mod.buildPayload({
     email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
-    consentSms: true, consentPostal: true, formRenderTs: Date.now() - 9000,
-    smsConsentTextVersion: 'sms-v1', postalConsentTextVersion: 'mail-v1',
+    consentHealth: true, motivationConsentTextVersion: 'mot-v1',
+    consentSms: true, smsConsentTextVersion: 'sms-v1',
+    formRenderTs: Date.now() - 9000,
     profile: {
-      phone: '+4791234567', address_line1: '1 Main St', address_city: 'Oslo', address_country: 'NO',
-      company: 'Acme', headcount: '10_49', quantity_band: 'srv_3_5', channel: ['grocery'],
-      research_optin: true, office_interest: 'yes',
+      motivation: ['fullness'], dietary: ['vegan'],
+      phone: '+4791234567', company: 'Acme', headcount: '10_49',
+      channel: ['grocery'], referral_source: 'friend', office_interest: 'yes',
+      intent: 'preorder_now', research_optin: true, name: 'Sarah',
     },
   }));
 
   assert.equal(r.status, mod.RESULT.OK);
   const delivered = seen.at(-1);
-  // ⚠️ THE WHOLE POINT. Before S24 the first effective rung was CORE, so this
-  // retry would have dropped every extension field — company, headcount,
-  // channel, quantity band, the phone — for a rejection about an address.
-  assert.equal(delivered.consent_postal, undefined, 'the refused block is gone');
+  // ⚠️ THE WHOLE POINT. The refused block is gone and NOTHING ELSE IS.
+  assert.equal(delivered.consent_health, undefined, 'the refused block is shed');
+  assert.equal(delivered.motivation, undefined);
+  assert.equal(delivered.dietary, undefined);
+  assert.equal(delivered.motivation_consent_text_version, undefined);
   assert.equal(delivered.consent_sms, true, 'the SMS block is untouched');
   assert.equal(delivered.phone, '+4791234567');
   assert.equal(delivered.company, 'Acme', 'and so is everything unrelated');
-  assert.equal(delivered.headcount, '10_49');
-  assert.equal(delivered.quantity_band, 'srv_3_5');
+  assert.equal(delivered.name, 'Sarah');
+  assert.equal(delivered.intent, 'preorder_now');
   assert.deepEqual(delivered.channel, ['grocery']);
 });
 
@@ -746,32 +750,32 @@ test('S25: a slow earlier save cannot land after a faster later one', async () =
   // holding the answer the person corrected AWAY from — silently, because
   // last-write-wins means nothing errors and nothing looks wrong.
   const landed = [];
-  const delays = { maple_pecan: 120, both: 5 };
+  const delays = { preorder_now: 120, curious: 5 };
   const { mod } = await withFetch(async (_u, opts) => {
     const body = JSON.parse(opts.body);
-    await new Promise((r) => setTimeout(r, delays[body.flavor] ?? 0));
-    landed.push(body.flavor);
+    await new Promise((r) => setTimeout(r, delays[body.intent] ?? 0));
+    landed.push(body.intent);
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   });
 
   const q = await import(`../src/components/waitlist/saveQueue.js?t=${Math.random()}`);
   // saveQueue imports api.js itself, so point it at the same stubbed fetch by
   // reusing the module the harness just built.
-  const payload = (flavor) => mod.buildPayload({
+  const payload = (intent) => mod.buildPayload({
     email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
-    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { flavor },
+    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { intent },
   });
 
   q.resetSaveQueue();
-  q.queueSave(payload('maple_pecan'));
-  q.queueSave(payload('both'));       // the correction, made while the first is in flight
+  q.queueSave(payload('preorder_now'));
+  q.queueSave(payload('curious'));       // the correction, made while the first is in flight
   const settled = await q.settleSaves();
 
   assert.equal(settled.ok, true);
   // ⚠️ THE ASSERTION THAT MATTERS: the LAST thing the server saw is the
   // correction, not the answer it replaced.
-  assert.equal(landed.at(-1), 'both', 'the newest answer must be the last write');
-  assert.ok(!landed.includes('maple_pecan') || landed.indexOf('maple_pecan') < landed.indexOf('both'),
+  assert.equal(landed.at(-1), 'curious', 'the newest answer must be the last write');
+  assert.ok(!landed.includes('preorder_now') || landed.indexOf('preorder_now') < landed.indexOf('curious'),
     'a stale save may never arrive after the newer one');
 });
 
@@ -784,23 +788,23 @@ test('S25: only one save is ever in flight, and the newest supersedes', async ()
     peak = Math.max(peak, concurrent);
     await new Promise((r) => setTimeout(r, 15));
     concurrent -= 1;
-    seen.push(JSON.parse(opts.body).flavor);
+    seen.push(JSON.parse(opts.body).intent);
     return { ok: true, status: 200, json: async () => ({ ok: true }) };
   });
   const q = await import(`../src/components/waitlist/saveQueue.js?t=${Math.random()}`);
-  const payload = (flavor) => mod.buildPayload({
+  const payload = (intent) => mod.buildPayload({
     email: 'sarah@example.com', consentMarketing: true, consentTextVersion: 'v1',
-    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { flavor },
+    editToken: 'edit.x.valid', formRenderTs: Date.now() - 9000, profile: { intent },
   });
 
   q.resetSaveQueue();
-  for (const f of ['maple_pecan', 'choc_rasp_salt', 'both', 'undecided']) q.queueSave(payload(f));
+  for (const f of ['preorder_now', 'very_interested', 'curious', 'just_browsing']) q.queueSave(payload(f));
   await q.settleSaves();
 
   assert.equal(peak, 1, 'never more than one request on the wire');
   // Middle saves are superseded rather than sent: every payload is the full
   // accumulated profile, so an older one holds nothing the newer one lacks.
-  assert.equal(seen.at(-1), 'undecided', 'the final state is what the server ends with');
+  assert.equal(seen.at(-1), 'just_browsing', 'the final state is what the server ends with');
   assert.ok(seen.length < 4, 'superseded saves are dropped, not queued up');
 });
 
@@ -971,4 +975,47 @@ test('S27: Plausible is untouched by the pixel', async () => {
     assert.equal(typeof a[fn], 'function', `analytics.${fn} must survive`);
   }
   assert.ok(a.EVENTS.STEP1_SUCCESS, 'and its event map');
+});
+
+// ─── S29: a 25-second save must read as working, not frozen ──────────────────
+
+test('S29: the submit button gets the prop ui/Button actually reads', async () => {
+  const { readFileSync } = await import('node:fs');
+  const step2 = readFileSync(new URL('../src/components/waitlist/Step2Profile.jsx', import.meta.url), 'utf8');
+  const button = readFileSync(new URL('../src/components/ui/Button.jsx', import.meta.url), 'utf8');
+
+  // ⚠️ ui/Button destructures `loading` and spreads the rest onto the DOM node.
+  // Step 2 passed `busy`/`busyLabel`, which therefore reached the <button> as
+  // unknown attributes: no spinner, no aria-busy, and a greyed-out control
+  // still wearing its finish label for up to 25 seconds. Disabled it was;
+  // working it did not look.
+  assert.match(button, /^\s*loading = false,/m, 'Button reads `loading`');
+  assert.doesNotMatch(button, /^\s*busy = /m, 'and does not read `busy`');
+  assert.match(step2, /<Button type="submit"[^>]*loading=\{busy\}/, 'so step 2 must pass loading');
+  assert.doesNotMatch(step2, /busyLabel=/, 'and must not pass a prop nothing reads');
+});
+
+test('S29: the saving message escalates before people give up', async () => {
+  const { step2 } = await import('../src/content/copy.js');
+  const pick = (n) => (n >= 14 ? step2.saving.late : n >= 6 ? step2.saving.slow : step2.saving.early);
+
+  assert.equal(pick(0), step2.saving.early);
+  assert.equal(pick(10), step2.saving.slow);
+  // Emil's number: nobody should be tempted to refresh at second 18. The final
+  // message has to be on screen BEFORE that, not at the 25s timeout.
+  assert.equal(pick(18), step2.saving.late, 'the last message must arrive before second 18');
+  assert.notEqual(step2.saving.early, step2.saving.slow, 'a repeated string reads as a stuck screen');
+  assert.notEqual(step2.saving.slow, step2.saving.late);
+  assert.match(step2.saving.late, /refresh/i, 'and it must name the thing not to do');
+});
+
+test('S29: reduced motion still shows something working', async () => {
+  const { readFileSync } = await import('node:fs');
+  const css = readFileSync(new URL('../src/components/waitlist/waitlist.css', import.meta.url), 'utf8');
+  const block = css.slice(css.lastIndexOf('@media (prefers-reduced-motion: reduce)'));
+  // Killing the animation and leaving an empty trough would recreate the exact
+  // frozen look this element exists to prevent, for the people who get no other
+  // motion signal at all.
+  assert.match(block, /\.zw-saving-bar::after/, 'the bar has a reduced-motion rule');
+  assert.match(block, /inline-size: auto/, 'and it stays filled rather than empty');
 });

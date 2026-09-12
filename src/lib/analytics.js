@@ -276,6 +276,13 @@ export const EVENTS = {
   STEP1_SUBMIT: "step1_submit",
   STEP1_SUCCESS: "step1_success",
   STEP1_ERROR: "step1_error",
+  // The two halves of the step-2 drop-off rate. STEP2_SUBMIT was declared here
+  // and never fired anywhere in src/, so the completion half did not exist and
+  // the ratio could not be computed. These two are named plainly, carry no
+  // custom properties (free Plausible tier), and each needs adding as a GOAL in
+  // the dashboard before it appears.
+  STEP2_REACHED: "step2_reached",
+  STEP2_COMPLETED: "step2_completed",
   STEP2_VIEW: "step2_view",
   STEP2_FIELD: "step2_field",
   STEP2_SUBMIT: "step2_submit",

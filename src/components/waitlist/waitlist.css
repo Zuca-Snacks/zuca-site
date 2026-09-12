@@ -355,3 +355,59 @@
   flex: 1 1 auto;
   min-inline-size: 0;
 }
+
+/* ─── Saving state ───────────────────────────────────────────────────────────
+   The forward to Apps Script can legitimately take 25 seconds, and after the
+   four screens became one there is a single save carrying everything. A
+   disabled button with no movement reads as a crash at about second ten, and
+   the person most likely to refresh is the one who filled the most in. */
+
+.zw-saving {
+  display: grid;
+  gap: var(--z-space-2);
+  margin-top: var(--z-space-4);
+}
+
+.zw-saving-text {
+  font-size: var(--z-step--1);
+  color: var(--z-ink-muted);
+}
+
+/* Indeterminate on purpose. We cannot know how far along a forward is, and a
+   bar that pretends to know is worse than one that only claims to be moving. */
+.zw-saving-bar {
+  display: block;
+  block-size: 0.25rem;
+  border-radius: var(--z-radius-sm);
+  background: var(--z-surface-alt);
+  overflow: hidden;
+  position: relative;
+}
+
+.zw-saving-bar::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inline-size: 40%;
+  border-radius: inherit;
+  background: var(--z-brand);
+  animation: zw-indeterminate 1.4s var(--z-ease) infinite;
+}
+
+@keyframes zw-indeterminate {
+  0%   { inset-inline-start: -40%; }
+  100% { inset-inline-start: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* ⚠️ STILL VISIBLY "WORKING", NOT JUST STILL. Removing the animation and
+     leaving a grey trough would recreate the exact frozen look this element
+     exists to prevent — for the people who opted out of motion, who get no
+     other signal. A steady filled bar plus the escalating text carries it. */
+  .zw-saving-bar::after {
+    animation: none;
+    inset-inline: 0;
+    inline-size: auto;
+    opacity: 0.55;
+  }
+}

@@ -93,7 +93,12 @@ export const RESULT = {
 export const CORE_KEYS = new Set([
   "downgraded_fields",
   "name",
-  "email", "zip", "motivation", "intent", "price_band", "flavor", "is_clinician",
+  // ⚠️ `zip`, `price_band`, `flavor` and `is_clinician` came OUT on 11 Sep with
+  // the questions that fed them. security:compat fails while a dead entry stays
+  // here: the checker compares this list against what the client can actually
+  // send, and a key listed but never emitted is indistinguishable from a key
+  // the client forgot to send.
+  "email", "motivation", "intent",
   "referral_source", "consent_marketing", "consent_health", "consent_text_version",
   "motivation_consent_text_version", "utm", "page_path", "hp_field", "form_render_ts",
   // ⚠️ NOT OPTIONAL DATA — A PRECONDITION OF THE EMAIL BEING ACCEPTED AT ALL.
@@ -148,21 +153,15 @@ export function toE164(raw) {
 }
 
 /** Two uppercase letters or null. */
-const iso2 = (v) => {
-  const c = String(v || "").trim().toUpperCase();
-  return /^[A-Z]{2}$/.test(c) ? c : null;
-};
 
 export function buildPayload({
   email,
   consentMarketing,
   consentHealth = false,
   consentSms = false,
-  consentPostal = false,
   consentTextVersion = null,
   motivationConsentTextVersion = null,
   smsConsentTextVersion = null,
-  postalConsentTextVersion = null,
   businessEnquiry = false,
   businessConsentTextVersion = null,
   editToken = null,
@@ -186,12 +185,6 @@ export function buildPayload({
   // phone for SMS, and line1 + city + country for postal.
   const phoneE164 = toE164(profile.phone);
   const sms = consentSms === true && !!phoneE164;
-  const postalAddr = {
-    line1: str(profile.address_line1, 120),
-    city: str(profile.address_city, 80),
-    country: iso2(profile.address_country),
-  };
-  const postal = consentPostal === true && !!(postalAddr.line1 && postalAddr.city && postalAddr.country);
   // Both keys are omitted unless the box was actually ticked. A personal signup
   // must not carry `business_enquiry: false` at the floor, and — more to the
   // point — the server suppresses marketing consent for any row where this is
@@ -225,14 +218,15 @@ export function buildPayload({
     // Cap 40, matching the server exactly. First name only — a client cap
     // above the server's is a 400 for everything in the gap.
     name: str(p.name, NAME.maxLength),
-    zip: p.zip || null,
-    // Health-adjacent values never travel without their Art 9 opt-in, on our
-    // side as well as the server's.
+    // ⚠️⚠️ DO NOT SIMPLIFY THIS TO `arr(p.motivation, …)`. THIS LINE IS S24.
+    // Health-adjacent values never travel without their Art 9 opt-in, and the
+    // gate belongs HERE, at the payload boundary — not in the UI that clears
+    // the state. The UI clearing is a convenience a re-render, a restored
+    // session or a future refactor can defeat; this cannot be defeated without
+    // deleting it. Security confirmed this is the real protection, and it
+    // survived the 11 Sep rewrite intact.
     motivation: health ? arr(p.motivation, MOTIVATION.options.length) : null,
     intent: p.intent ?? null,
-    price_band: p.price_band ?? null,
-    flavor: p.flavor ?? null,
-    is_clinician: typeof p.is_clinician === "boolean" ? p.is_clinician : null,
     referral_source: p.referral_source ?? null,
     consent_marketing: consentMarketing === true,
     consent_health: health,
@@ -248,7 +242,13 @@ export function buildPayload({
           business_consent_text_version: str(businessConsentTextVersion, 64),
         }
       : {}),
-    motivation_consent_text_version: health ? motivationConsentTextVersion || null : null,
+    // ⚠️ UNCONDITIONAL, AND THAT IS THE POINT (Emil, 11 Sep 2026).
+    // Health consent is the ONLY consent the server does not require a version
+    // for, so Art 9 data could be stored against a consent we cannot evidence —
+    // silently, with a 200. Gating the version on `health` made the one case
+    // where evidence matters the one case it was withheld. Sending it always
+    // costs nothing when the box is unticked and closes the hole when it is.
+    motivation_consent_text_version: motivationConsentTextVersion || null,
     utm: getUtm(),
     page_path: getPagePath(),
     hp_field: hpField || null,
@@ -272,12 +272,6 @@ export function buildPayload({
     dietary_other: health && hasOther(p.dietary) ? str(p.dietary_other, otherMaxFor(DIETARY)) : null,
     referral_source_other:
       p.referral_source === "other" ? str(p.referral_source_other, OTHER_MAX) : null,
-    quantity_band: p.quantity_band ?? null,
-    // Stored VERBATIM and never parsed. "£30ish", "$25-30" and "depends on the
-    // size" are all real answers; a number extracted from any of them is a
-    // guess wearing data's clothes.
-    price_band_other:
-      p.price_band === "other" ? str(p.price_band_other, otherMaxFor(PRICE_BAND)) : null,
     channel: arr(p.channel, CHANNEL.options.length),
     channel_other: hasOther(p.channel) ? str(p.channel_other, OTHER_MAX) : null,
     office_interest: p.office_interest ?? null,
@@ -294,16 +288,6 @@ export function buildPayload({
     phone: sms ? phoneE164 : null,
     sms_consent_text_version: sms ? smsConsentTextVersion || null : null,
 
-    consent_postal: postal,
-    address_line1: postal ? postalAddr.line1 : null,
-    address_line2: postal ? str(p.address_line2, 120) : null,
-    address_city: postal ? postalAddr.city : null,
-    address_region: postal ? str(p.address_region, 80) : null,
-    address_postal_code: postal ? str(p.address_postal_code, 16) : null,
-    // ISO 3166-1 alpha-2, from a picker. Free text could never satisfy the
-    // server's /^[A-Z]{2}$/ reliably.
-    address_country: postal ? postalAddr.country : null,
-    postal_consent_text_version: postal ? postalConsentTextVersion || null : null,
   };
 }
 
@@ -322,13 +306,14 @@ export function buildPayload({
 // ladder costs nothing.
 export const SERVER_KNOWN_KEYS = new Set([
   ...CORE_KEYS,
-  "quantity_band", "office_interest", "company", "headcount", "price_band_other",
+  // `quantity_band`, `price_band_other` and the eight postal keys came out on
+  // 11 Sep. The SERVER still accepts every one of them — nothing was removed
+  // from the schema — so a visitor on a cached bundle who still sends them is
+  // accepted exactly as before. Only this client stopped sending them.
+  "office_interest", "company", "headcount",
   "motivation_other", "referral_source_other",
   "channel", "channel_other", "dietary", "dietary_other", "research_optin",
   "phone", "consent_sms", "sms_consent_text_version",
-  "address_line1", "address_line2", "address_city", "address_region",
-  "address_postal_code", "address_country", "consent_postal",
-  "postal_consent_text_version",
 ]);
 
 /**
@@ -353,11 +338,30 @@ export const MINIMAL_KEYS = new Set([
 
 /** The two blocks the server couples to a datum, and so the two most likely
  *  to be the reason a full payload was refused. */
-const POSTAL_BLOCK = new Set([
-  "consent_postal", "postal_consent_text_version", "address_line1", "address_line2",
-  "address_city", "address_region", "address_postal_code", "address_country",
-]);
 const SMS_BLOCK = new Set(["consent_sms", "phone", "sms_consent_text_version"]);
+
+/**
+ * Art 9 data and everything that evidences it, shed as ONE unit.
+ *
+ * Specified by security in HANDOFF §1p and implemented here because the ladder
+ * lives here. The server returns `block: "health"` on every health refusal, so
+ * this is the rung that answers it.
+ *
+ * ⚠️ WITHOUT THIS RUNG A HEALTH REFUSAL WALKS ALL FIVE AND LANDS AT MINIMAL.
+ * A payload refused for one health reason would shed postal, then SMS, then
+ * every extension, then everything but the email — so a single Art 9 problem
+ * costs the company, the headcount, the channel, the referral source and the
+ * name. Shedding the block that was actually refused costs only the answers
+ * that could not be stored anyway.
+ *
+ * It is also the backstop for the day `motivation: health ? … : null` is lost
+ * in a refactor: if health values ever reach the wire without their consent,
+ * this is what takes them back off it rather than emptying the record.
+ */
+const HEALTH_BLOCK = new Set([
+  "consent_health", "motivation", "motivation_other",
+  "motivation_consent_text_version", "dietary", "dietary_other",
+]);
 
 const without = (base, ...blocks) =>
   new Set([...base].filter((k) => !blocks.some((b) => b.has(k))));
@@ -380,8 +384,10 @@ const without = (base, ...blocks) =>
  */
 const LADDER = [
   SERVER_KNOWN_KEYS,
-  without(SERVER_KNOWN_KEYS, POSTAL_BLOCK),
-  without(SERVER_KNOWN_KEYS, POSTAL_BLOCK, SMS_BLOCK),
+  // Health first: it is the only block the server names in its refusal
+  // (`block: "health"`), so it is the one rung we are not guessing about.
+  without(SERVER_KNOWN_KEYS, HEALTH_BLOCK),
+  without(SERVER_KNOWN_KEYS, HEALTH_BLOCK, SMS_BLOCK),
   CORE_KEYS,
   MINIMAL_KEYS,
 ];
