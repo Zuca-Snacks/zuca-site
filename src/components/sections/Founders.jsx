@@ -35,6 +35,7 @@ export default function Founders() {
         <p className="z-section__lede">{sections.founders.body}</p>
       ) : null}
 
+      <div className="z-founders__layout">
       <ul className="z-founders__grid">
         {founders.map((f) => (
           <li className="z-founder" key={f.name}>
@@ -74,6 +75,30 @@ export default function Founders() {
           </li>
         ))}
       </ul>
+
+      {/* Emil with a king crab in a restaurant kitchen. Fills the column beside
+          the credentials on desktop; sits below them on a phone. */}
+      <picture className="z-founders__photo">
+        <source
+          type="image/avif"
+          srcSet="/images/founder-emil-crab-640.avif 640w, /images/founder-emil-crab-960.avif 960w, /images/founder-emil-crab-1280.avif 1280w"
+          sizes="(min-width: 48em) 45vw, 92vw"
+        />
+        <source
+          type="image/webp"
+          srcSet="/images/founder-emil-crab-640.webp 640w, /images/founder-emil-crab-960.webp 960w, /images/founder-emil-crab-1280.webp 1280w"
+          sizes="(min-width: 48em) 45vw, 92vw"
+        />
+        <img
+          src="/images/founder-emil-crab-960.jpg"
+          width="1536"
+          height="1024"
+          alt="Emil Nordin in chef's whites in a restaurant kitchen, holding a large king crab."
+          loading="lazy"
+          decoding="async"
+        />
+      </picture>
+      </div>
 
     </section>
   );

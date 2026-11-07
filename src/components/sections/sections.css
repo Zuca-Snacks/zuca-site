@@ -856,11 +856,29 @@
 
 /* ─── Founders ───────────────────────────────────────────────────────────── */
 
+.z-founders__layout {
+  display: grid;
+  gap: var(--z-space-6);
+  margin-top: var(--z-space-6);
+}
+
 .z-founders__grid {
   display: grid;
   gap: var(--z-space-5);
-  margin-top: var(--z-space-6);
   list-style: none;
+}
+
+.z-founders__photo {
+  display: block;
+  border-radius: var(--z-radius-md);
+  overflow: hidden;
+  box-shadow: var(--z-shadow-sm);
+}
+
+.z-founders__photo img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .z-founder { display: grid; gap: var(--z-space-3); }
@@ -939,7 +957,7 @@
 }
 
 @media (min-width: 48em) {
-  .z-founders__grid { grid-template-columns: repeat(2, 1fr); gap: var(--z-space-7); }
+  .z-founders__layout { grid-template-columns: repeat(2, 1fr); gap: var(--z-space-7); align-items: center; }
 }
 
 /* ─── Supporter wall ────────────────────────────────────────────────────── */

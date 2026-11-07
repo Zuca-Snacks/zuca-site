@@ -29,6 +29,15 @@ const OUT = 'public/images';
 mkdirSync(OUT, { recursive: true });
 
 const JOBS = [
+  /* Emil holding a king crab in a restaurant kitchen, beside his credentials
+     in the founders section (Nov 2026). Original kept in Drive, Brand assets. */
+  {
+    name: 'founder-emil-crab',
+    root: true,
+    src: 'art-src/founder-emil-crab.png',
+    extract: { left: 0, top: 0, width: 1536, height: 1024 },
+    widths: [640, 960, 1280],
+  },
   /* FLAVOUR PHOTOS, Nov 2026. Cut from the front-label artwork Emil supplied
      (Zuca_Front_Labels_*_Oct2026.pdf): a 350px square from inside each label's
      black photo window, saved to art-src/ by the same pass that built
