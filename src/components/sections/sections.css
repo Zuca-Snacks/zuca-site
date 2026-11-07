@@ -249,7 +249,7 @@
   align-self: center;
   width: 100%;
   display: grid;
-  /* ONE image spanning the poster. The two flavours are aligned to each other
+  /* ONE image spanning the poster. The three flavours are aligned to each other
      inside the artwork, so there are no columns to keep in step and no overlap
      to police — the whole class of drift is gone. */
   display: block;
@@ -273,58 +273,6 @@
   pointer-events: none;
 }
 
-/* Every overlay shares this: centred in its measured rectangle, in the display
-   face, never intercepting a tap. */
-.z-hero__plate-name,
-.z-hero__plate-fiber,
-.z-hero__plate-chip {
-  position: absolute;
-  margin: 0;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  text-transform: uppercase;
-  font-family: var(--z-font-display);
-  line-height: 1.02;
-  pointer-events: none;
-}
-
-/* Name plate. The artwork's fill is #f1d4a7 (sampled, not guessed), DARKER than
-   --z-surface-alt, so --z-brand-ink is only 4.11:1 on it and fails.
-   --z-brand-on-cream is the variant derived for this surface: 4.56:1.
-   Emil asked for #E3001B here on 17 Aug; it measures 3.44:1 on this plate, so
-   this is that colour at the minimum darkening that clears AA. */
-.z-hero__plate-name {
-  /* 6.5cqw, measured not guessed: at 7.6cqw "CHOCOLATE RASPBERRY SEA SALT"
-     rendered 80px of ink into a 67px content box and spilled off the plate.
-     This is the largest size where the longest flavour name still fits. */
-  font-size: 3.1cqw;
-  color: var(--z-brand-on-cream);
-  padding: 0 4%;
-}
-
-/* Maple's burnt-orange (Emil, 17 Aug). 5.26:1 on the #f1d4a7 plate, so it is
-   used exactly as authored — no derivation needed. */
-[data-tone='maple'] .z-hero__plate-name { color: var(--z-maple); }
-
-/* Fiber pill. The artwork's pill is pure #000000, sampled from the PNG.
-   Both tones fail on it as authored and both use their minimum derivation:
-   #E3001B is 4.28:1 there, #903A0A only 2.80:1. */
-.z-hero__plate-fiber {
-  font-size: 5.3cqw;
-  color: var(--z-brand-on-black); /* 4.50:1 */
-}
-
-[data-tone='maple'] .z-hero__plate-fiber {
-  color: var(--z-maple-on-black); /* 4.51:1 */
-}
-
-/* Chips sit on white; --z-ink is 9.79:1. */
-.z-hero__plate-chip {
-  font-size: 2.6cqw;
-  color: var(--z-ink);
-}
-
 /* The per-serving qualifier, in the band BELOW the numbers it qualifies
    (Emil, 19 Aug). It previously sat above the wordmark, unstyled and
    auto-placed into row 1, where it read as clutter and — being above the
@@ -333,8 +281,8 @@
    back in a fr gap row: a fr row is a fixed fraction of the viewport and
    content in one overflows onto whatever is beneath. That is the fault
    audit:hero exists to catch.
-   ⚠️ WHY THIS SENTENCE EXISTS AT ALL: the plates read "14G FIBER", "180 KCAL"
-   and "5G PROTEIN" with no unit of their own. Unqualified figures beside a
+   ⚠️ WHY THIS SENTENCE EXISTS AT ALL: the labels read "16G FIBER" and a
+   calorie figure with no unit of their own. Unqualified figures beside a
    product are how "per bite" — wrong by five times — reached the sticky bar and
    three page titles. If it is ever cut again, the unit has to move INTO the
    pill, not simply disappear. */
@@ -350,9 +298,8 @@
    The flavour boxes that used to be their own section. TAP, not hover: this is
    a phone-first page and hover does not exist there. */
 
-/* The trigger covers the whole stack — the union of that flavour's four
-   measured plate rectangles — so the target is enormous rather than a fiddly
-   chevron. The figure is pointer-events:none; this puts them back on for the
+/* The trigger covers the whole label column, so the target is enormous
+   rather than a fiddly chevron. The figure is pointer-events:none; this puts them back on for the
    button alone. */
 .z-hero__flavour-tap {
   position: absolute;
@@ -372,21 +319,21 @@
    compete with it — but the TARGET is the whole stack above, not this glyph,
    so it is never a small tap target. */
 .z-hero__flavour-more {
+  position: absolute;
+  left: 50%;
+  /* Just inside the top of the label's photo window, clear of the calorie chip. */
+  top: var(--z-window-top, 58%);
+  transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  inline-size: 6.4cqw;
-  block-size: 6.4cqw;
+  inline-size: 4.6cqw;
+  block-size: 4.6cqw;
   font-family: var(--z-font-display);
-  font-size: 4.4cqw;
+  font-size: 3.2cqw;
   line-height: 1;
   color: var(--z-accent-ink);
   background: var(--z-brand);
   border-radius: var(--z-radius-full);
-  /* ⚠️ CLEAR OF THE CHIPS. At translateY(38%) it sat on the chip row and
-     covered the protein chip — the affordance was hiding the content it
-     was advertising. The union box ends at the chips' baseline, so the glyph
-     has to sit fully BELOW that edge. */
-  transform: translateY(118%);
 }
 
 .z-hero__flavour-tap:focus-visible {

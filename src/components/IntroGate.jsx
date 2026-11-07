@@ -46,7 +46,7 @@
 import { useEffect, useState } from 'react';
 
 const LINES = [
-  'A Michelin-trained chef and a Stanford physician,',
+  'A Michelin-trained chef,',
   'building a snack worth eating.',
 ];
 

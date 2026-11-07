@@ -10,20 +10,18 @@
 // "doctor-approved", "clinically proven", or weight-loss framing. Structure/
 // function and factual nutrient-content statements only.
 //
-// ── ALLERGENS: CONFIRMED, BUT NOT STABLE ────────────────────────────────────
-// Confirmed 18 Aug 2026: both flavours contain TREE NUTS — almonds and pecans.
-// That is what the site says and it is accurate today.
-//
-// ⚠️ THE RECIPE IS STILL MOVING. The nut base may change from almond to
-// SUNFLOWER butter, with pecan remaining in Maple Pecan. If that lands, the
-// panel changes and so does the shape of the claim: one flavour would carry
-// tree nuts and the other might not, which is a per-flavour allergen statement
-// rather than the shared one we have now. Do not build anything — pills,
-// filters, segments, email cohorts — that assumes this panel is permanent.
+// ── ALLERGENS: PER FLAVOUR (Nov 2026) ───────────────────────────────────────
+// From the Oct 27 2026 label panels (Zuca_Nutrition_Labels_Oct2026):
+//   Peanut Cookie Dough: peanuts, milk, soy.
+//   Chocolate Raspberry Sea Salt: tree nuts (cashews), soy.
+//   Maple Butter Pecan: tree nuts (cashews, pecans), milk, soy.
+// Milk comes from ghee, soy from the tocopherol oil. Two flavours contain
+// milk, so the site must NOT say vegan or plant-based. The pack panel is the
+// statement to rely on; keep this list in step with it.
 //
 // ❌ NEVER CLAIM GLUTEN-FREE. This is now settled in BOTH directions and the
 // rule is unchanged — if anything it is firmer than when it was only a caution:
-//   1. OATS ARE A CONFIRMED INGREDIENT in both flavours and are NOT certified
+//   1. OATS ARE A CONFIRMED INGREDIENT in all three flavours and are NOT certified
 //      gluten-free (Emil, 8 Sep 2026). The site states this plainly.
 //   2. Separately, a gluten-free recipe made on a shared line is not a
 //      gluten-free product, and this one is made in a plant that also processes
@@ -38,9 +36,6 @@
 // not a date; re-confirm in writing BEFORE any change goes live, and never let
 // the copy lead the switch. No forward-looking language about certification.
 //
-// Still unconfirmed and therefore unstated: dairy in the Chocolate Raspberry
-// Sea Salt. Do not add it, and do not soften the "We're not publishing a guess"
-// line in the allergen FAQ, until confirmation exists in writing.
 // (Shared-facility cross-contact WAS unconfirmed when this note was written; it
 // was confirmed in writing by Step Change on 21 Aug 2026 and is now stated in
 // both the FAQ and terms.html. This paragraph said otherwise until 8 Sep.)
@@ -58,15 +53,15 @@
 
 // ── NUTRITION FIGURES: THE UNIT IS PART OF THE CLAIM ─────────────────────────
 // EVERY nutrition figure we publish is PER SERVING, and ONE SERVING IS 5 BITES
-// (50g). 14g fiber, 180 kcal, 5g protein — all per serving, none per bite.
+// (50g). 16g fiber in every flavour. Calories and protein differ by flavour:
+//   Peanut Cookie Dough 170 kcal, 5g protein
+//   Chocolate Raspberry Sea Salt 160 kcal, 3g protein
+//   Maple Butter Pecan 180 kcal, 3g protein
+// All per serving, none per bite.
 //
-// SOURCE: the CONFIRMED manufacturer panel, per Emil on 25 Aug 2026. These are
-// not estimates or a working recipe — they superseded 10g fiber / 150 kcal /
-// 4g protein on that date. Recording the provenance because a published macro
-// is a claim, and the next person to change one should know whether they are
-// editing a sourced figure or a placeholder. If the recipe moves again — the
-// nut base may go almond -> sunflower, see the allergen note above — these
-// change with it and the source date moves too.
+// SOURCE: the label panels calculated 27 Oct 2026 and the front labels Emil
+// supplied in Nov 2026. Calculated, not lab tested; they change if the recipe
+// does.
 //
 // ⚠️ NO FIGURE SHIPS WITHOUT ITS UNIT. A number with the wrong unit is not a
 // loose claim, it is a false one: "10g fiber per bite" overstates the fiber by
@@ -111,7 +106,7 @@ export const nutrition = {
 // The credential appears exactly once in the hero, in the tagline.
 export const HEADLINES = {
   // A — taste first, origin second. Deliberately carries NO figures: the
-  // redesigned hero renders the 14g stamp and the 14g/180kcal/5g spec row
+  // redesigned hero renders the 16g stamp and the 16g/180kcal/5g spec row
   // directly above this line, so "10g of fiber. 150 calories." was the picture
   // and the sentence saying the same thing twice.
   //
@@ -166,7 +161,7 @@ export const HEADLINES = {
     id: "a",
     headline: "Tastes like dessert. Made from what juicing throws away.",
     subhead:
-      "Two flavors, no refined sugar, and about 50% of your daily fiber in a serving.",
+      "Three flavors, and about 57% of your daily fiber in a serving.",
   },
   // B — origin story first. Best story, but asks the reader to care about
   // juiceries before they care about the snack.
@@ -174,15 +169,15 @@ export const HEADLINES = {
     id: "b",
     headline: "Juiceries throw the fiber away. We rescued it and turned it into dessert.",
     subhead:
-      "14g of fiber and 180 calories per serving, no refined sugar. Chocolate Raspberry Sea Salt or Maple Pecan.",
+      "16g of fiber per serving. Peanut Cookie Dough, Chocolate Raspberry Sea Salt or Maple Butter Pecan.",
   },
   // C — category stat first. Highest-context, but opens on the reader's deficit
   // rather than on the product.
   c: {
     id: "c",
-    headline: "95% of Americans don't get enough fiber. This is 14 grams of it, and it tastes like dessert.",
+    headline: "95% of Americans don't get enough fiber. This is 16 grams of it, and it tastes like dessert.",
     subhead:
-      "180 calories per serving. No refined sugar. Made from apple pulp a juicery was about to throw away.",
+      "160 to 180 calories per serving. Made from apple pulp a juicery was about to throw away.",
   },
 };
 
@@ -290,24 +285,10 @@ export const proof = {
 };
 
 // ─── Three-number block ──────────────────────────────────────────────────────
-// ── SUGAR: ONE CLAIM IS PERMITTED, AND ONLY ONE ────────────────────────────
-// Confirmed by the manufacturer, 18 Aug 2026:
-//   ✅ "No refined sugar."  TRUE of BOTH flavours. This is the claim to make,
-//      and it is the ONLY sugar claim allowed on the site.
-//   ❌ "No added sugar."    FALSE — maple syrup is added as a sweetener, and
-//      syrups are added sugars under FDA rules.
-//   ❌ "6g natural sugar."  FALSE — some of that sugar is added, not naturally
-//      occurring in the fruit.
-//
-// ⚠️ NO SITE-WIDE SWEETENER CLAIM. Maple syrup is in MAPLE PECAN ONLY. What
-// sweetens Chocolate Raspberry Sea Salt is still unconfirmed, so anything more
-// specific than "No refined sugar" — naming maple, naming any sweetener,
-// "sweetened with…" — is a per-flavour claim wearing a site-wide coat. The
-// pills render on BOTH cards; the subheads cover both. Hold until confirmed.
-//
-// Do not "improve" this into a positive sweetener statement. Naming the
-// sweetener would be better copy, and we cannot yet do it truthfully for half
-// the range.
+// ── SUGAR: NO SUGAR CLAIMS (Nov 2026) ───────────────────────────────────────
+// All three flavours contain added sugar (brown sugar, cane sugar, chocolate,
+// maple sugar). "No refined sugar" and "no added sugar" are both FALSE now and
+// must not appear anywhere on the site.
 
 export const numbers = {
   title: "What's actually in one.",
@@ -321,20 +302,20 @@ export const numbers = {
        nothing.
        It is UNRENDERED today, so nothing is live — but it must NOT be carried
        into the "approved wording" quarantine block as though it were approved.
-       The absolute figures do this work better and need no reference: 14g, and
-       about 50% of a daily value. Emil's own read (25 Aug) is that most bars
+       The absolute figures do this work better and need no reference: 16g, and
+       about 57% of a daily value. Emil's own read (25 Aug) is that most bars
        carry LESS than 3-5g, which would make the real multiple higher — but an
        argument is not a basis, and understating is only safe while nobody
        tightens it on an estimate. Delete the comparison or source it. */
-    { value: "14g", unit: "fiber", note: "About 50% of your daily fiber per serving, and twice what the leading bars carry." },
-    { value: "180", unit: "calories", note: "Plus 5g of protein, per serving." },
-    { value: "5g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
+    { value: "16g", unit: "fiber", note: "About 57% of your daily fiber per serving, and twice what the leading bars carry." },
+    { value: "160 to 180", unit: "calories", note: "Per serving, depending on flavor." },
+    { value: "3 to 5g", unit: "protein", note: "Enough to make it a snack rather than a treat." },
   ],
   /* ⚠️ This block does not render (verified: 0 occurrences in the production
      bundle) — but it IS an allergen statement, so it carries the oats sentence
      too. Reviving it must not resurrect an allergen statement that is missing
      half the facts. See DECISIONS.md, 8 Sep 2026. */
-  footnote: "Per serving — 5 bites (50g). No refined sugar. Contains tree nuts — almonds and pecans. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten.",
+  footnote: "Per serving, 5 bites (50g). Allergens differ by flavor; see the FAQ. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten.",
 };
 
 // ─── Section headers ─────────────────────────────────────────────────────────
@@ -343,12 +324,11 @@ export const sections = {
     title: "Be first when the first run ships",
   },
   product: {
-    title: "Two flavors. Same 14 grams.",
+    title: "Three flavors. Same 16 grams.",
     body: "Developed with input from 10+ physicians across 7 specialties, and cooked by someone who spent his twenties in a two-Michelin-star kitchen.",
   },
   founders: {
-    title: "A chef and a physician",
-    body: "Zuca was created by a Michelin-trained chef and a Stanford Medicine physician.",
+    title: "A chef turned Stanford bioengineer",
   },
   faq: {
     title: "The questions everyone asks",
@@ -369,21 +349,15 @@ export const sections = {
 
 // ─── Intro gate (organic visitors only) ──────────────────────────────────────
 export const introLines = [
-  "A Michelin-trained chef and a Stanford physician,",
+  "A Michelin-trained chef,",
   "turning what juiceries throw away",
-  "into 14 grams of fiber.",
+  "into 16 grams of fiber.",
 ];
 
 // ─── Founder credentials ─────────────────────────────────────────────────────
-// ⚠️ ROLES SET BY EMIL, 17 Aug — "Emil Nordin — Founder & CEO", "Kelley Yuan —
-// Founding CMO". They replaced "Chef & Co-Founder" and "Physician &
-// Co-Founder". Growth owns this file; UX made the edit because Emil gave the
-// exact strings. Flagged in HANDOFF-ux.md. Note that Kelley's NAME was left as
-// "Kelley Yuan, MD" — Emil wrote it without the postnominal, but he was giving
-// a title, not renaming her, and the MD is load-bearing next to the clinical
-// credentials below. Confirm before changing it.
+// ⚠️ ROLE SET BY EMIL, 17 Aug: "Emil Nordin — Founder & CEO".
 //
-// ⚠️ EVERY LINE HERE IS BIOGRAPHY. These are facts about two people. None of
+// ⚠️ EVERY LINE HERE IS BIOGRAPHY. These are facts about a person. None of
 // them is a statement about what Zuca does, and none may be rewritten into one.
 // The distinction is the whole basis on which they are publishable: a personal
 // history is not a product claim, and it stops being a personal history the
@@ -398,31 +372,6 @@ export const founders = [
       "Trained at Restaurant Kontrast (two Michelin stars and a Michelin Green Star)",
       "Hosted his own show on Norway's national food channel",
       "Bachelor of Science in Bioengineering and Food Systems Design, Stanford, 2026",
-    ],
-  },
-  {
-    name: "Kelley Yuan, MD",
-    role: "Founding CMO",
-    creds: [
-      "Stanford Medicine physician",
-      "Stanford Sustainability Fellow",
-      "Leads Zuca's clinical network: 10+ physicians across 7 specialties",
-      // ⚠️⚠️ THE STRONGEST IMPLIED MEDICAL CLAIM ON THE PAGE. Added on Emil's
-      // instruction, 18 Aug 2026, and FLAGGED FOR COOLEY REVIEW — counsel is
-      // to bless this explicitly rather than have us assume it is fine.
-      //
-      // It is written as something that happened to HER, in the past, with the
-      // agent named as her diet — not as something Zuca does, not as an
-      // outcome, and not adjacent to any product statement. Do not:
-      //   • name the condition
-      //   • move it next to a claim about the product
-      //   • let it become "our CMO reversed disease with food, and this is that
-      //     food" — which is what a reader supplies for free if we let the two
-      //     sit together
-      // A disease-reversal line beside a product we sell is the highest-risk
-      // sentence on the site. Its safety is entirely in the framing, so the
-      // framing is not editorial preference.
-      "Reversed her own autoimmune disease through a plant-based diet",
     ],
   },
 ];
@@ -455,7 +404,7 @@ const INGREDIENTS = 'The full ingredient list will be on the pack.';
 export const faq = [
   {
     q: "What does it actually taste like?",
-    a: "Like a dessert someone put effort into, not like a health food. Chocolate Raspberry Sea Salt is tart and deep, with the salt landing at the end. Maple Pecan is warm and toasty and only gently sweet. Both are chewy, not chalky.",
+    a: "Like a dessert someone put effort into, not like a health food. Peanut Cookie Dough is roasted peanut and chocolate in a soft brown sugar dough. Chocolate Raspberry Sea Salt is tart and deep, with the salt landing at the end. Maple Butter Pecan is warm and toasty and only gently sweet. All three are chewy, not chalky.",
   },
   {
     q: "\"Made from apple pulp\" — is that gross? Is it safe?",
@@ -487,7 +436,7 @@ export const faq = [
     // never after. Do not soften this copy: present tense and firm is correct,
     // and hedging a safety statement makes it worse.
     //
-    // ⚠️ OATS — CONFIRMED INGREDIENT IN BOTH FLAVOURS, NOT CERTIFIED
+    // ⚠️ OATS — CONFIRMED INGREDIENT IN ALL THREE FLAVOURS, NOT CERTIFIED
     // GLUTEN-FREE (Emil, 8 Sep 2026). The two sentences about oats are Emil's
     // exact wording and are used verbatim here and in public/terms.html. Its
     // revisit trigger is A CHANGE OF OAT SUPPLIER, not a date, re-confirmed in
@@ -509,7 +458,7 @@ export const faq = [
     // Do not reintroduce it in any form — "from whole foods", "from fruit",
     // "just fruit". The figure ships without a source, which is correct while
     // the recipe moves.
-    a: `One serving is 50g: 5 × 10g bites. 14g fiber, 5g protein, and 180 calories. Plant-based, vegan, and no refined sugar in either flavor. Both flavors contain tree nuts and are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten. ${INGREDIENTS}`,
+    a: `One serving is 50g: 5 × 10g bites, with 16g fiber in every flavor. Peanut Cookie Dough has 170 calories and 5g protein, Chocolate Raspberry Sea Salt 160 calories and 3g protein, and Maple Butter Pecan 180 calories and 3g protein. Peanut Cookie Dough contains peanuts, milk, and soy. Chocolate Raspberry Sea Salt contains tree nuts (cashews) and soy. Maple Butter Pecan contains tree nuts (cashews and pecans), milk, and soy. All three are manufactured in a facility that also processes milk, eggs, peanuts, tree nuts, fish, crustacean shellfish, wheat, soy, and sesame. Zuca contains oats, which are not certified gluten-free. It isn't suitable if you avoid gluten. ${INGREDIENTS}`,
   },
   {
     q: "What will it cost?",
@@ -831,5 +780,5 @@ export const confirmation = {
   shareCopied: "Link copied.",
   shareCopyCta: "Copy link",
   shareCopyFailed: "Couldn't copy — your browser blocked it. Try the address bar instead.",
-  shareText: "Zuca: 14g of fiber and 180 calories per serving. Made from apple pulp headed for the landfill. Built by a Michelin-trained chef and a Stanford physician.",
+  shareText: "Zuca: 16g of fiber per serving. Made from apple pulp headed for the landfill. Built by a Michelin-trained chef.",
 };

@@ -24,49 +24,53 @@ import Input from '../ui/Input.jsx';
 import { ACTIVE_CTA, nutrition } from '../../content/copy.js';
 import { PLATES } from './platePositions.js';
 
-/* ONE artwork carrying both flavours, both sets of empty plates and all the
-   botanicals, aligned to each other inside the file. The image is the CHROME;
-   HTML supplies only the WORDS, positioned over the plate rectangles measured
-   by scripts/measure-plates.mjs. Nothing here rebuilds a plate or a border. */
+/* ONE artwork carrying all three flavours, built from the front labels
+   (Nov 2026). The labels carry their own words, so the image is the content,
+   not chrome: it has a real alt text and each figure repeats its flavour's
+   figures for screen readers. */
 /* `detail` is the flavour box that used to be its own section further down the
-   page. That section is deleted; the same photo and description now surface by
-   TAPPING a flavour in the hero.
+   page. The same photo and description surface by TAPPING a flavour in the
+   hero.
    ⚠️ NOT hover — a phone has no hover, and this is a mobile-first page. It is a
    disclosure button with aria-expanded, so it works by tap, by Enter/Space and
    by screen reader alike. */
 const FLAVOURS = [
   {
+    tone: 'peanut',
+    name: 'Peanut Cookie Dough',
+    kcal: 170,
+    detail: {
+      slug: 'flavor-peanut-cookie-dough',
+      alt: 'Zuca peanut cookie dough bites on a black background, pale peanut dough flecked with dark chocolate.',
+      body: 'Roasted peanut and semisweet chocolate in a soft brown sugar dough.',
+    },
+  },
+  {
     tone: 'berry',
     name: 'Chocolate Raspberry Sea Salt',
+    kcal: 160,
     detail: {
       slug: 'flavor-chocolate-raspberry',
-      alt: 'Seven Zuca chocolate raspberry sea salt bites arranged in a rosette on a black background, each thickly coated in deep red freeze-dried raspberry powder.',
+      alt: 'Zuca chocolate raspberry sea salt bites on a black background, each dusted in cocoa.',
       body:
         'Tart raspberry against dark cocoa, finished with enough sea salt to keep it from being a dessert you get bored of.',
     },
   },
   {
     tone: 'maple',
-    name: 'Maple Pecan',
+    name: 'Maple Butter Pecan',
+    kcal: 180,
     detail: {
-      slug: 'flavor-maple-pecan',
-      /* The 8 Sep photo shows ROLLED OATS plainly on every bite, so the alt
-         text says so — a screen reader user should get what a sighted user
-         gets. This was raised as a blocker when the photo landed, because oats
-         were an unconfirmed allergen; Emil confirmed the same day that oats ARE
-         an ingredient in both flavours and are NOT certified gluten-free, and
-         the site now says so wherever the allergen statement appears. The photo
-         and the copy agree. See DECISIONS.md, 8 Sep 2026. */
-      alt: 'A close stack of Zuca maple pecan bites filling the frame on a black background, their surfaces studded with pecan halves and rolled oats.',
+      slug: 'flavor-maple-butter-pecan',
+      alt: 'Zuca maple butter pecan bites on a black background, each dusted in white over a toasted brown dough.',
       body: 'Toasted pecan and real maple. Warm, nutty, and gently sweet rather than sugary.',
     },
   },
 ];
 
-// Nutrition figures on the plates carry no unit of their own, so the caption
-// below the pair states it once for all of them. Ambiguous is one careless
-// edit away from wrong — which is how "per bite" reached the sticky bar.
-const CHIP_TEXT = ['180 kcal', '5g protein'];
+const HERO_ALT =
+  'Zuca in three flavours, each 16g fiber per serving: Peanut Cookie Dough, 170 kcal; ' +
+  'Chocolate Raspberry Sea Salt, 160 kcal; Maple Butter Pecan, 180 kcal.';
 
 /* The waitlist block's hand-drawn plate — the chosen treatment (Emil, 18 Aug).
    It is the SAME DEVICE the flavour artwork uses for its name plates, which is
@@ -102,13 +106,10 @@ function PlateFrame() {
    not the file edges and not the botanicals, which bleed. The capture block is
    aligned to this so the field sits in the same column as the flavours, and the
    inset is symmetric (the wider of the two margins) so it reads as centred. */
-const RECTS = [
-  PLATES.berry.name, PLATES.berry.pill, ...PLATES.berry.chips,
-  PLATES.maple.name, PLATES.maple.pill, ...PLATES.maple.chips,
-];
+const COLS = Object.values(PLATES.columns);
 const CONTENT_INSET = Math.max(
-  Math.min(...RECTS.map((r) => r.left)),
-  100 - Math.max(...RECTS.map((r) => r.left + r.width))
+  Math.min(...COLS.map((c) => c.left)),
+  100 - Math.max(...COLS.map((c) => c.left + c.width))
 );
 
 /** Turns a measured rectangle into absolute positioning. */
@@ -119,18 +120,8 @@ const box = (r) => ({
   height: `${r.height}%`,
 });
 
-/* The tap region for a flavour: the union of its four measured rectangles, so
-   the whole stack is the target rather than a small chevron. Derived from the
-   same measurements as the text, so it tracks a re-exported artwork instead of
-   drifting off it. */
-function unionBox(tone) {
-  const rs = [PLATES[tone].name, PLATES[tone].pill, ...PLATES[tone].chips];
-  const left = Math.min(...rs.map((r) => r.left));
-  const top = Math.min(...rs.map((r) => r.top));
-  const right = Math.max(...rs.map((r) => r.left + r.width));
-  const bottom = Math.max(...rs.map((r) => r.top + r.height));
-  return { left, top, width: right - left, height: bottom - top };
-}
+/* The tap region for a flavour: its whole label column, top to bottom. */
+const tapBox = (tone) => ({ left: PLATES.columns[tone].left, top: 0, width: PLATES.columns[tone].width, height: 100 });
 
 const LOGO_ALT =
   'Supported by Stanford Mussallem Center for Biodesign, Stanford Medicine, ' +
@@ -199,18 +190,17 @@ export default function Hero() {
       </p>
 
       <div className="z-hero__products">
-        {/* alt="" — the artwork is decorative chrome. Every word it carries is
-            real text in the overlay, so describing it too would read each
-            flavour twice. */}
+        {/* The labels' words are part of the artwork now, so the image carries
+            them in its alt text. */}
         <picture>
           <source
             type="image/avif"
-            srcSet="/images/hero-flavours-420.avif 420w, /images/hero-flavours-780.avif 780w, /images/hero-flavours-1218.avif 1218w"
+            srcSet="/images/hero-flavours-420.avif 420w, /images/hero-flavours-780.avif 780w, /images/hero-flavours-1218.avif 1218w, /images/hero-flavours-1560.avif 1560w"
             sizes="100vw"
           />
           <source
             type="image/webp"
-            srcSet="/images/hero-flavours-420.webp 420w, /images/hero-flavours-780.webp 780w, /images/hero-flavours-1218.webp 1218w"
+            srcSet="/images/hero-flavours-420.webp 420w, /images/hero-flavours-780.webp 780w, /images/hero-flavours-1218.webp 1218w, /images/hero-flavours-1560.webp 1560w"
             sizes="100vw"
           />
           <img
@@ -218,42 +208,29 @@ export default function Hero() {
             src="/images/hero-flavours-420.webp"
             width={PLATES.image.w}
             height={PLATES.image.h}
-            alt=""
+            alt={HERO_ALT}
             fetchPriority="high"
             decoding="sync"
           />
         </picture>
 
         {FLAVOURS.map((f) => {
-          const P = PLATES[f.tone];
           return (
             <figure className="z-hero__product" data-tone={f.tone} key={f.tone} aria-label={f.name}>
-              <figcaption className="z-hero__plate-name" style={box(P.name)}>
-                {f.name}
-              </figcaption>
-              <p className="z-hero__plate-fiber" style={box(P.pill)}>
-                14g fiber
-              </p>
-              {P.chips.map((c, i) => (
-                <p className="z-hero__plate-chip" style={box(c)} key={i}>
-                  {CHIP_TEXT[i]}
-                </p>
-              ))}
-
               {/* The disclosure. Sits ABOVE the text overlays in the stacking
                   order and is the only thing in the figure that takes a
                   pointer event, so a tap anywhere on the stack opens it. */}
               <button
                 type="button"
                 className="z-hero__flavour-tap"
-                style={box(unionBox(f.tone))}
+                style={{ ...box(tapBox(f.tone)), '--z-window-top': `${PLATES.windowTop}%` }}
                 aria-expanded={open === f.tone}
                 aria-controls={`flavour-detail-${f.tone}`}
                 onClick={() => setOpen(open === f.tone ? null : f.tone)}
               >
                 {/* The visible "+" is decorative; the button's accessible name
                     is this text, which says what tapping actually does. */}
-                <span className="z-visually-hidden">{`About ${f.name}`}</span>
+                <span className="z-visually-hidden">{`About ${f.name}: 16g fiber, ${f.kcal} kcal per serving`}</span>
                 <span className="z-hero__flavour-more" aria-hidden="true">
                   +
                 </span>
@@ -265,8 +242,8 @@ export default function Hero() {
 
       {/* Sits in the band between the plates and the waitlist block, so the
           unit lands BELOW the numbers it qualifies rather than above them.
-          ⚠️ Not decoration: the plates read "14G FIBER", "180 KCAL" and "5G
-          PROTEIN" with no unit of their own, and unqualified figures beside a
+          ⚠️ Not decoration: the labels read "16G FIBER" and a calorie figure
+          with no unit of their own, and unqualified figures beside a
           product are how "per bite" — wrong by five times — reached the sticky
           bar and three page titles. If it is ever cut again the unit has to
           move INTO the pill, not simply disappear.
@@ -348,7 +325,7 @@ export default function Hero() {
               aria-label={`Close ${f.name}`}
             >
               {/* The glyph is decorative; aria-label carries the real name, so
-                  a screen reader hears "Close Maple Pecan", not "times". */}
+                  a screen reader hears "Close Maple Butter Pecan", not "times". */}
               <span aria-hidden="true">×</span>
             </button>
           </div>

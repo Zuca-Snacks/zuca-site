@@ -29,35 +29,20 @@ const OUT = 'public/images';
 mkdirSync(OUT, { recursive: true });
 
 const JOBS = [
-  {
-    name: 'flavor-chocolate-raspberry',
-    /* RESHOT 8 Sep 2026. Supersedes the August photo entirely, which closes the
-       grading episode recorded here before: that shot was colour-graded toward
-       the hero tile on 18 Aug and Emil reverted it, because grading a real
-       product photo toward artwork makes the food look more vivid on the site
-       than it does in the box. That rule still stands and applies to this file
-       too — NOTHING here may be graded toward the artwork. The retired camera
-       original is kept as art-src/chocolate-raspberry-original.jpg; it is the
-       old photo's reference, not this one's.
-
-       CROP, measured rather than eyeballed. The bites form a seven-bite rosette
-       on a field measured at exactly rgb(0,0,0). Subject bounding box spans the
-       full frame width (x 0..1121) and y 54..1259 — so it is 1206px tall inside
-       a frame only 1122px wide, and any full-width square crop would slice 84px
-       off the cluster and flatten the top and bottom bites.
-
-       This site's established crop judgement is to cut BACKGROUND and PROPS,
-       never the product — the old crops cut a foil tray rim, not a bite. So
-       rather than clip, the whole cluster is taken and padded out to square
-       with the background colour sampled from the file itself — measured at
-       exactly rgb(0,0,0) in all four corners, so the pad is seamless and no
-       bite is cut. */
+  /* FLAVOUR PHOTOS, Nov 2026. Cut from the front-label artwork Emil supplied
+     (Zuca_Front_Labels_*_Oct2026.pdf): a 350px square from inside each label's
+     black photo window, saved to art-src/ by the same pass that built
+     hero-flavours.png. The label files are the source of truth for how each
+     flavour is presented, so the panel photo and the hero stack match exactly.
+     350px is all the label raster holds; withoutEnlargement keeps the 640
+     derivative at 350 rather than inventing detail. */
+  ...['peanut-cookie-dough', 'chocolate-raspberry', 'maple-butter-pecan'].map((slug) => ({
+    name: `flavor-${slug}`,
     root: true,
-    src: 'art-src/raspberry-bites.jpg',
-    extract: { left: 0, top: 54, width: 1122, height: 1206 },
-    pad: { r: 0, g: 0, b: 0 },
+    src: `art-src/flavor-${slug}.png`,
+    extract: { left: 0, top: 0, width: 350, height: 350 },
     widths: [360, 640],
-  },
+  })),
 
   /* ── Process strip ────────────────────────────────────────────────────────
      Two real photographs from Emil's library. Both were checked against the
@@ -130,7 +115,7 @@ const JOBS = [
     extract: { left: 180, top: 520, width: 1180, height: 1180 },
     widths: [320, 560],
   },
-  /* Founder portraits, extracted from the credentials artwork Emil sent. These
+  /* Founder portrait, extracted from the credentials artwork Emil sent. These
      replace the monogram placeholders — real faces are the highest-trust
      element the founders section can carry. */
   {
@@ -138,30 +123,6 @@ const JOBS = [
     src: 'founder-emil.png',
     extract: { left: 0, top: 0, width: 244, height: 244 },
     widths: [128, 244],
-  },
-  {
-    name: 'founder-kelley',
-    src: 'founder-kelley.png',
-    extract: { left: 0, top: 0, width: 244, height: 244 },
-    widths: [128, 244],
-  },
-  {
-    name: 'flavor-maple-pecan',
-    /* RESHOT 8 Sep 2026, replacing the foil-catering-tray shot. There is no
-       tray and no wood backdrop left to crop out.
-
-       CROP. Unlike the raspberry photo this one bleeds off all four edges —
-       measured subject bounding box is y 32..1401 in a 1402px frame — so there
-       is no whole cluster to preserve and the only real choice is which
-       vertical window. Three were rendered and compared at the delivered size:
-       top=0 leaves dead black wedges in the upper corners, top=280 crops in far
-       enough to lose the rosette structure, and top=140 fills the frame edge to
-       edge with the pecan-halved feature bite in the middle. 140 is also the
-       geometric centre, but it was chosen by that comparison, not defaulted to. */
-    root: true,
-    src: 'art-src/maple-pecan-bites.jpg',
-    extract: { left: 0, top: 140, width: 1122, height: 1122 },
-    widths: [360, 640],
   },
 ];
 
@@ -307,16 +268,16 @@ for (const job of ART) {
    without a re-export or read by a screen reader.
    ⚠️ og:image must be an ABSOLUTE url — a relative path silently yields no
    image on most platforms. See index.html. */
-const OG = { w: 1200, h: 630, tile: 460, gap: 60, bg: { r: 253, g: 224, b: 180 } };
+const OG = { w: 1200, h: 630, tile: 340, gap: 40, bg: { r: 253, g: 224, b: 180 } };
 {
-  const left = Math.round((OG.w - (OG.tile * 2 + OG.gap)) / 2);
+  const left = Math.round((OG.w - (OG.tile * 3 + OG.gap * 2)) / 2);
   const top = Math.round((OG.h - OG.tile) / 2);
   const radius = 36;
   const mask = Buffer.from(
     `<svg width="${OG.tile}" height="${OG.tile}"><rect width="${OG.tile}" height="${OG.tile}" rx="${radius}" ry="${radius}" fill="#fff"/></svg>`
   );
   const tiles = await Promise.all(
-    ['flavor-chocolate-raspberry', 'flavor-maple-pecan'].map((slug) =>
+    ['flavor-peanut-cookie-dough', 'flavor-chocolate-raspberry', 'flavor-maple-butter-pecan'].map((slug) =>
       sharp(join(OUT, `${slug}-640.jpg`))
         .resize(OG.tile, OG.tile)
         .composite([{ input: mask, blend: 'dest-in' }])
@@ -331,6 +292,7 @@ const OG = { w: 1200, h: 630, tile: 460, gap: 60, bg: { r: 253, g: 224, b: 180 }
     .composite([
       { input: tiles[0], left, top },
       { input: tiles[1], left: left + OG.tile + OG.gap, top },
+      { input: tiles[2], left: left + (OG.tile + OG.gap) * 2, top },
     ])
     .jpeg({ quality: 82, progressive: true, mozjpeg: true })
     .toFile(file);

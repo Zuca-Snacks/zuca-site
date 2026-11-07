@@ -44,7 +44,7 @@ const BLOCKS = [
       'Four photographic steps under the heading “We upcycle fruit pulp into ' +
       'fiber-packed snacks”. Step 1, wet pressed fruit pulp. Step 2, the same pulp ' +
       'dried and milled to a pale flour. Step 3, the other ingredients. ' +
-      'Step 4, the finished bites in both flavours.',
+      'Step 4, the finished bites.',
     equivalent:
       'We upcycle fruit pulp into fiber-packed snacks, in four steps. ' +
       'Step 1: collect the pressed pulp. Step 2: dry and mill it. ' +

@@ -1,5 +1,5 @@
 /**
- * Badge — a small pill for facts and labels ("14g fiber", "Waitlist open").
+ * Badge — a small pill for facts and labels ("16g fiber", "Waitlist open").
  *
  * Props
  *   variant   'default' | 'brand' | 'warm'
