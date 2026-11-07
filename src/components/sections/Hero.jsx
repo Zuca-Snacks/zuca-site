@@ -18,7 +18,7 @@
  * JOIN THE WAITLIST is a real control, not a caption: it scrolls to the capture
  * block and focuses the email field.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Input from '../ui/Input.jsx';
 import { ACTIVE_CTA, nutrition } from '../../content/copy.js';
@@ -26,48 +26,10 @@ import { PLATES } from './platePositions.js';
 
 /* ONE artwork carrying all three flavours, built from the front labels
    (Nov 2026). The labels carry their own words, so the image is the content,
-   not chrome: it has a real alt text and each figure repeats its flavour's
-   figures for screen readers. */
-/* `detail` is the flavour box that used to be its own section further down the
-   page. The same photo and description surface by TAPPING a flavour in the
-   hero.
-   ⚠️ NOT hover — a phone has no hover, and this is a mobile-first page. It is a
-   disclosure button with aria-expanded, so it works by tap, by Enter/Space and
-   by screen reader alike. */
-const FLAVOURS = [
-  {
-    tone: 'peanut',
-    name: 'Peanut Cookie Dough',
-    kcal: 170,
-    detail: {
-      slug: 'flavor-peanut-cookie-dough',
-      alt: 'Zuca peanut cookie dough bites on a black background, pale peanut dough flecked with dark chocolate.',
-      body: 'Roasted peanut and semisweet chocolate in a soft brown sugar dough.',
-    },
-  },
-  {
-    tone: 'berry',
-    name: 'Chocolate Raspberry Sea Salt',
-    kcal: 160,
-    detail: {
-      slug: 'flavor-chocolate-raspberry',
-      alt: 'Zuca chocolate raspberry sea salt bites on a black background, each dusted in cocoa.',
-      body:
-        'Tart raspberry against dark cocoa, finished with enough sea salt to keep it from being a dessert you get bored of.',
-    },
-  },
-  {
-    tone: 'maple',
-    name: 'Maple Butter Pecan',
-    kcal: 180,
-    detail: {
-      slug: 'flavor-maple-butter-pecan',
-      alt: 'Zuca maple butter pecan bites on a black background, each dusted in white over a toasted brown dough.',
-      body: 'Toasted pecan and real maple. Warm, nutty, and gently sweet rather than sugary.',
-    },
-  },
-];
-
+   not chrome, and its alt text carries every figure on it.
+   The tap-to-open flavour panels were removed (Lars, 7 Nov 2026): the panel
+   photo was the same photo already on each label, so the "+" promised
+   nothing new. Taste descriptions live in the FAQ. */
 const HERO_ALT =
   'Zuca in three flavours, each 16g fiber per serving: Peanut Cookie Dough, 170 kcal; ' +
   'Chocolate Raspberry Sea Salt, 160 kcal; Maple Butter Pecan, 180 kcal.';
@@ -112,17 +74,6 @@ const CONTENT_INSET = Math.max(
   100 - Math.max(...COLS.map((c) => c.left + c.width))
 );
 
-/** Turns a measured rectangle into absolute positioning. */
-const box = (r) => ({
-  left: `${r.left}%`,
-  top: `${r.top}%`,
-  width: `${r.width}%`,
-  height: `${r.height}%`,
-});
-
-/* The tap region for a flavour: its whole label column, top to bottom. */
-const tapBox = (tone) => ({ left: PLATES.columns[tone].left, top: 0, width: PLATES.columns[tone].width, height: 100 });
-
 const LOGO_ALT =
   'Supported by Stanford Mussallem Center for Biodesign, Stanford Medicine, ' +
   'A Little Bird, Strike, Cooley, Cardinal Ventures, Step Change Innovations, ' +
@@ -130,22 +81,6 @@ const LOGO_ALT =
 
 export default function Hero() {
   const [email, setEmail] = useState('');
-  /* Which flavour's detail panel is open, or null. */
-  const [open, setOpen] = useState(null);
-
-  /* Escape closes it. A disclosure is not a modal — focus is not trapped and
-     the page behind stays operable — but Escape is still the key everyone
-     reaches for, and without it a keyboard user has to tab back to the
-     trigger. */
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape') setOpen(null);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
-
   /* Presentational shell — POSTs nowhere. Dispatches zuca:hero-email and hands
      off to growth's real form at #waitlist, which prefills from it. */
   function handleSubmit(e) {
@@ -214,30 +149,6 @@ export default function Hero() {
           />
         </picture>
 
-        {FLAVOURS.map((f) => {
-          return (
-            <figure className="z-hero__product" data-tone={f.tone} key={f.tone} aria-label={f.name}>
-              {/* The disclosure. Sits ABOVE the text overlays in the stacking
-                  order and is the only thing in the figure that takes a
-                  pointer event, so a tap anywhere on the stack opens it. */}
-              <button
-                type="button"
-                className="z-hero__flavour-tap"
-                style={{ ...box(tapBox(f.tone)), '--z-window-top': `${PLATES.windowTop}%` }}
-                aria-expanded={open === f.tone}
-                aria-controls={`flavour-detail-${f.tone}`}
-                onClick={() => setOpen(open === f.tone ? null : f.tone)}
-              >
-                {/* The visible "+" is decorative; the button's accessible name
-                    is this text, which says what tapping actually does. */}
-                <span className="z-visually-hidden">{`About ${f.name}: 16g fiber, ${f.kcal} kcal per serving`}</span>
-                <span className="z-hero__flavour-more" aria-hidden="true">
-                  +
-                </span>
-              </button>
-            </figure>
-          );
-        })}
       </div>
 
       {/* Sits in the band between the plates and the waitlist block, so the
@@ -249,88 +160,6 @@ export default function Hero() {
           move INTO the pill, not simply disappear.
           See .z-hero__serving in sections.css for why it gets its own row. */}
       <p className="z-hero__serving">{nutrition.serving}</p>
-
-      {/* Detail panel.
-          ⚠️ A DIRECT CHILD OF THE POSTER, ABSOLUTELY POSITIONED, WITH NO GRID
-          PLACEMENT. That combination is what makes it inert: an abspos child of
-          a grid container that sets no grid-row resolves against the container's
-          padding box and takes no part in track sizing at all. Two earlier
-          versions did move the page — a grid item spanning rows 3-5 shifted the
-          artwork 70px, and anchoring to the artwork box drifted because the
-          image OVERFLOWS its row at desktop (309px of image in a 208px track),
-          so "a percentage of the artwork" means something different at every
-          width. Poster percentages are width-independent because the rows are.
-          Rendered only while open, so the photograph is never requested on
-          first load and cannot touch LCP. */}
-      {FLAVOURS.map((f) =>
-        open === f.tone ? (
-          <div
-            className="z-hero__flavour-panel"
-            id={`flavour-detail-${f.tone}`}
-            key={f.tone}
-            role="group"
-            aria-label={f.name}
-          >
-            {/* `sizes` was "(min-width: 35em) 320px, 68vw", which claimed this
-                photo was 265px wide on a 390px phone. Measured, it renders
-                between 97px and 233px depending mostly on viewport HEIGHT — it
-                is sized by the hero's fr rows, not by viewport width — and it
-                is 118.6px on a 390x844 phone. The old value overstated it by
-                more than 2x, so 2x devices fetched the 640 file (45.1 KB) where
-                the 360 file (16.8 KB) covers them.
-
-                `sizes` can only test WIDTH, so these two bands are honest UPPER
-                BOUNDS rather than a formula:
-                  below 34em — 150px, against a measured max of 144px (480px
-                    wide) and 132.8px on a 430x932 phone;
-                  at/above 34em — 190px, against a measured max of 186.2px
-                    (1280x700) and 183.3px (560-640 wide).
-                The 34em break is where the panel jumps from ~144px to ~183px;
-                a single 150px bound left 560-767px viewports asking for 360px
-                when they needed 367px, which is how this comment's first draft
-                was wrong.
-
-                Deliberately NOT tightened further. Under-requesting shows up as
-                a soft product photo, which is a worse trade than a few KB, and
-                the box grows with viewport height beyond what any width query
-                can see (233px at 430x1200 — past even the 640 derivative at 3x).
-                3x phones still resolve to the 640 file because they genuinely
-                need ~356-430px. */}
-            <picture>
-              <source
-                type="image/avif"
-                srcSet={`/images/${f.detail.slug}-360.avif 360w, /images/${f.detail.slug}-640.avif 640w`}
-                sizes="(min-width: 34em) 190px, 150px"
-              />
-              <source
-                type="image/webp"
-                srcSet={`/images/${f.detail.slug}-360.webp 360w, /images/${f.detail.slug}-640.webp 640w`}
-                sizes="(min-width: 34em) 190px, 150px"
-              />
-              <img
-                className="z-hero__flavour-photo"
-                src={`/images/${f.detail.slug}-360.webp`}
-                width="640"
-                height="640"
-                alt={f.detail.alt}
-                decoding="async"
-              />
-            </picture>
-            <p className="z-hero__flavour-name">{f.name}</p>
-            <p className="z-hero__flavour-body">{f.detail.body}</p>
-            <button
-              type="button"
-              className="z-hero__flavour-close"
-              onClick={() => setOpen(null)}
-              aria-label={`Close ${f.name}`}
-            >
-              {/* The glyph is decorative; aria-label carries the real name, so
-                  a screen reader hears "Close Maple Butter Pecan", not "times". */}
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
-        ) : null
-      )}
 
       {/* ⚠️ ONE ROW, IN FLOW: field, button, SUPPORTED BY and the logo card.
           They were four fixed-fraction grid rows, and anything taller than its

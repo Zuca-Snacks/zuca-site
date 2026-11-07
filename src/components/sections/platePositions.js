@@ -5,7 +5,7 @@
  * (Zuca_Front_Labels_*_Oct2026.pdf), cropped below the ZUCA wordmark and above
  * the net weight, and laid side by side. The labels carry their own words
  * (name, fiber, calories), so there is no text overlay to position any more;
- * these numbers only place the tap targets and the content inset.
+ * these numbers only set the content inset.
  *
  * Each column is the span of that label's plates (x 244..754 of the 999px
  * label) as a percentage of the 1940px artwork. Regenerate them with the
@@ -13,9 +13,6 @@
  */
 export const PLATES = {
   image: { w: 1940, h: 837 },
-  /* Vertical centre of the "+" affordance, as a percentage of artwork height:
-     just inside the top of the photo window, clear of the calorie chip. */
-  windowTop: 58,
   columns: {
     peanut: { left: 4.85, width: 26.29 },
     berry: { left: 36.8, width: 26.29 },

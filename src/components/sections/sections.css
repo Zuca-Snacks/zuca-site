@@ -234,7 +234,7 @@
   .z-hero__wordmark span { animation: none; opacity: 1; transform: none; }
 }
 
-/* --- Flavour stacks: artwork + overlaid text ------------------------------
+/* --- Flavour stacks: one artwork, no overlays ------------------------------
    The PNG carries every plate, border, chip and photograph. HTML carries only
    the words, absolutely positioned over the plate rectangles measured by
    scripts/measure-plates.mjs. Do NOT rebuild a plate or a border here.
@@ -265,14 +265,6 @@
   height: auto;
 }
 
-.z-hero__product {
-  position: absolute;
-  inset: 0;
-  container-type: inline-size;
-  margin: 0;
-  pointer-events: none;
-}
-
 /* The per-serving qualifier, in the band BELOW the numbers it qualifies
    (Emil, 19 Aug). It previously sat above the wordmark, unstyled and
    auto-placed into row 1, where it read as clutter and — being above the
@@ -292,148 +284,6 @@
   font-size: var(--z-step--1);
   line-height: 1.2;
   color: var(--z-ink-muted);   /* 4.51:1 on the cream ground */
-}
-
-/* --- Flavour detail, tap to open ------------------------------------------
-   The flavour boxes that used to be their own section. TAP, not hover: this is
-   a phone-first page and hover does not exist there. */
-
-/* The trigger covers the whole label column, so the target is enormous
-   rather than a fiddly chevron. The figure is pointer-events:none; this puts them back on for the
-   button alone. */
-.z-hero__flavour-tap {
-  position: absolute;
-  margin: 0;
-  padding: 0;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  pointer-events: auto;
-  display: grid;
-  align-content: end;
-  justify-items: center;
-  border-radius: 12px;
-}
-
-/* The affordance. Small, because the artwork is the hero and this must not
-   compete with it — but the TARGET is the whole stack above, not this glyph,
-   so it is never a small tap target. */
-.z-hero__flavour-more {
-  position: absolute;
-  left: 50%;
-  /* Just inside the top of the label's photo window, clear of the calorie chip. */
-  top: var(--z-window-top, 58%);
-  transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  inline-size: 4.6cqw;
-  block-size: 4.6cqw;
-  font-family: var(--z-font-display);
-  font-size: 3.2cqw;
-  line-height: 1;
-  color: var(--z-accent-ink);
-  background: var(--z-brand);
-  border-radius: var(--z-radius-full);
-}
-
-.z-hero__flavour-tap:focus-visible {
-  outline: 3px solid var(--z-focus);
-  outline-offset: 3px;
-}
-
-.z-hero__flavour-tap[aria-expanded='true'] .z-hero__flavour-more {
-  background: var(--z-brand-dark);
-}
-
-/* ⚠️ A GRID ITEM ON ROWS 3-5, NOT AN INSERTED BLOCK. The poster's rows are
-   fixed fractions of the viewport, so an overlapping item creates no track and
-   shifts nothing — opening the panel cannot move the email field or push the
-   CTA toward the fold. Verified at 360/390/430 and desktop. */
-/* ⚠️ AN ABSOLUTELY POSITIONED GRID ITEM. Both halves matter:
-   - grid-row 3/6 means its containing block is that grid AREA, so it tracks the
-     bands between the wordmark and the waitlist block automatically, at every
-     width, with no magic percentages to keep in sync.
-   - position:absolute means it takes NO part in track sizing, so opening it
-     cannot move anything.
-   Earlier versions got one or the other. As a normal-flow grid item it pushed
-   the artwork down 70px; anchored to the artwork box with percentages it
-   drifted, because the artwork's size relative to its surroundings changes with
-   width. This is the combination that does both jobs. */
-.z-hero__flavour-panel {
-  position: absolute;
-  grid-row: 3 / 6;
-  grid-column: 1;
-  inset: var(--z-space-2) var(--z-gutter);
-  z-index: 4;
-  max-inline-size: 34rem;
-  margin-inline: auto;
-
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: var(--z-space-2);
-  padding: var(--z-space-4);
-
-  background: var(--z-surface);
-  border: 2px solid var(--z-border);
-  border-radius: 22px;
-  box-shadow: var(--z-shadow-md);
-  text-align: center;
-  /* Safety valve only. The panel is sized to the band; if a longer description
-     ever arrives it scrolls inside itself rather than bursting the poster. */
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* The photo takes whatever height the band has left after the words, so the
-   panel never needs a fixed height and never overflows the artwork band. */
-.z-hero__flavour-photo {
-  display: block;
-  inline-size: auto;
-  block-size: 100%;
-  max-inline-size: 100%;
-  margin-inline: auto;
-  object-fit: contain;
-  border-radius: 14px;
-}
-
-.z-hero__flavour-name {
-  margin: 0;
-  font-family: var(--z-font-display);
-  font-size: min(2.4svh, 5vw);
-  line-height: 1.1;
-  color: var(--z-brand-ink);
-}
-
-.z-hero__flavour-body {
-  margin: 0;
-  font-size: min(1.9svh, 3.9vw);
-  line-height: 1.35;
-  color: var(--z-ink);
-}
-
-/* Corner X rather than a button in the stack. It is absolutely positioned so it
-   costs the panel no vertical room — every pixel it would have taken goes to
-   the photograph instead, which is the reason the panel exists. */
-.z-hero__flavour-close {
-  position: absolute;
-  inset-block-start: 0;
-  inset-inline-end: 0;
-  inline-size: 44px;
-  block-size: 44px;
-  display: grid;
-  place-items: center;
-  font-family: var(--z-font-body);
-  font-size: var(--z-step-1);
-  line-height: 1;
-  color: var(--z-ink);
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-
-.z-hero__flavour-close:focus-visible {
-  outline: 3px solid var(--z-focus);
-  outline-offset: 2px;
 }
 
 /* --- JOIN THE WAITLIST --------------------------------------------------- */
