@@ -404,7 +404,7 @@ const INGREDIENTS = 'The full ingredient list will be on the pack.';
 export const faq = [
   {
     q: "What does it actually taste like?",
-    a: "Like a dessert someone put effort into, not like a health food. Peanut Cookie Dough is roasted peanut and chocolate in a soft brown sugar dough. Chocolate Raspberry Sea Salt is tart and deep, with the salt landing at the end. Maple Butter Pecan is warm and toasty and only gently sweet. All three are chewy, not chalky.",
+    a: "Like a dessert someone put effort into, not like a health food. Peanut Cookie Dough is roasted peanut and chocolate chips in a soft cookie dough. Chocolate Raspberry Sea Salt is tart and deep, with the salt landing at the end. Maple Butter Pecan is warm and toasty and only gently sweet. All three are chewy, not chalky.",
   },
   {
     q: "\"Made from apple pulp\" — is that gross? Is it safe?",
